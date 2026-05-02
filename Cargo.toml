@@ -1,0 +1,42 @@
+[package]
+name = "mmterm"
+version = "0.1.0"
+edition = "2024"
+description = "A cross-platform terminal emulator with modal input (vim-style), PTY backend, and split-pane support"
+
+[[bin]]
+name = "mmterm"
+path = "src/main.rs"
+
+[dependencies]
+# Windowing (cross-platform: X11/Wayland on Linux, Cocoa on macOS)
+winit = "0.30"
+
+# Software framebuffer renderer (CPU-based, solid foundation)
+softbuffer = "0.4"
+
+# Font rasterization
+fontdue = "0.9"
+
+# ANSI/VT escape code parser
+vte = "0.13"
+
+# PTY backend (Linux/macOS: forkpty/posix_openpt)
+portable-pty = "0.8"
+
+# Concurrency: channel between PTY thread and render thread
+crossbeam-channel = "0.5"
+
+# Clipboard
+arboard = "3"
+
+# Error handling
+anyhow = "1"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+[profile.release]
+opt-level = 3
+lto = true
