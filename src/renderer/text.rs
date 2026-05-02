@@ -21,6 +21,8 @@ pub struct PaneView<'a> {
 pub struct Renderer {
     pub cell_width: u32,
     pub cell_height: u32,
+    /// Pixels from top of cell to baseline
+    baseline: u32,
     font_px: f32,
     status_font_px: f32,
     glyphs: GlyphCache,
@@ -29,10 +31,28 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(font_family: &str, font_px: f32) -> Self {
         let mut glyphs = GlyphCache::new(font_family);
-        let (_, w, _) = glyphs.rasterize('M', font_px, false);
-        let cell_width = w.max(1);
-        let cell_height = (font_px * 1.4) as u32;
-        Self { cell_width, cell_height, font_px, status_font_px: 13.0, glyphs }
+
+        // Use advance_width as cell width (correct for monospace fonts)
+        let m = glyphs.metrics('M', font_px, false);
+        let cell_width = m.advance_width.ceil() as u32;
+
+        // Ascender: 'M' sits on the baseline, so its height = ascender
+        let ascender = m.height as u32;
+
+        // Descender: measure how far 'g' dips below baseline
+        let g = glyphs.metrics('g', font_px, false);
+        let descender = ((-g.ymin).max(0)) as u32;
+
+        // Add 1px top padding + 1px bottom padding
+        let cell_height = ascender + descender + 2;
+        let baseline = ascender + 1;
+
+        log::info!(
+            "Font metrics at {font_px}px: cell={cell_width}x{cell_height} baseline={baseline} \
+             ascender={ascender} descender={descender}"
+        );
+
+        Self { cell_width: cell_width.max(1), cell_height: cell_height.max(1), baseline, font_px, status_font_px: 13.0, glyphs }
     }
 
     /// Grid size for a given pixel rect (no status bar reservation — caller provides usable rect).
@@ -149,14 +169,18 @@ impl Renderer {
                     continue;
                 }
 
-                let (bitmap, gw, gh) = self.glyphs.rasterize(cell.c, self.font_px, cell.bold);
-                let baseline = (self.cell_height as f32 * 0.8) as u32;
-                let y_offset = baseline.saturating_sub(gh);
+                let info = self.glyphs.get(cell.c, self.font_px, cell.bold);
+                let (gw, gh) = (info.width, info.height);
+                // Place glyph so its baseline aligns with the cell baseline.
+                // ymin is pixels from baseline to bottom of bitmap.
+                // top of glyph in cell = baseline - (height + ymin)  [ymin usually ≤ 0 for descenders]
+                let glyph_top = self.baseline as i32 - (gh as i32 + info.ymin);
+                let y_offset = glyph_top.max(0) as u32;
                 let fg32 = color_u32(fg);
 
                 for gy in 0..gh {
                     for gx in 0..gw {
-                        let alpha = bitmap[(gy * gw + gx) as usize];
+                        let alpha = info.bitmap[(gy * gw + gx) as usize];
                         if alpha == 0 { continue; }
                         let sx = px + gx;
                         let sy = py + y_offset + gy;
@@ -322,13 +346,18 @@ impl Renderer {
         &mut self, buf: &mut [u32], bw: u32, bh: u32,
         mut x: u32, y: u32, s: &str, px: f32, bold: bool, color: u32,
     ) {
+        let advance = self.glyphs.metrics('M', px, bold).advance_width.ceil() as u32;
+        // Simple baseline: 80% of the row height used by draw_str callers
+        let row_h = self.cell_height;
+        let baseline = (row_h as f32 * 0.8) as u32;
         for c in s.chars() {
-            let (bitmap, gw, gh) = self.glyphs.rasterize(c, px, bold);
-            let baseline = (self.cell_height as f32 * 0.8) as u32;
-            let cy = y + baseline.saturating_sub(gh);
+            let info = self.glyphs.get(c, px, bold);
+            let (gw, gh) = (info.width, info.height);
+            let glyph_top = baseline as i32 - (gh as i32 + info.ymin);
+            let cy = (y as i32 + glyph_top).max(0) as u32;
             for gy in 0..gh {
                 for gx in 0..gw {
-                    let alpha = bitmap[(gy * gw + gx) as usize];
+                    let alpha = info.bitmap[(gy * gw + gx) as usize];
                     if alpha == 0 { continue; }
                     let sx = x + gx;
                     let sy = cy + gy;
@@ -339,7 +368,7 @@ impl Renderer {
                     }
                 }
             }
-            x += gw.max(self.glyphs.rasterize('M', px, bold).1);
+            x += advance;
         }
     }
 
