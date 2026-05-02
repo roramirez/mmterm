@@ -21,6 +21,10 @@ pub enum Action {
     ClosePane,
     CtrlWPrefix,
     OpenConfig,
+    NewTab,
+    NextTab,
+    PrevTab,
+    CloseTab,
     Quit,
     None,
 }
@@ -87,13 +91,15 @@ pub fn handle_key(
         match &event.logical_key {
             Key::Character(s) if s.eq_ignore_ascii_case("q") => return Action::Quit,
             Key::Character(s) if s == ","                    => return Action::OpenConfig,
+            Key::Character(s) if s.eq_ignore_ascii_case("t") => return Action::NewTab,
             _ => {}
         }
+        // Ctrl+PageUp/Down → tab navigation
         if event.logical_key == Key::Named(NamedKey::PageUp) {
-            return Action::ScrollUp(grid_rows / 2);
+            return Action::PrevTab;
         }
         if event.logical_key == Key::Named(NamedKey::PageDown) {
-            return Action::ScrollDown(grid_rows / 2);
+            return Action::NextTab;
         }
     }
 

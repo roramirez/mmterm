@@ -3,6 +3,7 @@ use crate::input::InputMode;
 use crate::terminal::grid::Cell;
 use crate::terminal::{Color, Grid};
 use crate::tui_config::ConfigPanel;
+use crate::ui::layout::TAB_BAR_H;
 
 const STATUS_BAR_H: u32 = 22;
 const BADGE_PAD_X: u32 = 8;
@@ -74,6 +75,7 @@ impl Renderer {
         panes: &[PaneView],
         separators: &[[u32; 4]],
         mode: &InputMode,
+        tab_titles: &[(String, bool)],
     ) {
         let bg_fill = panes.first().map(|p| p.grid.default_bg).unwrap_or(Color::BLACK);
         buf.fill(color_u32(bg_fill));
@@ -108,6 +110,7 @@ impl Renderer {
             }
         }
 
+        self.draw_tab_bar(buf, buf_width, tab_titles);
         self.draw_status_bar(buf, buf_width, buf_height, mode);
     }
 
@@ -192,6 +195,49 @@ impl Renderer {
                     }
                 }
             }
+        }
+    }
+
+    fn draw_tab_bar(&mut self, buf: &mut [u32], width: u32, tabs: &[(String, bool)]) {
+        let bar_bg  = 0xFF_11_11_1d_u32;
+        let sep_col = 0xFF_31_32_44_u32;
+        let fp = self.status_font_px;
+        let cw = self.glyphs.rasterize('M', fp, false).1;
+
+        // Background
+        for y in 0..TAB_BAR_H {
+            for x in 0..width {
+                let idx = (y * width + x) as usize;
+                if idx < buf.len() { buf[idx] = bar_bg; }
+            }
+        }
+        // Bottom separator
+        let sep_y = TAB_BAR_H - 1;
+        for x in 0..width {
+            let idx = (sep_y * width + x) as usize;
+            if idx < buf.len() { buf[idx] = sep_col; }
+        }
+
+        let mut cursor_x = 4u32;
+        for (label, is_active) in tabs {
+            let tab_w = label.len() as u32 * cw + 12;
+            let (badge_bg, text_color) = if *is_active {
+                (0xFF_89_b4_fa_u32, 0xFF_11_11_1d_u32)
+            } else {
+                (0xFF_24_25_3a_u32, 0xFF_58_5b_70_u32)
+            };
+
+            // Badge fill
+            for dy in 2..TAB_BAR_H - 2 {
+                for dx in 0..tab_w {
+                    let idx = (dy * width + cursor_x + dx) as usize;
+                    if idx < buf.len() { buf[idx] = badge_bg; }
+                }
+            }
+
+            // Label
+            self.draw_str(buf, width, TAB_BAR_H, cursor_x + 6, 2, label, fp, *is_active, text_color);
+            cursor_x += tab_w + 2;
         }
     }
 

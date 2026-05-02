@@ -1,5 +1,6 @@
-const STATUS_BAR_H: u32 = 22;
-const SEP: u32 = 1; // separator thickness in pixels
+pub const STATUS_BAR_H: u32 = 22;
+pub const TAB_BAR_H: u32 = 22;
+const SEP: u32 = 1;
 
 #[derive(Clone, Debug)]
 pub enum SplitDir {
@@ -130,18 +131,18 @@ impl Layout {
     }
 
     fn usable_h(&self) -> u32 {
-        self.height.saturating_sub(STATUS_BAR_H)
+        self.height.saturating_sub(STATUS_BAR_H + TAB_BAR_H)
     }
 
     pub fn rects(&self) -> Vec<(usize, [u32; 4])> {
         let mut out = Vec::new();
-        self.root.compute_rects(0, 0, self.width, self.usable_h(), &mut out);
+        self.root.compute_rects(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
         out
     }
 
     pub fn separators(&self) -> Vec<[u32; 4]> {
         let mut out = Vec::new();
-        self.root.separators(0, 0, self.width, self.usable_h(), &mut out);
+        self.root.separators(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
         out
     }
 
