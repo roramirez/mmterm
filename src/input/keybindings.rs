@@ -11,6 +11,17 @@ pub enum Action {
     ScrollDown(usize),
     ScrollToTop,
     ScrollToBottom,
+    // Split / pane management (triggered after Ctrl+W prefix)
+    SplitH,          // Ctrl+W v  — side by side
+    SplitV,          // Ctrl+W s  — top / bottom
+    FocusLeft,
+    FocusRight,
+    FocusUp,
+    FocusDown,
+    FocusNext,       // Ctrl+W w
+    ClosePane,       // Ctrl+W q
+    // Signals the app to enter Ctrl+W pending state
+    CtrlWPrefix,
     Quit,
     None,
 }
@@ -28,6 +39,15 @@ pub fn handle_key(
 
     let ctrl = modifiers.state().control_key();
     let shift = modifiers.state().shift_key();
+
+    // Ctrl+W prefix (any mode)
+    if ctrl {
+        if let Key::Character(s) = &event.logical_key {
+            if s.eq_ignore_ascii_case("w") {
+                return Action::CtrlWPrefix;
+            }
+        }
+    }
 
     // Global shortcuts (all modes)
     if ctrl && shift {
@@ -73,6 +93,31 @@ pub fn handle_key(
         InputMode::Visual { start_col, start_row, cur_col, cur_row } => {
             handle_visual(event, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows)
         }
+    }
+}
+
+/// Called when a key is pressed while Ctrl+W prefix is pending.
+pub fn handle_ctrl_w(event: &KeyEvent) -> Action {
+    if event.state != ElementState::Pressed {
+        return Action::None;
+    }
+    match &event.logical_key {
+        Key::Character(s) => match s.to_lowercase().as_str() {
+            "v" => Action::SplitH,
+            "s" => Action::SplitV,
+            "h" => Action::FocusLeft,
+            "l" => Action::FocusRight,
+            "k" => Action::FocusUp,
+            "j" => Action::FocusDown,
+            "w" => Action::FocusNext,
+            "q" => Action::ClosePane,
+            _ => Action::None,
+        },
+        Key::Named(NamedKey::ArrowLeft) => Action::FocusLeft,
+        Key::Named(NamedKey::ArrowRight) => Action::FocusRight,
+        Key::Named(NamedKey::ArrowUp) => Action::FocusUp,
+        Key::Named(NamedKey::ArrowDown) => Action::FocusDown,
+        _ => Action::None,
     }
 }
 

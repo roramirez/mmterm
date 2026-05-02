@@ -1,4 +1,4 @@
+pub mod layout;
 mod pane;
-mod layout;
+pub use layout::{Layout, SplitDir};
 pub use pane::Pane;
-pub use layout::Layout;

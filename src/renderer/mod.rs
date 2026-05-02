@@ -1,3 +1,3 @@
 mod glyph;
 mod text;
-pub use text::Renderer;
+pub use text::{PaneView, Renderer};
