@@ -8,7 +8,6 @@ use crate::ui::layout::TAB_BAR_H;
 const STATUS_BAR_H: u32 = 22;
 const BADGE_PAD_X: u32 = 8;
 const SEP_COLOR: u32 = 0xFF_31_32_44;
-const SEP_ACTIVE_COLOR: u32 = 0xFF_58_5b_70;
 
 pub struct PaneView<'a> {
     pub grid: &'a Grid,

@@ -56,10 +56,6 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(cols: usize, rows: usize) -> Self {
-        Self::with_colors(cols, rows, Color::WHITE, Color::BLACK, Color::CURSOR, Color::SELECTION, [Color::BLACK; 16])
-    }
-
     pub fn with_colors(
         cols: usize,
         rows: usize,

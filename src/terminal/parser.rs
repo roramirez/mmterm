@@ -7,10 +7,6 @@ pub struct TerminalParser {
 }
 
 impl TerminalParser {
-    pub fn new(cols: usize, rows: usize) -> Self {
-        Self { grid: Grid::new(cols, rows), parser: Parser::new() }
-    }
-
     pub fn new_with_colors(
         cols: usize, rows: usize,
         fg: Color, bg: Color, cursor: Color, selection: Color,

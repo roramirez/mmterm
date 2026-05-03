@@ -8,10 +8,6 @@ pub struct Pane {
 }
 
 impl Pane {
-    pub fn new(cols: usize, rows: usize, rect: [u32; 4]) -> Self {
-        Self { parser: TerminalParser::new(cols, rows), rect, scroll_offset: 0 }
-    }
-
     pub fn new_with_colors(
         cols: usize, rows: usize, rect: [u32; 4],
         fg: Color, bg: Color, cursor: Color, selection: Color,

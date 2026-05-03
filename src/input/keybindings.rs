@@ -80,6 +80,7 @@ pub fn handle_key(
     if ctrl && shift {
         match &event.logical_key {
             Key::Character(s) if s.eq_ignore_ascii_case("v") => return Action::Paste,
+            Key::Character(s) if s.eq_ignore_ascii_case("w") => return Action::CloseTab,
             Key::Named(NamedKey::ArrowUp)   => return Action::ScrollUp(1),
             Key::Named(NamedKey::ArrowDown) => return Action::ScrollDown(1),
             Key::Named(NamedKey::PageUp)    => return Action::ScrollUp(grid_rows / 2),

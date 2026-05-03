@@ -233,7 +233,7 @@ impl App {
     fn do_close_pane(&mut self, event_loop: &ActiveEventLoop) {
         let tab = self.tab_mut();
         if tab.panes.len() == 1 {
-            drop(tab);
+            let _ = tab;
             self.close_tab(event_loop);
             return;
         }

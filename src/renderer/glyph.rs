@@ -19,8 +19,7 @@ pub struct GlyphInfo {
     pub height: u32,
     /// Pixels from baseline down to bottom of bitmap (negative = below baseline)
     pub ymin: i32,
-    /// Horizontal advance in pixels
-    pub advance: u32,
+    pub _advance: u32,
 }
 
 pub struct GlyphCache {
@@ -46,7 +45,7 @@ impl GlyphCache {
                 width:   m.width as u32,
                 height:  m.height as u32,
                 ymin:    m.ymin,
-                advance: m.advance_width.ceil() as u32,
+                _advance: m.advance_width.ceil() as u32,
             });
         }
         self.cache.get(&key).unwrap()
