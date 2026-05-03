@@ -25,6 +25,7 @@ pub enum Action {
     NextTab,
     PrevTab,
     CloseTab,
+    RenameTab,
     IncreaseFontSize,
     DecreaseFontSize,
     ResetFontSize,
@@ -66,7 +67,7 @@ pub fn handle_key(
                     InputMode::Normal    => InputMode::Visual {
                         start_col: 0, start_row: 0, cur_col: 0, cur_row: 0,
                     },
-                    InputMode::Visual { .. } => InputMode::Insert,
+                    InputMode::Visual { .. } | InputMode::RenameTab { .. } => InputMode::Insert,
                 };
                 return Action::SetMode(next);
             }
@@ -81,6 +82,7 @@ pub fn handle_key(
         match &event.logical_key {
             Key::Character(s) if s.eq_ignore_ascii_case("v") => return Action::Paste,
             Key::Character(s) if s.eq_ignore_ascii_case("w") => return Action::CloseTab,
+            Key::Character(s) if s.eq_ignore_ascii_case("r") => return Action::RenameTab,
             Key::Named(NamedKey::ArrowUp)   => return Action::ScrollUp(1),
             Key::Named(NamedKey::ArrowDown) => return Action::ScrollDown(1),
             Key::Named(NamedKey::PageUp)    => return Action::ScrollUp(grid_rows / 2),
@@ -128,6 +130,7 @@ pub fn handle_key(
         InputMode::Visual { start_col, start_row, cur_col, cur_row } => {
             handle_visual(event, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows)
         }
+        InputMode::RenameTab { .. } => Action::None,
     }
 }
 

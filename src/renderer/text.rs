@@ -486,6 +486,7 @@ fn mode_style(mode: &InputMode) -> (&'static str, u32) {
         InputMode::Normal => ("NORMAL", 0xFF_89_b4_fa),
         InputMode::Insert => ("INSERT", 0xFF_a6_e3_a1),
         InputMode::Visual { .. } => ("VISUAL", 0xFF_cb_a6_f7),
+        InputMode::RenameTab { .. } => ("RENAME", 0xFF_f9_e2_af),
     }
 }
 

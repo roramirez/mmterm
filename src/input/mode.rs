@@ -9,4 +9,6 @@ pub enum InputMode {
         cur_col: usize,
         cur_row: usize,
     },
+    /// Inline tab-rename: buf holds the name being typed
+    RenameTab { buf: String },
 }

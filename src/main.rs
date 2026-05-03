@@ -41,6 +41,8 @@ struct TabState {
     active: usize,
     /// Session-only font metrics — not saved to config
     metrics: FontMetrics,
+    /// Optional user-defined name; falls back to numeric index
+    name: Option<String>,
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -143,6 +145,7 @@ impl App {
             layout: Layout::new(0, win_w, win_h),
             active: 0,
             metrics,
+            name: None,
         });
         let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
         self.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
@@ -293,6 +296,36 @@ impl App {
         self.config_panel = None;
     }
 
+    fn handle_rename_key(&mut self, event: &winit::event::KeyEvent) {
+        use winit::keyboard::{Key, NamedKey};
+        let buf = if let InputMode::RenameTab { buf } = &self.mode {
+            buf.clone()
+        } else {
+            return;
+        };
+        match &event.logical_key {
+            Key::Named(NamedKey::Escape) => {
+                self.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Enter) => {
+                let name = buf.trim().to_string();
+                self.tabs[self.active_tab].name = if name.is_empty() { None } else { Some(name) };
+                self.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Backspace) => {
+                let mut b = buf;
+                b.pop();
+                self.mode = InputMode::RenameTab { buf: b };
+            }
+            Key::Character(s) => {
+                let mut b = buf;
+                b.push_str(s);
+                self.mode = InputMode::RenameTab { buf: b };
+            }
+            _ => {}
+        }
+    }
+
     fn handle_config_key(&mut self, event: &winit::event::KeyEvent) {
         use winit::keyboard::{Key, NamedKey};
         let ctrl = self.modifiers.state().control_key();
@@ -374,9 +407,24 @@ impl App {
             })
         }).collect();
 
-        // Tab titles: just number + active indicator
         let tab_titles: Vec<(String, bool)> = self.tabs.iter().enumerate()
-            .map(|(i, _)| (format!(" {} ", i + 1), i == self.active_tab))
+            .map(|(i, tab)| {
+                let is_active = i == self.active_tab;
+                let label = if is_active {
+                    if let InputMode::RenameTab { buf } = &self.mode {
+                        format!(" {}| ", buf)
+                    } else {
+                        tab.name.as_deref()
+                            .map(|n| format!(" {} ", n))
+                            .unwrap_or_else(|| format!(" {} ", i + 1))
+                    }
+                } else {
+                    tab.name.as_deref()
+                        .map(|n| format!(" {} ", n))
+                        .unwrap_or_else(|| format!(" {} ", i + 1))
+                };
+                (label, is_active)
+            })
             .collect();
 
         let metrics = self.tabs[self.active_tab].metrics.clone();
@@ -432,6 +480,11 @@ impl ApplicationHandler for App {
 
                 if self.config_panel.is_some() {
                     self.handle_config_key(&event);
+                    return;
+                }
+
+                if matches!(self.mode, InputMode::RenameTab { .. }) {
+                    self.handle_rename_key(&event);
                     return;
                 }
 
@@ -534,9 +587,14 @@ impl ApplicationHandler for App {
                             .unwrap_or((800, 600));
                         self.new_tab(w, h);
                     }
-                    Action::NextTab  => self.next_tab(),
-                    Action::PrevTab  => self.prev_tab(),
-                    Action::CloseTab => self.close_tab(event_loop),
+                    Action::NextTab   => self.next_tab(),
+                    Action::PrevTab   => self.prev_tab(),
+                    Action::CloseTab  => self.close_tab(event_loop),
+                    Action::RenameTab => {
+                        let current = self.tabs[self.active_tab].name.clone()
+                            .unwrap_or_default();
+                        self.mode = InputMode::RenameTab { buf: current };
+                    }
 
                     Action::IncreaseFontSize => self.change_font_size(1.0),
                     Action::DecreaseFontSize => self.change_font_size(-1.0),
