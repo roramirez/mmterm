@@ -119,13 +119,25 @@ impl Renderer {
             None
         };
 
-        for row in 0..grid.rows {
-            for col in 0..grid.cols {
+        let mut row = 0usize;
+        while row < grid.rows {
+            let mut col = 0usize;
+            while col < grid.cols {
                 let cell = get_cell(grid, pane.scroll_offset, row, col);
-                let px = rx + col as u32 * m.cell_width;
-                let py = ry + row as u32 * m.cell_height;
 
-                if px + m.cell_width > rx + rw || py + m.cell_height > ry + rh {
+                // Continuation cells are rendered as part of the preceding wide char.
+                if cell.wide_cont {
+                    col += 1;
+                    continue;
+                }
+
+                let cell_cols = if cell.wide { 2u32 } else { 1u32 };
+                let draw_w = cell_cols * m.cell_width;
+                let cell_x = rx + col as u32 * m.cell_width;
+                let cell_y = ry + row as u32 * m.cell_height;
+
+                if cell_x + draw_w > rx + rw || cell_y + m.cell_height > ry + rh {
+                    col += cell_cols as usize;
                     continue;
                 }
 
@@ -150,41 +162,39 @@ impl Renderer {
                 let bg32 = color_u32(bg);
 
                 for dy in 0..m.cell_height {
-                    for dx in 0..m.cell_width {
-                        let idx = ((py + dy) * buf_width + px + dx) as usize;
+                    for dx in 0..draw_w {
+                        let idx = ((cell_y + dy) * buf_width + cell_x + dx) as usize;
                         if idx < buf.len() {
                             buf[idx] = bg32;
                         }
                     }
                 }
 
-                if cell.c == ' ' {
-                    continue;
-                }
+                if cell.c != ' ' {
+                    let info = self.glyphs.get(cell.c, m.font_px, cell.bold);
+                    let (gw, gh) = (info.width, info.height);
+                    let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
+                    let y_offset = glyph_top.max(0) as u32;
+                    let fg32 = color_u32(fg);
 
-                let info = self.glyphs.get(cell.c, m.font_px, cell.bold);
-                let (gw, gh) = (info.width, info.height);
-                // Place glyph so its baseline aligns with the cell baseline.
-                // ymin is pixels from baseline to bottom of bitmap.
-                // top of glyph in cell = baseline - (height + ymin)  [ymin usually ≤ 0 for descenders]
-                let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
-                let y_offset = glyph_top.max(0) as u32;
-                let fg32 = color_u32(fg);
-
-                for gy in 0..gh {
-                    for gx in 0..gw {
-                        let alpha = info.bitmap[(gy * gw + gx) as usize];
-                        if alpha == 0 { continue; }
-                        let sx = px + gx;
-                        let sy = py + y_offset + gy;
-                        if sx >= rx + rw || sy >= ry + rh { continue; }
-                        let idx = (sy * buf_width + sx) as usize;
-                        if idx < buf.len() {
-                            buf[idx] = blend(bg32, fg32, alpha);
+                    for gy in 0..gh {
+                        for gx in 0..gw {
+                            let alpha = info.bitmap[(gy * gw + gx) as usize];
+                            if alpha == 0 { continue; }
+                            let sx = cell_x + gx;
+                            let sy = cell_y + y_offset + gy;
+                            if sx >= rx + rw || sy >= ry + rh { continue; }
+                            let idx = (sy * buf_width + sx) as usize;
+                            if idx < buf.len() {
+                                buf[idx] = blend(bg32, fg32, alpha);
+                            }
                         }
                     }
                 }
+
+                col += cell_cols as usize;
             }
+            row += 1;
         }
     }
 
@@ -479,7 +489,7 @@ fn get_cell<'a>(grid: &'a Grid, scroll_offset: usize, row: usize, col: usize) ->
 }
 
 // bg will differ per grid but this fallback is only hit for out-of-bounds scrollback
-static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false };
+static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, wide: false, wide_cont: false };
 
 fn mode_style(mode: &InputMode) -> (&'static str, u32) {
     match mode {

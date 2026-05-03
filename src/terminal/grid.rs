@@ -25,11 +25,15 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub bold: bool,
+    /// True when this is the left half of a 2-column wide character.
+    pub wide: bool,
+    /// True when this is the right (placeholder) half of a wide character.
+    pub wide_cont: bool,
 }
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false }
+        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, wide: false, wide_cont: false }
     }
 }
 
@@ -65,7 +69,7 @@ impl Grid {
         selection_color: Color,
         palette: [Color; 16],
     ) -> Self {
-        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false };
+        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, wide: false, wide_cont: false };
         Self {
             cols,
             rows,
@@ -113,19 +117,34 @@ impl Grid {
     }
 
     pub fn write_char(&mut self, c: char) {
-        if self.cursor_col >= self.cols {
+        use unicode_width::UnicodeWidthChar;
+        let char_cols = UnicodeWidthChar::width(c).unwrap_or(1).max(1);
+
+        if self.cursor_col + char_cols > self.cols {
             self.cursor_col = 0;
             self.advance_row();
         }
+
         let fg = self.fg;
         let bg = self.bg;
         let bold = self.bold;
+        let wide = char_cols == 2;
+
         let cell = self.cell_mut(self.cursor_col, self.cursor_row);
         cell.c = c;
         cell.fg = fg;
         cell.bg = bg;
         cell.bold = bold;
+        cell.wide = wide;
+        cell.wide_cont = false;
         self.cursor_col += 1;
+
+        if wide && self.cursor_col < self.cols {
+            let blank = self.blank_cell();
+            let cont = self.cell_mut(self.cursor_col, self.cursor_row);
+            *cont = Cell { wide_cont: true, ..blank };
+            self.cursor_col += 1;
+        }
     }
 
     pub fn advance_row(&mut self) {
@@ -191,7 +210,7 @@ impl Grid {
     }
 
     pub fn blank_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false }
+        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, wide: false, wide_cont: false }
     }
 
     pub fn clear_line(&mut self, row: usize) {

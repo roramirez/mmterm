@@ -33,6 +33,9 @@ arboard = "3"
 # System font discovery
 font-kit = "0.14"
 
+# Unicode character width (wide/narrow for CJK, emoji)
+unicode-width = "0.2"
+
 # Config file parsing
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }
