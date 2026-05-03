@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 use tui_config::{ConfigAction, ConfigPanel};
 use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, Modifiers, WindowEvent};
+use winit::event::{ElementState, MouseButton, Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
@@ -62,6 +62,8 @@ struct App {
     config: Config,
     config_panel: Option<ConfigPanel>,
     clipboard: Option<Clipboard>,
+    mouse_pos: Option<(f64, f64)>,
+    mouse_selecting: bool,
 }
 
 impl App {
@@ -82,6 +84,8 @@ impl App {
             config_panel: None,
             config,
             clipboard: Clipboard::new().ok(),
+            mouse_pos: None,
+            mouse_selecting: false,
         }
     }
 
@@ -270,6 +274,85 @@ impl App {
         let leaves = self.tab().layout.leaves();
         if let Some(pos) = leaves.iter().position(|&id| id == active) {
             self.tab_mut().active = leaves[(pos + 1) % leaves.len()];
+        }
+    }
+
+    // ── Mouse selection ───────────────────────────────────────────────────────
+
+    fn pane_at_pixel(&self, px: f64, py: f64) -> Option<usize> {
+        let rects = self.tab().layout.rects();
+        for (id, [rx, ry, rw, rh]) in rects {
+            if px >= rx as f64 && py >= ry as f64
+                && px < (rx + rw) as f64 && py < (ry + rh) as f64
+            {
+                return Some(id);
+            }
+        }
+        None
+    }
+
+    fn pixel_to_cell(&self, pane_id: usize, px: f64, py: f64) -> Option<(usize, usize)> {
+        let tab = self.tab();
+        let entry = tab.panes.get(&pane_id)?;
+        let [rx, ry, rw, rh] = entry.pane.rect;
+        let m = &tab.metrics;
+        if px < rx as f64 || py < ry as f64
+            || px >= (rx + rw) as f64 || py >= (ry + rh) as f64
+        {
+            return None;
+        }
+        let col = ((px - rx as f64) / m.cell_width as f64) as usize;
+        let row = ((py - ry as f64) / m.cell_height as f64) as usize;
+        let cols = entry.pane.parser.grid.cols;
+        let rows = entry.pane.parser.grid.rows;
+        Some((col.min(cols.saturating_sub(1)), row.min(rows.saturating_sub(1))))
+    }
+
+    fn start_mouse_selection(&mut self, px: f64, py: f64) {
+        if let Some(pane_id) = self.pane_at_pixel(px, py) {
+            self.tab_mut().active = pane_id;
+            if let Some((col, row)) = self.pixel_to_cell(pane_id, px, py) {
+                self.mode = InputMode::Visual {
+                    start_col: col,
+                    start_row: row,
+                    cur_col: col,
+                    cur_row: row,
+                };
+                self.mouse_selecting = true;
+            }
+        }
+    }
+
+    fn update_mouse_selection(&mut self, px: f64, py: f64) {
+        if let InputMode::Visual { start_col, start_row, .. } = self.mode.clone() {
+            let active = self.tab().active;
+            if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
+                self.mode = InputMode::Visual { start_col, start_row, cur_col: col, cur_row: row };
+            }
+        }
+    }
+
+    fn finish_mouse_selection(&mut self) {
+        if let InputMode::Visual { start_col, start_row, cur_col, cur_row } = self.mode.clone() {
+            if start_col == cur_col && start_row == cur_row {
+                self.mode = InputMode::Insert;
+                return;
+            }
+            let active = self.tab().active;
+            if let Some(entry) = self.tab().panes.get(&active) {
+                let text = entry.pane.parser.grid.selected_text(
+                    start_col, start_row, cur_col, cur_row,
+                );
+                if !text.is_empty() {
+                    let cb = self.clipboard.get_or_insert_with(|| {
+                        Clipboard::new().expect("clipboard unavailable")
+                    });
+                    match cb.set_text(text) {
+                        Ok(()) => log::info!("Copied mouse selection to clipboard"),
+                        Err(e) => log::warn!("Clipboard write failed: {e}"),
+                    }
+                }
+            }
         }
     }
 
@@ -631,6 +714,46 @@ impl ApplicationHandler for App {
                     Action::OpenConfig => self.open_config_panel(),
                     Action::Quit => event_loop.exit(),
                     Action::None => {}
+                }
+            }
+
+            WindowEvent::CursorMoved { position, .. } => {
+                self.mouse_pos = Some((position.x, position.y));
+                if self.mouse_selecting {
+                    self.update_mouse_selection(position.x, position.y);
+                }
+            }
+
+            WindowEvent::MouseInput { state, button, .. } => {
+                if button == MouseButton::Left {
+                    match state {
+                        ElementState::Pressed => {
+                            if let Some((mx, my)) = self.mouse_pos {
+                                self.start_mouse_selection(mx, my);
+                            }
+                        }
+                        ElementState::Released => {
+                            if self.mouse_selecting {
+                                self.mouse_selecting = false;
+                                self.finish_mouse_selection();
+                            }
+                        }
+                    }
+                } else if button == MouseButton::Middle {
+                    // Middle-click paste
+                    if state == ElementState::Pressed {
+                        let text = self.clipboard.as_mut().and_then(|cb| cb.get_text().ok())
+                            .or_else(|| Clipboard::new().ok()?.get_text().ok());
+                        if let Some(text) = text {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+                                let mut data = b"\x1b[200~".to_vec();
+                                data.extend_from_slice(text.as_bytes());
+                                data.extend_from_slice(b"\x1b[201~");
+                                let _ = entry.pty.write_input(&data);
+                            }
+                        }
+                    }
                 }
             }
 
