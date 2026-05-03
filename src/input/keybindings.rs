@@ -40,6 +40,7 @@ pub fn handle_key(
     mode: &InputMode,
     grid_cols: usize,
     grid_rows: usize,
+    application_cursor_keys: bool,
 ) -> Action {
     if event.state != ElementState::Pressed {
         return Action::None;
@@ -134,7 +135,7 @@ pub fn handle_key(
 
     // ── Per-mode handling ────────────────────────────────────────────────
     match mode {
-        InputMode::Insert => handle_insert(event, ctrl),
+        InputMode::Insert => handle_insert(event, ctrl, application_cursor_keys),
         InputMode::Normal => handle_normal(event, ctrl),
         InputMode::Visual { start_col, start_row, cur_col, cur_row } => {
             handle_visual(event, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows)
@@ -165,7 +166,7 @@ pub fn handle_ctrl_w(event: &KeyEvent) -> Action {
     }
 }
 
-fn handle_insert(event: &KeyEvent, ctrl: bool) -> Action {
+fn handle_insert(event: &KeyEvent, ctrl: bool, application_cursor_keys: bool) -> Action {
     // Escape is forwarded to PTY — vim / other TUI apps need it
     if ctrl {
         if let Key::Character(s) = &event.logical_key {
@@ -191,10 +192,10 @@ fn handle_insert(event: &KeyEvent, ctrl: bool) -> Action {
         Key::Named(NamedKey::Enter)     => Action::SendToPty(vec![b'\r']),
         Key::Named(NamedKey::Backspace) => Action::SendToPty(vec![0x7f]),
         Key::Named(NamedKey::Tab)       => Action::SendToPty(vec![b'\t']),
-        Key::Named(NamedKey::ArrowUp)   => Action::SendToPty(b"\x1b[A".to_vec()),
-        Key::Named(NamedKey::ArrowDown) => Action::SendToPty(b"\x1b[B".to_vec()),
-        Key::Named(NamedKey::ArrowRight)=> Action::SendToPty(b"\x1b[C".to_vec()),
-        Key::Named(NamedKey::ArrowLeft) => Action::SendToPty(b"\x1b[D".to_vec()),
+        Key::Named(NamedKey::ArrowUp)   => Action::SendToPty(if application_cursor_keys { b"\x1bOA".to_vec() } else { b"\x1b[A".to_vec() }),
+        Key::Named(NamedKey::ArrowDown) => Action::SendToPty(if application_cursor_keys { b"\x1bOB".to_vec() } else { b"\x1b[B".to_vec() }),
+        Key::Named(NamedKey::ArrowRight)=> Action::SendToPty(if application_cursor_keys { b"\x1bOC".to_vec() } else { b"\x1b[C".to_vec() }),
+        Key::Named(NamedKey::ArrowLeft) => Action::SendToPty(if application_cursor_keys { b"\x1bOD".to_vec() } else { b"\x1b[D".to_vec() }),
         Key::Named(NamedKey::Home)      => Action::SendToPty(b"\x1b[H".to_vec()),
         Key::Named(NamedKey::End)       => Action::SendToPty(b"\x1b[F".to_vec()),
         Key::Named(NamedKey::PageUp)    => Action::SendToPty(b"\x1b[5~".to_vec()),

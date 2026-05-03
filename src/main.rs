@@ -620,14 +620,14 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                let (grid_cols, grid_rows) = {
+                let (grid_cols, grid_rows, app_cursor) = {
                     let tab = self.tab();
                     tab.panes.get(&tab.active)
-                        .map(|e| (e.pane.parser.grid.cols, e.pane.parser.grid.rows))
-                        .unwrap_or((80, 24))
+                        .map(|e| (e.pane.parser.grid.cols, e.pane.parser.grid.rows, e.pane.parser.grid.application_cursor_keys))
+                        .unwrap_or((80, 24, false))
                 };
 
-                match handle_key(&event, &self.modifiers, &self.mode, grid_cols, grid_rows) {
+                match handle_key(&event, &self.modifiers, &self.mode, grid_cols, grid_rows, app_cursor) {
                     Action::CtrlWPrefix => { self.ctrl_w_pending = true; }
 
                     Action::SendToPty(bytes) => {
