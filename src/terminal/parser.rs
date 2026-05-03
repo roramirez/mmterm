@@ -51,10 +51,19 @@ impl Perform for Performer<'_> {
         }
     }
 
-    fn csi_dispatch(&mut self, params: &Params, _intermediates: &[u8], _ignore: bool, action: char) {
+    fn csi_dispatch(&mut self, params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
         let ps: Vec<u16> = params.iter().map(|p| p[0]).collect();
         let p0 = ps.first().copied().unwrap_or(0);
         let p1 = ps.get(1).copied().unwrap_or(0);
+
+        // DEC private modes: \e[?<n>h (set) / \e[?<n>l (reset)
+        if intermediates == b"?" {
+            match (action, p0) {
+                ('h', 1) => { self.grid.application_cursor_keys = true; return; }
+                ('l', 1) => { self.grid.application_cursor_keys = false; return; }
+                _ => return,
+            }
+        }
 
         match action {
             // Cursor movement

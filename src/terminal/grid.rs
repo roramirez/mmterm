@@ -57,6 +57,8 @@ pub struct Grid {
     pub cursor_color: Color,
     pub selection_color: Color,
     pub palette: [Color; 16],
+    // DECCKM: when true, arrow keys send SS3 sequences (\eOA) instead of CSI (\e[A)
+    pub application_cursor_keys: bool,
 }
 
 impl Grid {
@@ -87,6 +89,7 @@ impl Grid {
             cursor_color,
             selection_color,
             palette,
+            application_cursor_keys: false,
         }
     }
 
