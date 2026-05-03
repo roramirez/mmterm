@@ -61,6 +61,7 @@ struct App {
     ctrl_w_pending: bool,
     config: Config,
     config_panel: Option<ConfigPanel>,
+    clipboard: Option<Clipboard>,
 }
 
 impl App {
@@ -80,6 +81,7 @@ impl App {
             ctrl_w_pending: false,
             config_panel: None,
             config,
+            clipboard: Clipboard::new().ok(),
         }
     }
 
@@ -558,17 +560,39 @@ impl ApplicationHandler for App {
                     }
 
                     Action::Paste => {
-                        let active = self.tab().active;
-                        if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-                            match Clipboard::new().and_then(|mut cb| cb.get_text()) {
-                                Ok(text) => {
-                                    let mut data = b"\x1b[200~".to_vec();
-                                    data.extend_from_slice(text.as_bytes());
-                                    data.extend_from_slice(b"\x1b[201~");
-                                    let _ = entry.pty.write_input(&data);
-                                }
-                                Err(e) => log::warn!("Clipboard read failed: {e}"),
+                        let text = self.clipboard.as_mut().and_then(|cb| cb.get_text().ok())
+                            .or_else(|| Clipboard::new().ok()?.get_text().ok());
+                        if let Some(text) = text {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+                                let mut data = b"\x1b[200~".to_vec();
+                                data.extend_from_slice(text.as_bytes());
+                                data.extend_from_slice(b"\x1b[201~");
+                                let _ = entry.pty.write_input(&data);
                             }
+                        } else {
+                            log::warn!("Clipboard read failed");
+                        }
+                    }
+
+                    Action::Copy => {
+                        if let InputMode::Visual { start_col, start_row, cur_col, cur_row } = self.mode.clone() {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab().panes.get(&active) {
+                                let text = entry.pane.parser.grid.selected_text(
+                                    start_col, start_row, cur_col, cur_row,
+                                );
+                                if !text.is_empty() {
+                                    let cb = self.clipboard.get_or_insert_with(|| {
+                                        Clipboard::new().expect("clipboard unavailable")
+                                    });
+                                    match cb.set_text(text) {
+                                        Ok(()) => log::info!("Copied selection to clipboard"),
+                                        Err(e) => log::warn!("Clipboard write failed: {e}"),
+                                    }
+                                }
+                            }
+                            self.mode = InputMode::Insert;
                         }
                     }
 
