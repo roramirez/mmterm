@@ -97,6 +97,7 @@ impl App {
         &mut self,
         tab_idx: usize,
         rect: [u32; 4],
+        cwd: Option<std::path::PathBuf>,
     ) -> usize {
         let id = self.next_pane_id;
         self.next_pane_id += 1;
@@ -112,7 +113,7 @@ impl App {
         let shell = self.config.shell.program.clone()
             .or_else(|| std::env::var("SHELL").ok())
             .unwrap_or_else(|| "/bin/bash".to_string());
-        match pty::PtySession::spawn_with_shell(cols as u16, rows as u16, tx, &shell) {
+        match pty::PtySession::spawn_with_shell(cols as u16, rows as u16, tx, &shell, cwd.as_ref()) {
             Ok(pty) => { self.tabs[tab_idx].panes.insert(id, PaneEntry { pane, pty, rx }); }
             Err(e) => log::error!("PTY spawn failed: {e}"),
         }
@@ -120,12 +121,18 @@ impl App {
     }
 
     fn spawn_pane(&mut self, rect: [u32; 4]) -> usize {
-        self.spawn_pane_into(self.active_tab, rect)
+        let cwd = self.tabs.get(self.active_tab)
+            .and_then(|t| t.panes.get(&t.active))
+            .and_then(|e| e.pty.cwd());
+        self.spawn_pane_into(self.active_tab, rect, cwd)
     }
 
     // ── Tab management ───────────────────────────────────────────────────────
 
     fn new_tab(&mut self, win_w: u32, win_h: u32) {
+        let cwd = self.tabs.get(self.active_tab)
+            .and_then(|t| t.panes.get(&t.active))
+            .and_then(|e| e.pty.cwd());
         let metrics = self.renderer.make_metrics(self.renderer.font_px);
         let layout = Layout::new(0, win_w, win_h);
         let initial_rect = layout.rects().first().map(|(_, r)| *r)
@@ -137,7 +144,7 @@ impl App {
             active: 0,
             metrics,
         });
-        let id = self.spawn_pane_into(tab_idx, initial_rect);
+        let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
         self.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
         self.tabs[tab_idx].active = id;
         self.active_tab = tab_idx;
