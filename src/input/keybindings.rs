@@ -7,6 +7,7 @@ pub enum Action {
     SendToPty(Vec<u8>),
     SetMode(InputMode),
     Paste,
+    Copy,
     ScrollUp(usize),
     ScrollDown(usize),
     ScrollToTop,
@@ -88,6 +89,14 @@ pub fn handle_key(
             Key::Named(NamedKey::Home)      => return Action::ScrollToTop,
             Key::Named(NamedKey::End)       => return Action::ScrollToBottom,
             _ => {}
+        }
+    }
+
+    if ctrl && !shift {
+        if let Key::Character(s) = &event.logical_key {
+            if s.eq_ignore_ascii_case("c") && matches!(mode, InputMode::Visual { .. }) {
+                return Action::Copy;
+            }
         }
     }
 

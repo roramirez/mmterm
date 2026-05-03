@@ -166,6 +166,30 @@ impl Grid {
         self.scrollback.len()
     }
 
+    pub fn selected_text(&self, sc: usize, sr: usize, ec: usize, er: usize) -> String {
+        let (r0, c0, r1, c1) = if (sr, sc) <= (er, ec) {
+            (sr, sc, er, ec)
+        } else {
+            (er, ec, sr, sc)
+        };
+        let mut result = String::new();
+        for row in r0..=r1 {
+            let col_start = if row == r0 { c0 } else { 0 };
+            let col_end = if row == r1 { c1 } else { self.cols.saturating_sub(1) };
+            let mut line = String::new();
+            for col in col_start..=col_end {
+                if col < self.cols && row < self.rows {
+                    line.push(self.cell(col, row).c);
+                }
+            }
+            if !result.is_empty() {
+                result.push('\n');
+            }
+            result.push_str(line.trim_end_matches(' '));
+        }
+        result
+    }
+
     pub fn blank_cell(&self) -> Cell {
         Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false }
     }
