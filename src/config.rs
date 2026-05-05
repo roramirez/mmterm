@@ -1,9 +1,15 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::terminal::grid::Color;
 
-#[derive(Debug, Clone, Deserialize)]
+const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
+
+fn default_config() -> Config {
+    toml::from_str(DEFAULT_CONFIG).expect("assets/config.toml is invalid")
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub font: FontConfig,
@@ -18,29 +24,26 @@ pub struct Config {
     pub colors: ColorsConfig,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FontConfig {
     pub family: String,
     pub size: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
     pub width: u32,
     pub height: u32,
     pub title: String,
-    #[serde(default = "default_blink_ms")]
     pub cursor_blink_ms: u32,
 }
 
-fn default_blink_ms() -> u32 { 500 }
-
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellConfig {
     pub program: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorsConfig {
     pub background: String,
     pub foreground: String,
@@ -73,50 +76,23 @@ pub fn parse_hex(s: &str) -> Color {
 }
 
 impl Default for FontConfig {
-    fn default() -> Self {
-        Self { family: "Noto Sans Mono".to_string(), size: 16.0 }
-    }
+    fn default() -> Self { default_config().font }
 }
 
 impl Default for WindowConfig {
-    fn default() -> Self {
-        Self { width: 800, height: 600, title: "mmterm".to_string(), cursor_blink_ms: 500 }
-    }
+    fn default() -> Self { default_config().window }
 }
 
 impl Default for ShellConfig {
-    fn default() -> Self {
-        Self { program: None }
-    }
+    fn default() -> Self { default_config().shell }
 }
 
 impl Default for ColorsConfig {
-    fn default() -> Self {
-        // Hardcore (Monokai) — from your Terminator profile
-        Self {
-            background: "#121212".into(),
-            foreground: "#a0a0a0".into(),
-            cursor:     "#bbbbbb".into(),
-            selection:  "#3d3d3d".into(),
-            palette: vec![
-                "#1b1d1e".into(), "#f92672".into(), "#a6e22e".into(), "#fd971f".into(),
-                "#66d9ef".into(), "#9e6ffe".into(), "#5e7175".into(), "#ccccc6".into(),
-                "#505354".into(), "#ff669d".into(), "#beed5f".into(), "#e6db74".into(),
-                "#66d9ef".into(), "#9e6ffe".into(), "#a3babf".into(), "#f8f8f2".into(),
-            ],
-        }
-    }
+    fn default() -> Self { default_config().colors }
 }
 
 impl Default for Config {
-    fn default() -> Self {
-        Self {
-            font: FontConfig::default(),
-            window: WindowConfig::default(),
-            shell: ShellConfig::default(),
-            colors: ColorsConfig::default(),
-        }
-    }
+    fn default() -> Self { default_config() }
 }
 
 impl Config {
@@ -140,53 +116,12 @@ impl Config {
     pub fn save(&self) {
         let path = config_path();
         if let Some(dir) = path.parent() { let _ = std::fs::create_dir_all(dir); }
-        let palette_toml = self.colors.palette.iter()
-            .map(|c| format!("  {:?}", c))
-            .collect::<Vec<_>>()
-            .join(",\n");
-        let content = format!(
-r#"# mmterm configuration
-
-[font]
-family = {family:?}
-size = {size}
-
-[window]
-width           = {width}
-height          = {height}
-title           = {title:?}
-cursor_blink_ms = {blink_ms}
-
-[shell]
-{shell}
-
-[colors]
-background = {bg:?}
-foreground = {fg:?}
-cursor     = {cursor:?}
-selection  = {sel:?}
-palette = [
-{palette}
-]
-"#,
-            family  = self.font.family,
-            size    = self.font.size,
-            width    = self.window.width,
-            height   = self.window.height,
-            title    = self.window.title,
-            blink_ms = self.window.cursor_blink_ms,
-            shell   = self.shell.program.as_ref()
-                .map(|s| format!("program = {s:?}"))
-                .unwrap_or_else(|| "# program = \"/bin/zsh\"".into()),
-            bg      = self.colors.background,
-            fg      = self.colors.foreground,
-            cursor  = self.colors.cursor,
-            sel     = self.colors.selection,
-            palette = palette_toml,
-        );
-        match std::fs::write(&path, &content) {
-            Ok(_) => log::info!("Config saved to {}", path.display()),
-            Err(e) => log::error!("Failed to save config: {e}"),
+        match toml::to_string_pretty(self) {
+            Ok(content) => match std::fs::write(&path, content) {
+                Ok(_)  => log::info!("Config saved to {}", path.display()),
+                Err(e) => log::error!("Failed to save config: {e}"),
+            },
+            Err(e) => log::error!("Failed to serialize config: {e}"),
         }
     }
 

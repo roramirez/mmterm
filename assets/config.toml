@@ -1,0 +1,43 @@
+# mmterm default configuration
+
+[font]
+family = "Noto Sans Mono"
+size = 16.0
+
+[window]
+width           = 800
+height          = 600
+title           = "mmterm"
+cursor_blink_ms = 500
+
+[shell]
+# program = "/bin/zsh"
+
+[colors]
+background = "#121212"
+foreground = "#a0a0a0"
+cursor     = "#bbbbbb"
+selection  = "#3d3d3d"
+
+# 16-color ANSI palette:
+# [black, red, green, yellow, blue, magenta, cyan, white,
+#  bright-black, bright-red, bright-green, bright-yellow,
+#  bright-blue, bright-magenta, bright-cyan, bright-white]
+palette = [
+  "#1b1d1e",
+  "#f92672",
+  "#a6e22e",
+  "#fd971f",
+  "#66d9ef",
+  "#9e6ffe",
+  "#5e7175",
+  "#ccccc6",
+  "#505354",
+  "#ff669d",
+  "#beed5f",
+  "#e6db74",
+  "#66d9ef",
+  "#9e6ffe",
+  "#a3babf",
+  "#f8f8f2",
+]
