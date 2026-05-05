@@ -19,7 +19,7 @@ use tui_config::{ConfigAction, ConfigPanel};
 use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, Modifiers, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
 use crate::input::keybindings::Action;
@@ -64,10 +64,12 @@ struct App {
     clipboard: Option<Clipboard>,
     mouse_pos: Option<(f64, f64)>,
     mouse_selecting: bool,
+    proxy: EventLoopProxy<()>,
+    surface_size: (u32, u32),
 }
 
 impl App {
-    fn new(config: Config) -> Self {
+    fn new(config: Config, proxy: EventLoopProxy<()>) -> Self {
         let renderer = Renderer::new(&config.font.family, config.font.size);
         Self {
             window: None,
@@ -86,6 +88,8 @@ impl App {
             clipboard: Clipboard::new().ok(),
             mouse_pos: None,
             mouse_selecting: false,
+            proxy,
+            surface_size: (0, 0),
         }
     }
 
@@ -121,7 +125,9 @@ impl App {
         let shell = self.config.shell.program.clone()
             .or_else(|| std::env::var("SHELL").ok())
             .unwrap_or_else(|| "/bin/bash".to_string());
-        match pty::PtySession::spawn_with_shell(cols as u16, rows as u16, tx, &shell, cwd.as_ref()) {
+        let proxy = self.proxy.clone();
+        let wakeup = Box::new(move || { let _ = proxy.send_event(()); });
+        match pty::PtySession::spawn_with_shell(cols as u16, rows as u16, tx, &shell, cwd.as_ref(), wakeup) {
             Ok(pty) => { self.tabs[tab_idx].panes.insert(id, PaneEntry { pane, pty, rx }); }
             Err(e) => log::error!("PTY spawn failed: {e}"),
         }
@@ -494,8 +500,11 @@ impl App {
         let (w, h) = (size.width, size.height);
         if w == 0 || h == 0 { return; }
 
-        if let (Ok(wn), Ok(hn)) = (NonZeroU32::try_from(w), NonZeroU32::try_from(h)) {
-            let _ = surface.resize(wn, hn);
+        if self.surface_size != (w, h) {
+            if let (Ok(wn), Ok(hn)) = (NonZeroU32::try_from(w), NonZeroU32::try_from(h)) {
+                let _ = surface.resize(wn, hn);
+                self.surface_size = (w, h);
+            }
         }
 
         let mut buf = surface.buffer_mut().unwrap();
@@ -552,7 +561,6 @@ impl App {
         }
 
         buf.present().unwrap();
-        window.request_redraw();
     }
 }
 
@@ -802,9 +810,26 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
         if let Some(window) = &self.window {
             window.request_redraw();
+        }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let blink_dur = Duration::from_millis(self.config.window.cursor_blink_ms as u64);
+        let elapsed = self.blink_last.elapsed();
+        if elapsed >= blink_dur {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + blink_dur,
+            ));
+        } else {
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + (blink_dur - elapsed),
+            ));
         }
     }
 }
@@ -814,7 +839,7 @@ fn main() {
     Config::write_default_if_missing();
     let config = Config::load();
     let event_loop = EventLoop::new().unwrap();
-    event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(config);
+    let proxy = event_loop.create_proxy();
+    let mut app = App::new(config, proxy);
     event_loop.run_app(&mut app).unwrap();
 }

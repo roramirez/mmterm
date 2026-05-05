@@ -14,7 +14,7 @@ impl PtySession {
     #[allow(dead_code)]
     pub fn spawn(cols: u16, rows: u16, output_tx: Sender<Vec<u8>>) -> anyhow::Result<Self> {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-        Self::spawn_with_shell(cols, rows, output_tx, &shell, None)
+        Self::spawn_with_shell(cols, rows, output_tx, &shell, None, Box::new(|| {}))
     }
 
     pub fn spawn_with_shell(
@@ -23,6 +23,7 @@ impl PtySession {
         output_tx: Sender<Vec<u8>>,
         shell: &str,
         cwd: Option<&PathBuf>,
+        wakeup: Box<dyn Fn() + Send + 'static>,
     ) -> anyhow::Result<Self> {
         let pty_system = NativePtySystem::default();
         let pair = pty_system.openpty(PtySize {
@@ -56,6 +57,7 @@ impl PtySession {
                         if output_tx.send(buf[..n].to_vec()).is_err() {
                             break;
                         }
+                        wakeup();
                     }
                 }
             }
