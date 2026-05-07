@@ -186,9 +186,8 @@ impl GlyphCache {
             let primary = if bold { &self.bold_font } else { &self.font };
             if primary.has_glyph(c) {
                 let (m, bitmap) = primary.rasterize(c, px);
-                if !bitmap.is_empty() {
-                    return make_outline(m, bitmap);
-                }
+                // Return even when bitmap is empty (e.g. space): empty = invisible, not missing.
+                return make_outline(m, bitmap);
             }
         }
 
