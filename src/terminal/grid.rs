@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 const SCROLLBACK_MAX: usize = 10_000;
 
@@ -31,11 +32,13 @@ pub struct Cell {
     pub wide: bool,
     /// True when this is the right (placeholder) half of a wide character.
     pub wide_cont: bool,
+    /// OSC 8 hyperlink URI, shared across all cells in the same link span.
+    pub url: Option<Arc<String>>,
 }
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, wide: false, wide_cont: false }
+        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, wide: false, wide_cont: false, url: None }
     }
 }
 
@@ -49,6 +52,7 @@ struct SavedScreen {
     bg: Color,
     bold: bool,
     scrollback: VecDeque<Vec<Cell>>,
+    current_url: Option<Arc<String>>,
 }
 
 pub struct Grid {
@@ -83,6 +87,8 @@ pub struct Grid {
     pub mouse_sgr: bool,
     // Alternate screen buffer (?1049): holds saved primary screen while in alt screen
     alternate_saved: Option<SavedScreen>,
+    // OSC 8 hyperlink: URI for cells written while non-None
+    pub current_url: Option<Arc<String>>,
 }
 
 impl Grid {
@@ -95,7 +101,7 @@ impl Grid {
         selection_color: Color,
         palette: [Color; 16],
     ) -> Self {
-        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, wide: false, wide_cont: false };
+        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, wide: false, wide_cont: false, url: None };
         Self {
             cols,
             rows,
@@ -119,6 +125,7 @@ impl Grid {
             mouse_mode: 0,
             mouse_sgr: false,
             alternate_saved: None,
+            current_url: None,
         }
     }
 
@@ -137,6 +144,7 @@ impl Grid {
             bg: self.bg,
             bold: self.bold,
             scrollback: std::mem::take(&mut self.scrollback),
+            current_url: self.current_url.take(),
         });
         self.cursor_col = 0;
         self.cursor_row = 0;
@@ -158,6 +166,7 @@ impl Grid {
             self.bg = saved.bg;
             self.bold = saved.bold;
             self.scrollback = saved.scrollback;
+            self.current_url = saved.current_url;
         }
     }
 
@@ -205,6 +214,7 @@ impl Grid {
         let bg = self.bg;
         let bold = self.bold;
         let wide = char_cols == 2;
+        let url = self.current_url.clone();
 
         let cell = self.cell_mut(self.cursor_col, self.cursor_row);
         cell.c = c;
@@ -213,6 +223,7 @@ impl Grid {
         cell.bold = bold;
         cell.wide = wide;
         cell.wide_cont = false;
+        cell.url = url;
         self.cursor_col += 1;
 
         if wide && self.cursor_col < self.cols {
@@ -303,14 +314,14 @@ impl Grid {
     }
 
     pub fn blank_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, wide: false, wide_cont: false }
+        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, wide: false, wide_cont: false, url: None }
     }
 
     // Erase operations (ED, EL, scroll blank rows) use the current SGR background,
     // not the default — this is the BCE (Background Color Erase) behaviour that
     // xterm and most terminals implement.
     pub fn erase_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.bg, bold: false, wide: false, wide_cont: false }
+        Cell { c: ' ', fg: self.default_fg, bg: self.bg, bold: false, wide: false, wide_cont: false, url: None }
     }
 
     pub fn clear_line(&mut self, row: usize) {

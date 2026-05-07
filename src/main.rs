@@ -23,7 +23,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy}
 use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::input::keybindings::Action;
-use crate::ui::layout::TAB_BAR_H;
+use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
 
 // ── Per-pane state ───────────────────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ struct TabState {
     metrics: FontMetrics,
     /// Optional user-defined name; falls back to numeric index
     name: Option<String>,
+    /// Temporary full-screen zoom of the active pane
+    zoomed: bool,
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ struct App {
     surface_size: (u32, u32),
     search_matches: Vec<(usize, usize)>,
     search_current: usize,
+    hovered_url: Option<String>,
 }
 
 impl App {
@@ -94,6 +97,7 @@ impl App {
             surface_size: (0, 0),
             search_matches: Vec::new(),
             search_current: 0,
+            hovered_url: None,
         }
     }
 
@@ -162,6 +166,7 @@ impl App {
             active: 0,
             metrics,
             name: None,
+            zoomed: false,
         });
         let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
         self.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
@@ -265,6 +270,7 @@ impl App {
     // ── Split / pane management ───────────────────────────────────────────────
 
     fn do_split(&mut self, dir: SplitDir) {
+        self.tab_mut().zoomed = false;
         let active = self.tab().active;
         let active_rect = self.tab().layout.rects()
             .into_iter().find(|(id, _)| *id == active)
@@ -291,6 +297,7 @@ impl App {
     }
 
     fn do_close_pane(&mut self, event_loop: &ActiveEventLoop) {
+        self.tab_mut().zoomed = false;
         let tab = self.tab_mut();
         if tab.panes.len() == 1 {
             let _ = tab;
@@ -381,6 +388,30 @@ impl App {
         Some((col.min(cols.saturating_sub(1)), row.min(rows.saturating_sub(1))))
     }
 
+    fn url_at_pixel(&self, px: f64, py: f64) -> Option<String> {
+        let pane_id = self.pane_at_pixel(px, py)?;
+        let (col, row) = self.pixel_to_cell(pane_id, px, py)?;
+        let tab = self.tab();
+        let entry = tab.panes.get(&pane_id)?;
+        let grid = &entry.pane.parser.grid;
+        let scroll_offset = entry.pane.scroll_offset;
+        let cell = if scroll_offset == 0 {
+            grid.cell(col, row)
+        } else {
+            let sb_len = grid.scrollback.len();
+            let sb_start = sb_len.saturating_sub(scroll_offset);
+            let sb_row = sb_start + row;
+            if sb_row < sb_len {
+                let line = &grid.scrollback[sb_row];
+                if col < line.len() { &line[col] } else { return None; }
+            } else {
+                let live_row = sb_row.saturating_sub(sb_len);
+                if live_row < grid.rows { grid.cell(col, live_row) } else { return None; }
+            }
+        };
+        cell.url.as_ref().map(|u| u.as_ref().clone())
+    }
+
     fn start_mouse_selection(&mut self, px: f64, py: f64) {
         if let Some(pane_id) = self.pane_at_pixel(px, py) {
             self.tab_mut().active = pane_id;
@@ -410,6 +441,9 @@ impl App {
         if let InputMode::Visual { start_col, start_row, cur_col, cur_row } = self.mode.clone() {
             self.mode = InputMode::Insert;
             if start_col == cur_col && start_row == cur_row {
+                if let Some(url) = self.hovered_url.clone() {
+                    open_url(&url);
+                }
                 if let Some(w) = &self.window { w.request_redraw(); }
                 return;
             }
@@ -670,6 +704,7 @@ impl App {
         let separators = tab.layout.separators();
 
         let active_id = tab.active;
+        let zoomed = tab.zoomed;
         let search_match_len = match &self.mode {
             InputMode::Search { query } => query.chars().count(),
             _ => 0,
@@ -677,30 +712,57 @@ impl App {
         let search_matches = &self.search_matches;
         let search_current_val = self.search_current;
 
-        let views: Vec<PaneView> = rects.iter().filter_map(|(id, rect)| {
-            let entry = tab.panes.get(id)?;
-            let is_active = *id == active_id;
-            let show_cursor = is_active
-                && matches!(self.mode, InputMode::Insert)
-                && self.cursor_blink
-                && entry.pane.scroll_offset == 0
-                && entry.pane.parser.grid.cursor_visible;
-            let (sm, sc) = if is_active && search_match_len > 0 {
-                (search_matches.as_slice(), Some(search_current_val))
+        let views: Vec<PaneView> = if zoomed {
+            let entry = tab.panes.get(&active_id);
+            if let Some(entry) = entry {
+                let show_cursor = matches!(self.mode, InputMode::Insert)
+                    && self.cursor_blink
+                    && entry.pane.scroll_offset == 0
+                    && entry.pane.parser.grid.cursor_visible;
+                let (sm, sc) = if search_match_len > 0 {
+                    (search_matches.as_slice(), Some(search_current_val))
+                } else {
+                    (&[][..], None)
+                };
+                vec![PaneView {
+                    grid: &entry.pane.parser.grid,
+                    rect: [0, TAB_BAR_H, w, h.saturating_sub(TAB_BAR_H + STATUS_BAR_H)],
+                    scroll_offset: entry.pane.scroll_offset,
+                    is_active: true,
+                    show_cursor,
+                    search_matches: sm,
+                    search_match_len,
+                    search_current: sc,
+                }]
             } else {
-                (&[][..], None)
-            };
-            Some(PaneView {
-                grid: &entry.pane.parser.grid,
-                rect: *rect,
-                scroll_offset: entry.pane.scroll_offset,
-                is_active,
-                show_cursor,
-                search_matches: sm,
-                search_match_len,
-                search_current: sc,
-            })
-        }).collect();
+                vec![]
+            }
+        } else {
+            rects.iter().filter_map(|(id, rect)| {
+                let entry = tab.panes.get(id)?;
+                let is_active = *id == active_id;
+                let show_cursor = is_active
+                    && matches!(self.mode, InputMode::Insert)
+                    && self.cursor_blink
+                    && entry.pane.scroll_offset == 0
+                    && entry.pane.parser.grid.cursor_visible;
+                let (sm, sc) = if is_active && search_match_len > 0 {
+                    (search_matches.as_slice(), Some(search_current_val))
+                } else {
+                    (&[][..], None)
+                };
+                Some(PaneView {
+                    grid: &entry.pane.parser.grid,
+                    rect: *rect,
+                    scroll_offset: entry.pane.scroll_offset,
+                    is_active,
+                    show_cursor,
+                    search_matches: sm,
+                    search_match_len,
+                    search_current: sc,
+                })
+            }).collect()
+        };
 
         let tab_titles: Vec<(String, bool)> = self.tabs.iter().enumerate()
             .map(|(i, tab)| {
@@ -723,7 +785,8 @@ impl App {
             .collect();
 
         let metrics = self.tabs[self.active_tab].metrics.clone();
-        self.renderer.draw(pixels, w, h, &views, &separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current);
+        let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
+        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current);
 
         if let Some(panel) = &self.config_panel {
             self.renderer.draw_config_panel(pixels, w, h, panel);
@@ -800,6 +863,7 @@ impl ApplicationHandler for App {
                         Action::FocusDown => self.focus_dir(0, 1),
                         Action::FocusNext => self.focus_next(),
                         Action::ClosePane => self.do_close_pane(event_loop),
+                        Action::ZoomPane  => { self.tab_mut().zoomed = !self.tab().zoomed; }
                         _ => {}
                     }
                     return;
@@ -953,12 +1017,17 @@ impl ApplicationHandler for App {
 
                     Action::OpenConfig => self.open_config_panel(),
                     Action::Quit => event_loop.exit(),
+                    Action::ZoomPane => {} // placeholder — not yet implemented
                     Action::None => {}
                 }
             }
 
             WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_pos = Some((position.x, position.y));
+                let url = self.url_at_pixel(position.x, position.y);
+                let icon = if url.is_some() { CursorIcon::Pointer } else { CursorIcon::Text };
+                if let Some(w) = &self.window { w.set_cursor(icon); }
+                self.hovered_url = url;
                 let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
                 if mouse_mode >= 1002 {
                     // Button-motion or any-motion: report if button is held (selecting) or always
@@ -1103,6 +1172,15 @@ impl ApplicationHandler for App {
             ));
         }
     }
+}
+
+fn open_url(url: &str) {
+    #[cfg(target_os = "linux")]
+    { let _ = std::process::Command::new("xdg-open").arg(url).spawn(); }
+    #[cfg(target_os = "macos")]
+    { let _ = std::process::Command::new("open").arg(url).spawn(); }
+    #[cfg(target_os = "windows")]
+    { let _ = std::process::Command::new("cmd").args(["/c", "start", url]).spawn(); }
 }
 
 fn main() {

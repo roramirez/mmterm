@@ -12,6 +12,7 @@ const SEP_COLOR: u32 = 0xFF_31_32_44;
 const SEARCH_MATCH_BG: Color = Color::rgb(0xf9, 0xe2, 0xaf);
 const SEARCH_CURRENT_BG: Color = Color::rgb(0xfe, 0x64, 0x0d);
 const SEARCH_MATCH_FG: Color = Color::rgb(0x11, 0x11, 0x1d);
+const HYPERLINK_UL: u32 = 0xFF_89_b4_fa; // blue underline for OSC 8 links
 
 pub struct PaneView<'a> {
     pub grid: &'a Grid,
@@ -234,6 +235,19 @@ impl Renderer {
                             if idx < buf.len() {
                                 buf[idx] = blend(bg32, fg32, alpha);
                             }
+                        }
+                    }
+                }
+
+                // Hyperlink underline (1px, 2px from bottom of cell)
+                if cell.url.is_some() {
+                    let ul_y = cell_y + m.cell_height.saturating_sub(2);
+                    if ul_y < ry + rh {
+                        for dx in 0..draw_w {
+                            let sx = cell_x + dx;
+                            if sx >= rx + rw { break; }
+                            let idx = (ul_y * buf_width + sx) as usize;
+                            if idx < buf.len() { buf[idx] = HYPERLINK_UL; }
                         }
                     }
                 }
@@ -547,7 +561,7 @@ fn get_cell<'a>(grid: &'a Grid, scroll_offset: usize, row: usize, col: usize) ->
 }
 
 // bg will differ per grid but this fallback is only hit for out-of-bounds scrollback
-static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, wide: false, wide_cont: false };
+static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, wide: false, wide_cont: false, url: None };
 
 fn mode_style(mode: &InputMode) -> (&'static str, u32) {
     match mode {
