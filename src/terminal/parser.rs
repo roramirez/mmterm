@@ -267,6 +267,12 @@ impl Perform for Performer<'_> {
     }
 
     fn osc_dispatch(&mut self, params: &[&[u8]], _bell_terminated: bool) {
+        // OSC 7: current working directory reported by the shell
+        if let [b"7", uri] = params {
+            if let Ok(s) = std::str::from_utf8(uri) {
+                self.grid.cwd = parse_osc7_uri(s);
+            }
+        }
         // OSC 8 hyperlink: \e]8;params;uri\e\\  (empty uri = end link)
         if let [osc, _, uri, ..] = params {
             if *osc == b"8" {
@@ -293,6 +299,15 @@ impl Perform for Performer<'_> {
             }
             _ => {}
         }
+    }
+}
+
+fn parse_osc7_uri(uri: &str) -> Option<String> {
+    let rest = uri.strip_prefix("file://")?;
+    if rest.starts_with('/') {
+        Some(rest.to_string())
+    } else {
+        rest.find('/').map(|i| rest[i..].to_string())
     }
 }
 

@@ -89,6 +89,8 @@ pub struct Grid {
     alternate_saved: Option<SavedScreen>,
     // OSC 8 hyperlink: URI for cells written while non-None
     pub current_url: Option<Arc<String>>,
+    // OSC 7: current working directory reported by the shell
+    pub cwd: Option<String>,
 }
 
 impl Grid {
@@ -126,6 +128,7 @@ impl Grid {
             mouse_sgr: false,
             alternate_saved: None,
             current_url: None,
+            cwd: None,
         }
     }
 

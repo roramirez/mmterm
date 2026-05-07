@@ -786,7 +786,16 @@ impl App {
 
         let metrics = self.tabs[self.active_tab].metrics.clone();
         let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
-        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current);
+        let home = std::env::var("HOME").unwrap_or_default();
+        let cwd_owned: Option<String> = self.tabs[self.active_tab].panes
+            .get(&active_id)
+            .and_then(|e| e.pane.parser.grid.cwd.as_deref())
+            .map(|p| if !home.is_empty() && p.starts_with(&home) {
+                format!("~{}", &p[home.len()..])
+            } else {
+                p.to_string()
+            });
+        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref());
 
         if let Some(panel) = &self.config_panel {
             self.renderer.draw_config_panel(pixels, w, h, panel);

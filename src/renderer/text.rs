@@ -87,6 +87,7 @@ impl Renderer {
         metrics: &FontMetrics,
         search_total: usize,
         search_current: usize,
+        cwd: Option<&str>,
     ) {
         let bg_fill = panes.first().map(|p| p.grid.default_bg).unwrap_or(Color::BLACK);
         buf.fill(color_u32(bg_fill));
@@ -112,7 +113,7 @@ impl Renderer {
         // (top-edge highlight removed — tab bar serves that role)
 
         self.draw_tab_bar(buf, buf_width, tab_titles);
-        self.draw_status_bar(buf, buf_width, buf_height, mode, search_total, search_current);
+        self.draw_status_bar(buf, buf_width, buf_height, mode, search_total, search_current, cwd);
     }
 
     fn draw_pane(&mut self, buf: &mut [u32], buf_width: u32, pane: &PaneView, mode: &InputMode, m: &FontMetrics) {
@@ -507,7 +508,7 @@ impl Renderer {
         }
     }
 
-    fn draw_status_bar(&mut self, buf: &mut [u32], width: u32, height: u32, mode: &InputMode, search_total: usize, search_current: usize) {
+    fn draw_status_bar(&mut self, buf: &mut [u32], width: u32, height: u32, mode: &InputMode, search_total: usize, search_current: usize, cwd: Option<&str>) {
         let bar_y = height.saturating_sub(STATUS_BAR_H);
         let bar_bg = 0xFF_18_18_25_u32;
 
@@ -569,6 +570,14 @@ impl Renderer {
                 format!("/{query}  [{}/{}]", search_current + 1, search_total)
             };
             self.draw_str(buf, width, height, badge_x + badge_w + 10, badge_y + 2, &info, px, false, 0xFF_ba_c2_de);
+        }
+
+        // Show CWD right-aligned in the status bar.
+        if let Some(path) = cwd {
+            let cwd_w = path.len() as u32 * char_w;
+            if let Some(cwd_x) = width.checked_sub(cwd_w + 10) {
+                self.draw_str(buf, width, height, cwd_x, badge_y + 2, path, px, false, 0xFF_58_5b_70);
+            }
         }
     }
 }
