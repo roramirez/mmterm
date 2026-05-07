@@ -7,12 +7,13 @@ const F_WIN_WIDTH:   usize = 2;
 const F_WIN_HEIGHT:  usize = 3;
 const F_WIN_TITLE:   usize = 4;
 const F_BLINK_MS:    usize = 5;
-const F_SHELL:       usize = 6;
-const F_COLOR_BG:    usize = 7;
-const F_COLOR_FG:    usize = 8;
-const F_COLOR_CUR:   usize = 9;
-const F_COLOR_SEL:   usize = 10;
-const F_PALETTE:     usize = 11; // F_PALETTE + 0..15
+const F_DIM:         usize = 6;
+const F_SHELL:       usize = 7;
+const F_COLOR_BG:    usize = 8;
+const F_COLOR_FG:    usize = 9;
+const F_COLOR_CUR:   usize = 10;
+const F_COLOR_SEL:   usize = 11;
+const F_PALETTE:     usize = 12; // F_PALETTE + 0..15
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black", "Palette 1  red",     "Palette 2  green",  "Palette 3  yellow",
@@ -77,6 +78,9 @@ impl ConfigPanel {
                     section: None },
             Field { label: "Cursor Blink", hint: "milliseconds per half-cycle, e.g. 500",
                     value: cfg.window.cursor_blink_ms.to_string(), kind: FieldKind::UInt,
+                    section: None },
+            Field { label: "Inactive Dim", hint: "brightness of unfocused panes (0.0–1.0, e.g. 0.55)",
+                    value: cfg.window.inactive_dim.to_string(), kind: FieldKind::Float,
                     section: None },
             // ── Shell ───────────────────────────────────────────────────────
             Field { label: "Shell",         hint: "empty = use $SHELL",
@@ -220,6 +224,8 @@ impl ConfigPanel {
         let height    = get(F_WIN_HEIGHT).parse::<u32>().map_err(|_| "Invalid window height")?;
         let title     = get(F_WIN_TITLE);
         let blink_ms  = get(F_BLINK_MS).parse::<u32>().map_err(|_| "Invalid cursor blink ms")?;
+        let inactive_dim = get(F_DIM).parse::<f32>().map_err(|_| "Invalid inactive dim")?
+            .clamp(0.0, 1.0);
         let shell  = { let s = get(F_SHELL); if s.is_empty() { None } else { Some(s) } };
 
         let background = get(F_COLOR_BG);
@@ -231,7 +237,7 @@ impl ConfigPanel {
 
         Ok(Config {
             font:   FontConfig { family, size },
-            window: WindowConfig { width, height, title, cursor_blink_ms: blink_ms },
+            window: WindowConfig { width, height, title, cursor_blink_ms: blink_ms, inactive_dim },
             shell:  ShellConfig { program: shell },
             colors: ColorsConfig { background, foreground, cursor, selection, palette },
         })

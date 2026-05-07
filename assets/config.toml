@@ -9,6 +9,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+inactive_dim    = 0.55
 
 [shell]
 # program = "/bin/zsh"

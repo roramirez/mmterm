@@ -88,12 +88,13 @@ impl Renderer {
         search_total: usize,
         search_current: usize,
         cwd: Option<&str>,
+        inactive_dim: f32,
     ) {
         let bg_fill = panes.first().map(|p| p.grid.default_bg).unwrap_or(Color::BLACK);
         buf.fill(color_u32(bg_fill));
 
         for pane in panes {
-            self.draw_pane(buf, buf_width, pane, mode, metrics);
+            self.draw_pane(buf, buf_width, pane, mode, metrics, inactive_dim);
         }
 
         // Draw separators
@@ -116,7 +117,7 @@ impl Renderer {
         self.draw_status_bar(buf, buf_width, buf_height, mode, search_total, search_current, cwd);
     }
 
-    fn draw_pane(&mut self, buf: &mut [u32], buf_width: u32, pane: &PaneView, mode: &InputMode, m: &FontMetrics) {
+    fn draw_pane(&mut self, buf: &mut [u32], buf_width: u32, pane: &PaneView, mode: &InputMode, m: &FontMetrics, dim_factor: f32) {
         let [rx, ry, rw, rh] = pane.rect;
         let grid = pane.grid;
 
@@ -207,7 +208,10 @@ impl Renderer {
                 } else {
                     cell.fg
                 };
-                let bg32 = color_u32(bg);
+                let bg32 = {
+                    let c = color_u32(bg);
+                    if pane.is_active { c } else { dim_color(c, dim_factor) }
+                };
 
                 for dy in 0..m.cell_height {
                     for dx in 0..draw_w {
@@ -246,13 +250,17 @@ impl Renderer {
                                 let idx = (sy * buf_width + sx) as usize;
                                 if idx < buf.len() {
                                     let px = (0xFF_u32 << 24) | (r << 16) | (g << 8) | b;
+                                    let px = if pane.is_active { px } else { dim_color(px, dim_factor) };
                                     buf[idx] = blend(bg32, px, a);
                                 }
                             }
                         }
                     } else {
                         // Grayscale alpha bitmap: blend fg color with background.
-                        let fg32 = color_u32(fg);
+                        let fg32 = {
+                            let c = color_u32(fg);
+                            if pane.is_active { c } else { dim_color(c, dim_factor) }
+                        };
                         for gy in 0..gh {
                             for gx in 0..gw {
                                 let alpha = info.bitmap[(gy * gw + gx) as usize];
@@ -277,7 +285,9 @@ impl Renderer {
                             let sx = cell_x + dx;
                             if sx >= rx + rw { break; }
                             let idx = (ul_y * buf_width + sx) as usize;
-                            if idx < buf.len() { buf[idx] = HYPERLINK_UL; }
+                            if idx < buf.len() {
+                                    buf[idx] = if pane.is_active { HYPERLINK_UL } else { dim_color(HYPERLINK_UL, dim_factor) };
+                                }
                         }
                     }
                 }
@@ -613,6 +623,13 @@ fn mode_style(mode: &InputMode) -> (&'static str, u32) {
 
 fn color_u32(c: Color) -> u32 {
     (0xFF << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32)
+}
+
+fn dim_color(c: u32, factor: f32) -> u32 {
+    let r = (((c >> 16) & 0xFF) as f32 * factor) as u32;
+    let g = (((c >> 8) & 0xFF) as f32 * factor) as u32;
+    let b = ((c & 0xFF) as f32 * factor) as u32;
+    (0xFF << 24) | (r << 16) | (g << 8) | b
 }
 
 fn blend(bg: u32, fg: u32, alpha: u8) -> u32 {

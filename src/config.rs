@@ -30,12 +30,16 @@ pub struct FontConfig {
     pub size: f32,
 }
 
+fn default_inactive_dim() -> f32 { 0.55 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
     pub width: u32,
     pub height: u32,
     pub title: String,
     pub cursor_blink_ms: u32,
+    #[serde(default = "default_inactive_dim")]
+    pub inactive_dim: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

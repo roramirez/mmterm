@@ -795,7 +795,7 @@ impl App {
             } else {
                 p.to_string()
             });
-        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref());
+        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref(), self.config.window.inactive_dim);
 
         if let Some(panel) = &self.config_panel {
             self.renderer.draw_config_panel(pixels, w, h, panel);
