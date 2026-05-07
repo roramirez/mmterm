@@ -46,7 +46,7 @@ impl Perform for Performer<'_> {
                     self.grid.cursor_col -= 1;
                 }
             }
-            0x07 => {} // bell — ignore
+            0x07 => self.grid.bell_pending = true,
             _ => {}
         }
     }

@@ -47,6 +47,8 @@ struct TabState {
     zoomed: bool,
     /// True when PTY output arrived while this tab was not active
     has_activity: bool,
+    /// Set when a BEL is received; expires after a short flash duration
+    bell_flash_until: Option<Instant>,
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -170,6 +172,7 @@ impl App {
             name: None,
             zoomed: false,
             has_activity: false,
+            bell_flash_until: None,
         });
         let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
         self.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
@@ -225,6 +228,10 @@ impl App {
                 }
                 if got_data && tab_idx != active_tab {
                     tab.has_activity = true;
+                }
+                if entry.pane.parser.grid.bell_pending {
+                    entry.pane.parser.grid.bell_pending = false;
+                    tab.bell_flash_until = Some(Instant::now() + Duration::from_millis(100));
                 }
             }
         }
@@ -805,7 +812,9 @@ impl App {
             } else {
                 p.to_string()
             });
-        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref(), self.config.window.inactive_dim);
+        let bell_flash = self.tabs[self.active_tab].bell_flash_until
+            .map_or(false, |t| t > Instant::now());
+        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref(), self.config.window.inactive_dim, bell_flash);
 
         if let Some(panel) = &self.config_panel {
             self.renderer.draw_config_panel(pixels, w, h, panel);
@@ -1190,9 +1199,16 @@ impl ApplicationHandler for App {
                 Instant::now() + blink_dur,
             ));
         } else {
-            event_loop.set_control_flow(ControlFlow::WaitUntil(
-                Instant::now() + (blink_dur - elapsed),
-            ));
+            let mut next = Instant::now() + (blink_dur - elapsed);
+            // Wake up early if a bell flash is still active so we clear it on expiry.
+            for tab in &self.tabs {
+                if let Some(expiry) = tab.bell_flash_until {
+                    if expiry > Instant::now() && expiry < next {
+                        next = expiry;
+                    }
+                }
+            }
+            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
         }
     }
 }

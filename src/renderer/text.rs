@@ -89,6 +89,7 @@ impl Renderer {
         search_current: usize,
         cwd: Option<&str>,
         inactive_dim: f32,
+        bell_flash: bool,
     ) {
         let bg_fill = panes.first().map(|p| p.grid.default_bg).unwrap_or(Color::BLACK);
         buf.fill(color_u32(bg_fill));
@@ -112,6 +113,20 @@ impl Renderer {
 
         // Active pane: highlight left edge of its separator(s)
         // (top-edge highlight removed — tab bar serves that role)
+
+        if bell_flash {
+            let flash_color = 0xFF_FF_FF_FF_u32;
+            let content_top = TAB_BAR_H;
+            let content_bot = buf_height.saturating_sub(STATUS_BAR_H);
+            for y in content_top..content_bot {
+                for x in 0..buf_width {
+                    let idx = (y * buf_width + x) as usize;
+                    if idx < buf.len() {
+                        buf[idx] = blend(buf[idx], flash_color, 38);
+                    }
+                }
+            }
+        }
 
         self.draw_tab_bar(buf, buf_width, tab_titles);
         self.draw_status_bar(buf, buf_width, buf_height, mode, search_total, search_current, cwd);

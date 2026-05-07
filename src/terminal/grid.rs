@@ -91,6 +91,8 @@ pub struct Grid {
     pub current_url: Option<Arc<String>>,
     // OSC 7: current working directory reported by the shell
     pub cwd: Option<String>,
+    // Set by BEL (0x07); consumed by App to trigger a visual flash
+    pub bell_pending: bool,
 }
 
 impl Grid {
@@ -129,6 +131,7 @@ impl Grid {
             alternate_saved: None,
             current_url: None,
             cwd: None,
+            bell_pending: false,
         }
     }
 
