@@ -36,6 +36,9 @@ font-kit = "0.14"
 # Unicode character width (wide/narrow for CJK, emoji)
 unicode-width = "0.2"
 
+# FreeType bindings for color emoji rendering (CBDT/CBLC)
+freetype = "0.7"
+
 # Config file parsing
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }

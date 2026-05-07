@@ -175,18 +175,47 @@ impl Renderer {
                     let (gw, gh) = (info.width, info.height);
                     let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
                     let y_offset = glyph_top.max(0) as u32;
-                    let fg32 = color_u32(fg);
+                    // Center color emoji horizontally within the cell area.
+                    let x_base = if info.color && gw < draw_w {
+                        cell_x + (draw_w - gw) / 2
+                    } else {
+                        cell_x
+                    };
 
-                    for gy in 0..gh {
-                        for gx in 0..gw {
-                            let alpha = info.bitmap[(gy * gw + gx) as usize];
-                            if alpha == 0 { continue; }
-                            let sx = cell_x + gx;
-                            let sy = cell_y + y_offset + gy;
-                            if sx >= rx + rw || sy >= ry + rh { continue; }
-                            let idx = (sy * buf_width + sx) as usize;
-                            if idx < buf.len() {
-                                buf[idx] = blend(bg32, fg32, alpha);
+                    if info.color {
+                        // RGBA bitmap (color emoji from FreeType): blit with per-pixel alpha.
+                        for gy in 0..gh {
+                            for gx in 0..gw {
+                                let base = ((gy * gw + gx) * 4) as usize;
+                                let a = info.bitmap[base + 3];
+                                if a == 0 { continue; }
+                                let r = info.bitmap[base] as u32;
+                                let g = info.bitmap[base + 1] as u32;
+                                let b = info.bitmap[base + 2] as u32;
+                                let sx = x_base + gx;
+                                let sy = cell_y + y_offset + gy;
+                                if sx >= rx + rw || sy >= ry + rh { continue; }
+                                let idx = (sy * buf_width + sx) as usize;
+                                if idx < buf.len() {
+                                    let px = (0xFF_u32 << 24) | (r << 16) | (g << 8) | b;
+                                    buf[idx] = blend(bg32, px, a);
+                                }
+                            }
+                        }
+                    } else {
+                        // Grayscale alpha bitmap: blend fg color with background.
+                        let fg32 = color_u32(fg);
+                        for gy in 0..gh {
+                            for gx in 0..gw {
+                                let alpha = info.bitmap[(gy * gw + gx) as usize];
+                                if alpha == 0 { continue; }
+                                let sx = x_base + gx;
+                                let sy = cell_y + y_offset + gy;
+                                if sx >= rx + rw || sy >= ry + rh { continue; }
+                                let idx = (sy * buf_width + sx) as usize;
+                                if idx < buf.len() {
+                                    buf[idx] = blend(bg32, fg32, alpha);
+                                }
                             }
                         }
                     }
