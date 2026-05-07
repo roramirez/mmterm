@@ -266,7 +266,18 @@ impl Perform for Performer<'_> {
         }
     }
 
-    fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {}
+    fn osc_dispatch(&mut self, params: &[&[u8]], _bell_terminated: bool) {
+        // OSC 8 hyperlink: \e]8;params;uri\e\\  (empty uri = end link)
+        if let [osc, _, uri, ..] = params {
+            if *osc == b"8" {
+                if uri.is_empty() {
+                    self.grid.current_url = None;
+                } else if let Ok(s) = std::str::from_utf8(uri) {
+                    self.grid.current_url = Some(std::sync::Arc::new(s.to_string()));
+                }
+            }
+        }
+    }
     fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {}
     fn put(&mut self, _byte: u8) {}
     fn unhook(&mut self) {}

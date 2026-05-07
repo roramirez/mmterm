@@ -35,6 +35,22 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 - Match highlight: yellow bg `#f9e2af`; current match: orange bg `#fe640d`; both use dark fg `#11111d`
 - Status bar shows `/query  [current/total]` when in Search mode
 
+## Pane Zoom (implemented)
+
+- `TabState.zoomed: bool` — session-only flag, never persisted
+- `Ctrl-W z` toggles zoom; handled in the `ctrl_w_pending` dispatch block in `src/main.rs`
+- When zoomed, `redraw()` builds a single `PaneView` at `[0, TAB_BAR_H, w, h - TAB_BAR_H - STATUS_BAR_H]` instead of iterating the layout tree; separators are suppressed
+- `do_split` and `do_close_pane` set `zoomed = false` before acting — layout is never modified
+- Mouse hit-testing (`pane_at_pixel`, `pixel_to_cell`) uses the original layout rects while zoomed; cell coordinates may be slightly off in zoomed mode
+
+## OSC 8 Hyperlinks (implemented)
+
+- `Grid.active_url: Option<Arc<String>>` — set by the parser on `\e]8;;uri\e\\` open, cleared on `\e]8;;\e\\` close
+- `Cell.url: Option<Arc<String>>` — stamped on every cell written while a URL is active
+- Renderer draws cells with a non-None URL with blue underline (`#89b4fa`)
+- `App.hovered_url: Option<String>` — updated on `CursorMoved`; cursor switches to `Pointer` when hovering a link
+- Left-click on a linked cell opens the URL via `xdg-open` (Linux) / `open` (macOS)
+
 ## Core Types (abbreviated)
 
 ```rust
@@ -50,6 +66,7 @@ struct App {
     ctrl_w_pending: bool,
     config: Config,
     config_panel: Option<ConfigPanel>,
+    hovered_url: Option<String>,
 }
 
 struct TabState {
@@ -58,6 +75,7 @@ struct TabState {
     active: usize,              // active pane id
     metrics: FontMetrics,       // session-only, NOT saved to config
     name: Option<String>,
+    zoomed: bool,               // session-only, NOT saved to config
 }
 
 struct PaneEntry {
@@ -99,6 +117,7 @@ pub enum Action {
     NewTab, NextTab, PrevTab, CloseTab, RenameTab,
     IncreaseFontSize, DecreaseFontSize, ResetFontSize,
     SearchOpen, SearchNext, SearchPrev,
+    ZoomPane,
     Quit, None,
 }
 ```
@@ -173,7 +192,7 @@ renderer.draw_config_panel(buf, bw, bh, panel)
 - Use `Instant` for time-sensitive behaviour (blink, key repeat) — never frame counts
 - `F_*` constants in `tui_config.rs` must be contiguous and match the `fields` vec order exactly
 - Do not `unwrap()` on paths reachable at runtime — use `?`, `if let`, or a logged fallback
-- Do not persist session-only state (per-tab font size, scroll offset) to config
+- Do not persist session-only state (per-tab font size, scroll offset, zoom) to config
 
 ## Logging
 
