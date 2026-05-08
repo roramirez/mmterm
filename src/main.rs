@@ -889,6 +889,7 @@ impl ApplicationHandler for App {
                         Action::ZoomPane  => { self.tab_mut().zoomed = !self.tab().zoomed; }
                         _ => {}
                     }
+                    if let Some(w) = &self.window { w.request_redraw(); }
                     return;
                 }
 
@@ -999,8 +1000,8 @@ impl ApplicationHandler for App {
                             .unwrap_or((800, 600));
                         self.new_tab(w, h);
                     }
-                    Action::NextTab   => self.next_tab(),
-                    Action::PrevTab   => self.prev_tab(),
+                    Action::NextTab   => { self.next_tab(); if let Some(w) = &self.window { w.request_redraw(); } }
+                    Action::PrevTab   => { self.prev_tab(); if let Some(w) = &self.window { w.request_redraw(); } }
                     Action::CloseTab  => self.close_tab(event_loop),
                     Action::RenameTab => {
                         let current = self.tabs[self.active_tab].name.clone()
