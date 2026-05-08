@@ -205,6 +205,13 @@ impl Renderer {
                     (false, false)
                 };
 
+                // Apply reverse video before cursor/selection overrides.
+                let (cell_fg, cell_bg) = if cell.reverse {
+                    (cell.bg, cell.fg)
+                } else {
+                    (cell.fg, cell.bg)
+                };
+
                 let bg = if is_cursor {
                     grid.cursor_color
                 } else if is_current_match {
@@ -214,14 +221,21 @@ impl Renderer {
                 } else if is_selected {
                     grid.selection_color
                 } else {
-                    cell.bg
+                    cell_bg
                 };
                 let fg = if is_cursor {
                     Color::BLACK
                 } else if in_match {
                     SEARCH_MATCH_FG
+                } else if cell.dim {
+                    // Dim: blend fg 50% toward bg
+                    Color::rgb(
+                        ((cell_fg.r as u16 + cell_bg.r as u16) / 2) as u8,
+                        ((cell_fg.g as u16 + cell_bg.g as u16) / 2) as u8,
+                        ((cell_fg.b as u16 + cell_bg.b as u16) / 2) as u8,
+                    )
                 } else {
-                    cell.fg
+                    cell_fg
                 };
                 let bg32 = {
                     let c = color_u32(bg);
@@ -292,17 +306,34 @@ impl Renderer {
                     }
                 }
 
-                // Hyperlink underline (1px, 2px from bottom of cell)
-                if cell.url.is_some() {
+                // Underline (1px, 2px from bottom): SGR 4 or OSC 8 hyperlink
+                if cell.underline || cell.url.is_some() {
+                    let ul_color = if cell.url.is_some() {
+                        if pane.is_active { HYPERLINK_UL } else { dim_color(HYPERLINK_UL, dim_factor) }
+                    } else {
+                        color_u32(fg)
+                    };
                     let ul_y = cell_y + m.cell_height.saturating_sub(2);
                     if ul_y < ry + rh {
                         for dx in 0..draw_w {
                             let sx = cell_x + dx;
                             if sx >= rx + rw { break; }
                             let idx = (ul_y * buf_width + sx) as usize;
-                            if idx < buf.len() {
-                                    buf[idx] = if pane.is_active { HYPERLINK_UL } else { dim_color(HYPERLINK_UL, dim_factor) };
-                                }
+                            if idx < buf.len() { buf[idx] = ul_color; }
+                        }
+                    }
+                }
+
+                // Strikethrough (1px at mid-ascender)
+                if cell.strikethrough {
+                    let st_y = cell_y + m.baseline / 2;
+                    if st_y < ry + rh {
+                        let st_color = color_u32(fg);
+                        for dx in 0..draw_w {
+                            let sx = cell_x + dx;
+                            if sx >= rx + rw { break; }
+                            let idx = (st_y * buf_width + sx) as usize;
+                            if idx < buf.len() { buf[idx] = st_color; }
                         }
                     }
                 }
@@ -682,7 +713,7 @@ fn get_cell<'a>(grid: &'a Grid, scroll_offset: usize, row: usize, col: usize) ->
 }
 
 // bg will differ per grid but this fallback is only hit for out-of-bounds scrollback
-static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, wide: false, wide_cont: false, url: None };
+static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None };
 
 fn mode_style(mode: &InputMode) -> (&'static str, u32) {
     match mode {

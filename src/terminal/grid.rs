@@ -28,6 +28,10 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub bold: bool,
+    pub dim: bool,
+    pub underline: bool,
+    pub strikethrough: bool,
+    pub reverse: bool,
     /// True when this is the left half of a 2-column wide character.
     pub wide: bool,
     /// True when this is the right (placeholder) half of a wide character.
@@ -38,7 +42,7 @@ pub struct Cell {
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, wide: false, wide_cont: false, url: None }
+        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
     }
 }
 
@@ -51,6 +55,10 @@ struct SavedScreen {
     fg: Color,
     bg: Color,
     bold: bool,
+    dim: bool,
+    underline: bool,
+    strikethrough: bool,
+    reverse: bool,
     scrollback: VecDeque<Vec<Cell>>,
     current_url: Option<Arc<String>>,
 }
@@ -67,6 +75,10 @@ pub struct Grid {
     pub fg: Color,
     pub bg: Color,
     pub bold: bool,
+    pub dim: bool,
+    pub underline: bool,
+    pub strikethrough: bool,
+    pub reverse: bool,
     // Scrollback: lines that have scrolled off the top (oldest first)
     pub scrollback: VecDeque<Vec<Cell>>,
     // Theme colors
@@ -107,7 +119,7 @@ impl Grid {
         selection_color: Color,
         palette: [Color; 16],
     ) -> Self {
-        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, wide: false, wide_cont: false, url: None };
+        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None };
         Self {
             cols,
             rows,
@@ -119,6 +131,10 @@ impl Grid {
             fg: default_fg,
             bg: default_bg,
             bold: false,
+            dim: false,
+            underline: false,
+            strikethrough: false,
+            reverse: false,
             scrollback: VecDeque::new(),
             default_fg,
             default_bg,
@@ -152,6 +168,10 @@ impl Grid {
             fg: self.fg,
             bg: self.bg,
             bold: self.bold,
+            dim: self.dim,
+            underline: self.underline,
+            strikethrough: self.strikethrough,
+            reverse: self.reverse,
             scrollback: std::mem::take(&mut self.scrollback),
             current_url: self.current_url.take(),
         });
@@ -162,6 +182,10 @@ impl Grid {
         self.fg = self.default_fg;
         self.bg = self.default_bg;
         self.bold = false;
+        self.dim = false;
+        self.underline = false;
+        self.strikethrough = false;
+        self.reverse = false;
     }
 
     pub fn exit_alternate_screen(&mut self) {
@@ -174,6 +198,10 @@ impl Grid {
             self.fg = saved.fg;
             self.bg = saved.bg;
             self.bold = saved.bold;
+            self.dim = saved.dim;
+            self.underline = saved.underline;
+            self.strikethrough = saved.strikethrough;
+            self.reverse = saved.reverse;
             self.scrollback = saved.scrollback;
             self.current_url = saved.current_url;
         }
@@ -222,6 +250,10 @@ impl Grid {
         let fg = self.fg;
         let bg = self.bg;
         let bold = self.bold;
+        let dim = self.dim;
+        let underline = self.underline;
+        let strikethrough = self.strikethrough;
+        let reverse = self.reverse;
         let wide = char_cols == 2;
         let url = self.current_url.clone();
 
@@ -230,6 +262,10 @@ impl Grid {
         cell.fg = fg;
         cell.bg = bg;
         cell.bold = bold;
+        cell.dim = dim;
+        cell.underline = underline;
+        cell.strikethrough = strikethrough;
+        cell.reverse = reverse;
         cell.wide = wide;
         cell.wide_cont = false;
         cell.url = url;
@@ -323,14 +359,14 @@ impl Grid {
     }
 
     pub fn blank_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, wide: false, wide_cont: false, url: None }
+        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
     }
 
     // Erase operations (ED, EL, scroll blank rows) use the current SGR background,
     // not the default — this is the BCE (Background Color Erase) behaviour that
     // xterm and most terminals implement.
     pub fn erase_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.bg, bold: false, wide: false, wide_cont: false, url: None }
+        Cell { c: ' ', fg: self.default_fg, bg: self.bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
     }
 
     pub fn clear_line(&mut self, row: usize) {
