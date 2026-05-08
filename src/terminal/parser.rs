@@ -249,6 +249,16 @@ impl Perform for Performer<'_> {
                 self.grid.scroll_top = saved_top;
                 self.grid.cursor_col = 0;
             }
+            // CHA: cursor horizontal absolute (move to column, 1-indexed)
+            'G' => {
+                let col = p0.saturating_sub(1) as usize;
+                self.grid.cursor_col = col.min(self.grid.cols - 1);
+            }
+            // VPA: vertical position absolute (move to row, 1-indexed)
+            'd' => {
+                let row = p0.saturating_sub(1) as usize;
+                self.grid.cursor_row = row.min(self.grid.rows - 1);
+            }
             // Set scroll region
             'r' => {
                 let top = p0.saturating_sub(1) as usize;
