@@ -210,6 +210,7 @@ impl App {
     /// any panes whose PTY process has exited (sender disconnected).
     fn drain_all(&mut self) -> Vec<(usize, usize)> {
         let active_tab = self.active_tab;
+        let detect_urls = self.config.window.detect_urls;
         let mut exited = Vec::new();
         for (tab_idx, tab) in self.tabs.iter_mut().enumerate() {
             let ids: Vec<usize> = tab.panes.keys().copied().collect();
@@ -225,6 +226,9 @@ impl App {
                             break;
                         }
                     }
+                }
+                if got_data && detect_urls {
+                    entry.pane.parser.grid.scan_urls();
                 }
                 if got_data && tab_idx != active_tab {
                     tab.has_activity = true;

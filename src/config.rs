@@ -31,6 +31,7 @@ pub struct FontConfig {
 }
 
 fn default_inactive_dim() -> f32 { 0.55 }
+fn default_detect_urls() -> bool { true }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
@@ -40,6 +41,8 @@ pub struct WindowConfig {
     pub cursor_blink_ms: u32,
     #[serde(default = "default_inactive_dim")]
     pub inactive_dim: f32,
+    #[serde(default = "default_detect_urls")]
+    pub detect_urls: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -385,6 +385,51 @@ impl Grid {
         let blank = self.erase_cell();
         self.cells = vec![blank; self.cols * self.rows];
     }
+
+    /// Scan all live grid rows for plain-text `http(s)://` URLs and stamp
+    /// matching cells with `cell.url`.  OSC 8 cells (already non-None) are
+    /// left untouched.  Call this after each PTY-data batch.
+    pub fn scan_urls(&mut self) {
+        for row in 0..self.rows {
+            let chars: Vec<char> = (0..self.cols).map(|c| self.cell(c, row).c).collect();
+            let mut col = 0;
+            while col < chars.len() {
+                if let Some(span) = url_span_at(&chars, col) {
+                    let url_arc = Arc::new(chars[col..col + span].iter().collect::<String>());
+                    for c in col..col + span {
+                        let cell = self.cell_mut(c, row);
+                        if cell.url.is_none() {
+                            cell.url = Some(url_arc.clone());
+                        }
+                    }
+                    col += span;
+                } else {
+                    col += 1;
+                }
+            }
+        }
+    }
+}
+
+/// Returns the length (in chars) of a URL starting at `chars[start]`, or
+/// `None` if there is no URL there.  Matches `http://…` and `https://…`
+/// up to the first whitespace or C0 control character.
+fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
+    let tail = &chars[start..];
+    let prefix_len = if tail.starts_with(&['h','t','t','p','s',':','/','/']) {
+        8
+    } else if tail.starts_with(&['h','t','t','p',':','/','/']) {
+        7
+    } else {
+        return None;
+    };
+    let mut len = prefix_len;
+    while len < tail.len() {
+        let c = tail[len];
+        if c <= ' ' { break; }
+        len += 1;
+    }
+    if len > prefix_len { Some(len) } else { None }
 }
 
 #[cfg(test)]

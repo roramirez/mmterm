@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 12 base fields + 16 palette = 28
-    assert_eq!(panel.fields.len(), 28);
+    // 13 base fields + 16 palette = 29
+    assert_eq!(panel.fields.len(), 29);
 }
 
 #[test]

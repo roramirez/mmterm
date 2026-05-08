@@ -312,3 +312,70 @@ fn scroll_down_multiple_lines_shifts_content() {
     assert_eq!(g.cell(0, 0).c, ' ');
     assert_eq!(g.cell(0, 2).c, 'A');
 }
+
+fn write_str(g: &mut Grid, s: &str) {
+    for c in s.chars() { g.write_char(c); }
+}
+
+#[test]
+fn scan_urls_detects_https_url() {
+    let url = "https://example.com/path";
+    let mut g = make_grid(url.len() + 5, 3);
+    write_str(&mut g, url);
+    g.scan_urls();
+    assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    assert_eq!(g.cell(url.len() - 1, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    assert!(g.cell(url.len(), 0).url.is_none());
+}
+
+#[test]
+fn scan_urls_detects_http_url() {
+    let url = "http://example.com";
+    let mut g = make_grid(url.len() + 4, 3);
+    write_str(&mut g, url);
+    g.scan_urls();
+    assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+}
+
+#[test]
+fn scan_urls_stops_at_space() {
+    let mut g = make_grid(40, 3);
+    write_str(&mut g, "go to https://example.com now");
+    g.scan_urls();
+    // cells before the URL have no url
+    assert!(g.cell(0, 0).url.is_none());
+    // cells in the URL have it set
+    let url_start = "go to ".len();
+    let url = "https://example.com";
+    assert_eq!(g.cell(url_start, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    assert_eq!(g.cell(url_start + url.len() - 1, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    // cell after the URL (space) has no url
+    assert!(g.cell(url_start + url.len(), 0).url.is_none());
+}
+
+#[test]
+fn scan_urls_does_not_override_osc8_url() {
+    use std::sync::Arc;
+    let url = "https://plain.com";
+    let mut g = make_grid(url.len() + 5, 3);
+    // Simulate OSC 8 URL already set on cell 0
+    let osc_url = Arc::new("https://osc8.com".to_string());
+    g.current_url = Some(osc_url.clone());
+    g.write_char('h');
+    g.current_url = None;
+    // Write rest of url manually so scan_urls would match
+    for c in "ttps://plain.com".chars() { g.write_char(c); }
+    g.scan_urls();
+    // Cell 0 had OSC 8 URL — should not be overwritten
+    assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some("https://osc8.com"));
+}
+
+#[test]
+fn scan_urls_no_false_positive_on_plain_text() {
+    let mut g = make_grid(20, 3);
+    write_str(&mut g, "not a url at all");
+    g.scan_urls();
+    for col in 0..16 {
+        assert!(g.cell(col, 0).url.is_none());
+    }
+}

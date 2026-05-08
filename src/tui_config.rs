@@ -8,12 +8,13 @@ const F_WIN_HEIGHT:  usize = 3;
 const F_WIN_TITLE:   usize = 4;
 const F_BLINK_MS:    usize = 5;
 const F_DIM:         usize = 6;
-const F_SHELL:       usize = 7;
-const F_COLOR_BG:    usize = 8;
-const F_COLOR_FG:    usize = 9;
-const F_COLOR_CUR:   usize = 10;
-const F_COLOR_SEL:   usize = 11;
-const F_PALETTE:     usize = 12; // F_PALETTE + 0..15
+const F_DETECT_URLS: usize = 7;
+const F_SHELL:       usize = 8;
+const F_COLOR_BG:    usize = 9;
+const F_COLOR_FG:    usize = 10;
+const F_COLOR_CUR:   usize = 11;
+const F_COLOR_SEL:   usize = 12;
+const F_PALETTE:     usize = 13; // F_PALETTE + 0..15
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black", "Palette 1  red",     "Palette 2  green",  "Palette 3  yellow",
@@ -29,6 +30,7 @@ pub enum FieldKind {
     UInt,
     OptText,
     HexColor, // #RRGGBB
+    Bool,     // "true" | "false"
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +83,9 @@ impl ConfigPanel {
                     section: None },
             Field { label: "Inactive Dim", hint: "brightness of unfocused panes (0.0–1.0, e.g. 0.55)",
                     value: cfg.window.inactive_dim.to_string(), kind: FieldKind::Float,
+                    section: None },
+            Field { label: "Detect URLs", hint: "true or false — auto-detect http(s):// links",
+                    value: cfg.window.detect_urls.to_string(), kind: FieldKind::Bool,
                     section: None },
             // ── Shell ───────────────────────────────────────────────────────
             Field { label: "Shell",         hint: "empty = use $SHELL",
@@ -208,6 +213,7 @@ impl ConfigPanel {
             FieldKind::Float    => val.parse::<f32>().map_or(false, |v| v > 0.0),
             FieldKind::UInt     => val.parse::<u32>().map_or(false, |v| v > 0),
             FieldKind::HexColor => is_valid_hex(val),
+            FieldKind::Bool     => val == "true" || val == "false",
         }
     }
 
@@ -226,6 +232,7 @@ impl ConfigPanel {
         let blink_ms  = get(F_BLINK_MS).parse::<u32>().map_err(|_| "Invalid cursor blink ms")?;
         let inactive_dim = get(F_DIM).parse::<f32>().map_err(|_| "Invalid inactive dim")?
             .clamp(0.0, 1.0);
+        let detect_urls = get(F_DETECT_URLS).parse::<bool>().map_err(|_| "Invalid detect_urls — use true or false")?;
         let shell  = { let s = get(F_SHELL); if s.is_empty() { None } else { Some(s) } };
 
         let background = get(F_COLOR_BG);
@@ -237,7 +244,7 @@ impl ConfigPanel {
 
         Ok(Config {
             font:   FontConfig { family, size },
-            window: WindowConfig { width, height, title, cursor_blink_ms: blink_ms, inactive_dim },
+            window: WindowConfig { width, height, title, cursor_blink_ms: blink_ms, inactive_dim, detect_urls },
             shell:  ShellConfig { program: shell },
             colors: ColorsConfig { background, foreground, cursor, selection, palette },
         })
