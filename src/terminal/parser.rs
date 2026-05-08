@@ -249,6 +249,49 @@ impl Perform for Performer<'_> {
                 self.grid.scroll_top = saved_top;
                 self.grid.cursor_col = 0;
             }
+            // DCH: delete n characters at cursor, shift line left, fill end with blanks
+            'P' => {
+                let n = p0.max(1) as usize;
+                let row = self.grid.cursor_row;
+                let col = self.grid.cursor_col;
+                let cols = self.grid.cols;
+                let blank = self.grid.erase_cell();
+                let n = n.min(cols - col);
+                for c in col..cols {
+                    self.grid.cells[row * cols + c] = if c + n < cols {
+                        self.grid.cells[row * cols + c + n].clone()
+                    } else {
+                        blank.clone()
+                    };
+                }
+            }
+            // ICH: insert n blank characters at cursor, shift line right, drop overflow
+            '@' => {
+                let n = p0.max(1) as usize;
+                let row = self.grid.cursor_row;
+                let col = self.grid.cursor_col;
+                let cols = self.grid.cols;
+                let blank = self.grid.erase_cell();
+                let n = n.min(cols - col);
+                for c in (col..cols).rev() {
+                    self.grid.cells[row * cols + c] = if c >= col + n {
+                        self.grid.cells[row * cols + c - n].clone()
+                    } else {
+                        blank.clone()
+                    };
+                }
+            }
+            // ECH: erase n characters at cursor (replace with blanks, no shift)
+            'X' => {
+                let n = p0.max(1) as usize;
+                let row = self.grid.cursor_row;
+                let col = self.grid.cursor_col;
+                let cols = self.grid.cols;
+                let blank = self.grid.erase_cell();
+                for c in col..(col + n).min(cols) {
+                    self.grid.cells[row * cols + c] = blank.clone();
+                }
+            }
             // CHA: cursor horizontal absolute (move to column, 1-indexed)
             'G' => {
                 let col = p0.saturating_sub(1) as usize;
