@@ -44,6 +44,9 @@ toml = "0.8"
 serde = { version = "1", features = ["derive"] }
 dirs-next = "2"
 
+# PNG decoding for window icon
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 # Error handling
 anyhow = "1"
 

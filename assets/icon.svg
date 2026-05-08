@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <pattern id="scanlines" x="0" y="0" width="2" height="4" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="2" height="2" fill="#cdd6f4"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" ry="80" fill="#1e1e2e"/>
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#scanlines)" opacity="0.04"/>
+  <rect x="2" y="2" width="508" height="508" rx="79" ry="79" fill="none" stroke="#313244" stroke-width="4"/>
+
+  <!-- MM letters -->
+  <text
+    x="256"
+    y="230"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="monospace, 'Courier New', Courier"
+    font-size="210"
+    font-weight="bold"
+    letter-spacing="-8"
+    fill="#cdd6f4"
+  >MM</text>
+
+  <!-- Prompt chevron ">" -->
+  <polyline
+    points="118,340 172,376 118,412"
+    fill="none"
+    stroke="#a6e3a1"
+    stroke-width="28"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Cursor block "_" -->
+  <rect x="196" y="392" width="110" height="26" rx="5" fill="#cdd6f4"/>
+
+  <!-- Heart -->
+  <path
+    d="M370,340 C370,320 344,308 330,324 C316,308 290,320 290,340 C290,358 330,386 330,386 C330,386 370,358 370,340 Z"
+    fill="#f38ba8"
+  />
+</svg>

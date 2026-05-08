@@ -1101,6 +1101,7 @@ dependencies = [
  "font-kit",
  "fontdue",
  "freetype",
+ "image",
  "log",
  "portable-pty",
  "serde",

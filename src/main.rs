@@ -20,7 +20,7 @@ use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
-use winit::window::{CursorIcon, Window, WindowId};
+use winit::window::{CursorIcon, Icon, Window, WindowId};
 
 use crate::input::keybindings::Action;
 use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
@@ -833,12 +833,23 @@ impl App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        const ICON_PNG: &[u8] = include_bytes!("../assets/icon.png");
+        let icon = image::load_from_memory(ICON_PNG)
+            .map(|img| {
+                let rgba = img.into_rgba8();
+                let (w, h) = rgba.dimensions();
+                Icon::from_rgba(rgba.into_raw(), w, h).ok()
+            })
+            .ok()
+            .flatten();
+
         let attrs = Window::default_attributes()
             .with_title(self.config.window.title.clone())
             .with_inner_size(winit::dpi::LogicalSize::new(
                 self.config.window.width,
                 self.config.window.height,
-            ));
+            ))
+            .with_window_icon(icon);
 
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
         window.set_cursor(CursorIcon::Text);
