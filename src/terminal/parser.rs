@@ -267,6 +267,15 @@ impl Perform for Performer<'_> {
     }
 
     fn osc_dispatch(&mut self, params: &[&[u8]], _bell_terminated: bool) {
+        // OSC 0/1/2: set window title (0 and 2 = window title, 1 = icon name)
+        if let [code, title] = params {
+            if matches!(*code, b"0" | b"1" | b"2") {
+                if let Ok(s) = std::str::from_utf8(title) {
+                    let t = s.trim();
+                    self.grid.osc_title = if t.is_empty() { None } else { Some(t.to_string()) };
+                }
+            }
+        }
         // OSC 7: current working directory reported by the shell
         if let [b"7", uri] = params {
             if let Ok(s) = std::str::from_utf8(uri) {

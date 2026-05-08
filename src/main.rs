@@ -784,16 +784,19 @@ impl App {
         let tab_titles: Vec<(String, bool, bool)> = self.tabs.iter().enumerate()
             .map(|(i, tab)| {
                 let is_active = i == self.active_tab;
+                let osc_title = tab.panes.get(&tab.active)
+                    .and_then(|e| e.pane.parser.grid.osc_title.as_deref())
+                    .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
                 let label = if is_active {
                     if let InputMode::RenameTab { buf } = &self.mode {
                         format!(" {}| ", buf)
                     } else {
-                        tab.name.as_deref()
+                        tab.name.as_deref().or(osc_title)
                             .map(|n| format!(" {} ", n))
                             .unwrap_or_else(|| format!(" {} ", i + 1))
                     }
                 } else {
-                    tab.name.as_deref()
+                    tab.name.as_deref().or(osc_title)
                         .map(|n| format!(" {} ", n))
                         .unwrap_or_else(|| format!(" {} ", i + 1))
                 };

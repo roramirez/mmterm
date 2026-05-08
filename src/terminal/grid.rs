@@ -91,6 +91,8 @@ pub struct Grid {
     pub current_url: Option<Arc<String>>,
     // OSC 7: current working directory reported by the shell
     pub cwd: Option<String>,
+    // OSC 0/1/2: window title set by the running program
+    pub osc_title: Option<String>,
     // Set by BEL (0x07); consumed by App to trigger a visual flash
     pub bell_pending: bool,
 }
@@ -131,6 +133,7 @@ impl Grid {
             alternate_saved: None,
             current_url: None,
             cwd: None,
+            osc_title: None,
             bell_pending: false,
         }
     }
