@@ -47,6 +47,11 @@ impl Perform for Performer<'_> {
                 }
             }
             0x07 => self.grid.bell_pending = true,
+            0x09 => {
+                // tab: advance to next 8-column boundary
+                let next = (self.grid.cursor_col / 8 + 1) * 8;
+                self.grid.cursor_col = next.min(self.grid.cols - 1);
+            }
             _ => {}
         }
     }
@@ -364,15 +369,25 @@ impl Perform for Performer<'_> {
     fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {}
     fn put(&mut self, _byte: u8) {}
     fn unhook(&mut self) {}
-    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, byte: u8) {
-        match byte {
-            b'M' => {
+    fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, byte: u8) {
+        match (intermediates, byte) {
+            ([], b'M') => {
                 // Reverse index: move up, or scroll content down if at top of scroll region
                 if self.grid.cursor_row > self.grid.scroll_top {
                     self.grid.cursor_row -= 1;
                 } else {
                     self.grid.scroll_down(1);
                 }
+            }
+            ([], b'7') => {
+                // DECSC: save cursor position
+                self.grid.saved_cursor_col = self.grid.cursor_col;
+                self.grid.saved_cursor_row = self.grid.cursor_row;
+            }
+            ([], b'8') => {
+                // DECRC: restore cursor position
+                self.grid.cursor_col = self.grid.saved_cursor_col.min(self.grid.cols - 1);
+                self.grid.cursor_row = self.grid.saved_cursor_row.min(self.grid.rows - 1);
             }
             _ => {}
         }

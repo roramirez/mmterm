@@ -79,6 +79,9 @@ pub struct Grid {
     pub underline: bool,
     pub strikethrough: bool,
     pub reverse: bool,
+    // DECSC/DECRC saved cursor
+    pub saved_cursor_col: usize,
+    pub saved_cursor_row: usize,
     // Scrollback: lines that have scrolled off the top (oldest first)
     pub scrollback: VecDeque<Vec<Cell>>,
     // Theme colors
@@ -135,6 +138,8 @@ impl Grid {
             underline: false,
             strikethrough: false,
             reverse: false,
+            saved_cursor_col: 0,
+            saved_cursor_row: 0,
             scrollback: VecDeque::new(),
             default_fg,
             default_bg,
@@ -247,8 +252,7 @@ impl Grid {
             self.advance_row();
         }
 
-        let fg = self.fg;
-        let bg = self.bg;
+        let (fg, bg) = if self.reverse { (self.bg, self.fg) } else { (self.fg, self.bg) };
         let bold = self.bold;
         let dim = self.dim;
         let underline = self.underline;
