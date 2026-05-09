@@ -198,6 +198,7 @@ renderer.draw_config_panel(buf, bw, bh, panel)
 
 - Run `cargo fmt` before every commit — all code in the repo must be `rustfmt`-clean.
 - Never manually align `match` arms, function arguments, or struct fields; let `rustfmt` decide.
+- All code must pass `cargo clippy --locked -- -D warnings` with zero errors.
 
 ## Logging
 
