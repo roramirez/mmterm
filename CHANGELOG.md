@@ -5,11 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- default log directory is now `~/.mmterm` (created automatically) instead of `$HOME`
+
 ## [0.1.0] - 2026-05-09
 
 ### Added
-
-- session logging: `Ctrl+Shift+L` toggles PTY output capture to `~/mmterm-<timestamp>-pane<id>.log`; active pane shows a `● REC` badge in the status bar; configurable via `[logging]` in config (`auto_log`, `log_dir`)
 
 #### Terminal emulation
 - SGR blink attribute (codes 5/25)
@@ -60,6 +62,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Full 16-color ANSI palette theming
 - TUI config panel (`Ctrl+,`) — edit settings in-process
 - Configurable cursor blink interval
+- Session logging: `Ctrl+Shift+L` toggles PTY output capture per-pane; active pane shows a `● REC` badge in the status bar; configurable via `[logging]` section (`auto_log`, `log_dir`)
 
 #### Input
 - Modal input: Insert, Normal, Visual, Search modes (vim-style)

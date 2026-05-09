@@ -70,7 +70,7 @@ pub struct LogConfig {
     /// Start logging automatically for every new pane.
     #[serde(default = "default_auto_log")]
     pub auto_log: bool,
-    /// Directory for log files. Empty string means $HOME.
+    /// Directory for log files. Empty string means ~/.mmterm.
     #[serde(default = "default_log_dir")]
     pub log_dir: String,
 }

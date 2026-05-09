@@ -18,7 +18,7 @@ detect_urls     = true
 [logging]
 # Start logging automatically for every new pane (Ctrl+Shift+L to toggle per-pane)
 auto_log = false
-# Directory for log files; empty string means $HOME
+# Directory for log files; empty string means ~/.mmterm
 log_dir  = ""
 
 [colors]

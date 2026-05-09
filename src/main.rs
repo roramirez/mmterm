@@ -1588,10 +1588,15 @@ impl ApplicationHandler for App {
 
 fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::File> {
     let dir = if log_dir.is_empty() {
-        std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        format!("{home}/.mmterm")
     } else {
         log_dir.to_string()
     };
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        log::warn!("Failed to create log directory {dir}: {e}");
+        return None;
+    }
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
