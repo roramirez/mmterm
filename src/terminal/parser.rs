@@ -8,8 +8,12 @@ pub struct TerminalParser {
 
 impl TerminalParser {
     pub fn new_with_colors(
-        cols: usize, rows: usize,
-        fg: Color, bg: Color, cursor: Color, selection: Color,
+        cols: usize,
+        rows: usize,
+        fg: Color,
+        bg: Color,
+        cursor: Color,
+        selection: Color,
         palette: [Color; 16],
     ) -> Self {
         Self {
@@ -20,7 +24,9 @@ impl TerminalParser {
 
     pub fn process(&mut self, bytes: &[u8]) {
         // vte requires a mutable performer; we route through a wrapper
-        let mut performer = Performer { grid: &mut self.grid };
+        let mut performer = Performer {
+            grid: &mut self.grid,
+        };
         for &byte in bytes {
             self.parser.advance(&mut performer, byte);
         }
@@ -64,10 +70,10 @@ impl Perform for Performer<'_> {
         // DEC private modes: \e[?<n>h (set) / \e[?<n>l (reset)
         if intermediates == b"?" {
             match (action, p0) {
-                ('h', 1)    => self.grid.application_cursor_keys = true,
-                ('l', 1)    => self.grid.application_cursor_keys = false,
-                ('h', 25)   => self.grid.cursor_visible = true,
-                ('l', 25)   => self.grid.cursor_visible = false,
+                ('h', 1) => self.grid.application_cursor_keys = true,
+                ('l', 1) => self.grid.application_cursor_keys = false,
+                ('h', 25) => self.grid.cursor_visible = true,
+                ('l', 25) => self.grid.cursor_visible = false,
                 ('h', 1000) => self.grid.mouse_mode = 1000,
                 ('l', 1000) => self.grid.mouse_mode = 0,
                 ('h', 1002) => self.grid.mouse_mode = 1002,
@@ -190,7 +196,10 @@ impl Perform for Performer<'_> {
                         4 => self.grid.underline = true,
                         7 => self.grid.reverse = true,
                         9 => self.grid.strikethrough = true,
-                        22 => { self.grid.bold = false; self.grid.dim = false; }
+                        22 => {
+                            self.grid.bold = false;
+                            self.grid.dim = false;
+                        }
                         24 => self.grid.underline = false,
                         27 => self.grid.reverse = false,
                         29 => self.grid.strikethrough = false,
@@ -209,7 +218,8 @@ impl Perform for Performer<'_> {
                             if i + 1 < ps.len() {
                                 match ps[i + 1] {
                                     5 if i + 2 < ps.len() => {
-                                        self.grid.fg = color256(ps[i + 2] as u8, &self.grid.palette);
+                                        self.grid.fg =
+                                            color256(ps[i + 2] as u8, &self.grid.palette);
                                         i += 2;
                                     }
                                     2 if i + 4 < ps.len() => {
@@ -228,7 +238,8 @@ impl Perform for Performer<'_> {
                             if i + 1 < ps.len() {
                                 match ps[i + 1] {
                                     5 if i + 2 < ps.len() => {
-                                        self.grid.bg = color256(ps[i + 2] as u8, &self.grid.palette);
+                                        self.grid.bg =
+                                            color256(ps[i + 2] as u8, &self.grid.palette);
                                         i += 2;
                                     }
                                     2 if i + 4 < ps.len() => {
@@ -345,7 +356,11 @@ impl Perform for Performer<'_> {
             if matches!(*code, b"0" | b"1" | b"2") {
                 if let Ok(s) = std::str::from_utf8(title) {
                     let t = s.trim();
-                    self.grid.osc_title = if t.is_empty() { None } else { Some(t.to_string()) };
+                    self.grid.osc_title = if t.is_empty() {
+                        None
+                    } else {
+                        Some(t.to_string())
+                    };
                 }
             }
         }

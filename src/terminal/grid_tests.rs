@@ -2,9 +2,12 @@ use super::*;
 
 fn make_grid(cols: usize, rows: usize) -> Grid {
     Grid::with_colors(
-        cols, rows,
-        Color::WHITE, Color::BLACK,
-        Color::CURSOR, Color::SELECTION,
+        cols,
+        rows,
+        Color::WHITE,
+        Color::BLACK,
+        Color::CURSOR,
+        Color::SELECTION,
         [Color::BLACK; 16],
     )
 }
@@ -65,14 +68,18 @@ fn resize_preserves_existing_content() {
 #[test]
 fn selected_text_single_row() {
     let mut g = make_grid(10, 5);
-    for c in "hello".chars() { g.write_char(c); }
+    for c in "hello".chars() {
+        g.write_char(c);
+    }
     assert_eq!(g.selected_text(0, 0, 4, 0), "hello");
 }
 
 #[test]
 fn selected_text_reversed_selection() {
     let mut g = make_grid(10, 5);
-    for c in "hello".chars() { g.write_char(c); }
+    for c in "hello".chars() {
+        g.write_char(c);
+    }
     assert_eq!(g.selected_text(4, 0, 0, 0), "hello");
 }
 
@@ -267,7 +274,10 @@ fn write_char_stamps_url_on_cell() {
     let mut g = make_grid(10, 5);
     g.current_url = Some(Arc::new("https://example.com".to_string()));
     g.write_char('X');
-    assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some("https://example.com"));
+    assert_eq!(
+        g.cell(0, 0).url.as_deref().map(|s| s.as_str()),
+        Some("https://example.com")
+    );
 }
 
 #[test]
@@ -314,7 +324,9 @@ fn scroll_down_multiple_lines_shifts_content() {
 }
 
 fn write_str(g: &mut Grid, s: &str) {
-    for c in s.chars() { g.write_char(c); }
+    for c in s.chars() {
+        g.write_char(c);
+    }
 }
 
 #[test]
@@ -324,7 +336,10 @@ fn scan_urls_detects_https_url() {
     write_str(&mut g, url);
     g.scan_urls();
     assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some(url));
-    assert_eq!(g.cell(url.len() - 1, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    assert_eq!(
+        g.cell(url.len() - 1, 0).url.as_deref().map(|s| s.as_str()),
+        Some(url)
+    );
     assert!(g.cell(url.len(), 0).url.is_none());
 }
 
@@ -347,8 +362,17 @@ fn scan_urls_stops_at_space() {
     // cells in the URL have it set
     let url_start = "go to ".len();
     let url = "https://example.com";
-    assert_eq!(g.cell(url_start, 0).url.as_deref().map(|s| s.as_str()), Some(url));
-    assert_eq!(g.cell(url_start + url.len() - 1, 0).url.as_deref().map(|s| s.as_str()), Some(url));
+    assert_eq!(
+        g.cell(url_start, 0).url.as_deref().map(|s| s.as_str()),
+        Some(url)
+    );
+    assert_eq!(
+        g.cell(url_start + url.len() - 1, 0)
+            .url
+            .as_deref()
+            .map(|s| s.as_str()),
+        Some(url)
+    );
     // cell after the URL (space) has no url
     assert!(g.cell(url_start + url.len(), 0).url.is_none());
 }
@@ -364,10 +388,15 @@ fn scan_urls_does_not_override_osc8_url() {
     g.write_char('h');
     g.current_url = None;
     // Write rest of url manually so scan_urls would match
-    for c in "ttps://plain.com".chars() { g.write_char(c); }
+    for c in "ttps://plain.com".chars() {
+        g.write_char(c);
+    }
     g.scan_urls();
     // Cell 0 had OSC 8 URL — should not be overwritten
-    assert_eq!(g.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some("https://osc8.com"));
+    assert_eq!(
+        g.cell(0, 0).url.as_deref().map(|s| s.as_str()),
+        Some("https://osc8.com")
+    );
 }
 
 #[test]

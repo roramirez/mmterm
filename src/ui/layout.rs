@@ -13,7 +13,12 @@ pub enum SplitDir {
 #[derive(Clone, Debug)]
 enum Node {
     Leaf(usize),
-    Split { dir: SplitDir, ratio: f32, a: Box<Node>, b: Box<Node> },
+    Split {
+        dir: SplitDir,
+        ratio: f32,
+        a: Box<Node>,
+        b: Box<Node>,
+    },
 }
 
 impl Node {
@@ -92,22 +97,26 @@ impl Node {
         match self {
             Node::Leaf(id) if *id == target => RemoveResult::RemoveMe,
             Node::Leaf(_) => RemoveResult::NotFound,
-            Node::Split { a, b, .. } => {
-                match a.remove_leaf(target) {
-                    RemoveResult::RemoveMe => {
-                        RemoveResult::Replace(std::mem::replace(b, Box::new(Node::Leaf(0))))
-                    }
-                    RemoveResult::Replace(node) => { *a = node; RemoveResult::Done }
-                    RemoveResult::Done => RemoveResult::Done,
-                    RemoveResult::NotFound => match b.remove_leaf(target) {
-                        RemoveResult::RemoveMe => {
-                            RemoveResult::Replace(std::mem::replace(a, Box::new(Node::Leaf(0))))
-                        }
-                        RemoveResult::Replace(node) => { *b = node; RemoveResult::Done }
-                        r => r,
-                    },
+            Node::Split { a, b, .. } => match a.remove_leaf(target) {
+                RemoveResult::RemoveMe => {
+                    RemoveResult::Replace(std::mem::replace(b, Box::new(Node::Leaf(0))))
                 }
-            }
+                RemoveResult::Replace(node) => {
+                    *a = node;
+                    RemoveResult::Done
+                }
+                RemoveResult::Done => RemoveResult::Done,
+                RemoveResult::NotFound => match b.remove_leaf(target) {
+                    RemoveResult::RemoveMe => {
+                        RemoveResult::Replace(std::mem::replace(a, Box::new(Node::Leaf(0))))
+                    }
+                    RemoveResult::Replace(node) => {
+                        *b = node;
+                        RemoveResult::Done
+                    }
+                    r => r,
+                },
+            },
         }
     }
 }
@@ -127,7 +136,11 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(initial_pane: usize, width: u32, height: u32) -> Self {
-        Self { root: Node::Leaf(initial_pane), width, height }
+        Self {
+            root: Node::Leaf(initial_pane),
+            width,
+            height,
+        }
     }
 
     fn usable_h(&self) -> u32 {
@@ -136,13 +149,15 @@ impl Layout {
 
     pub fn rects(&self) -> Vec<(usize, [u32; 4])> {
         let mut out = Vec::new();
-        self.root.compute_rects(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
+        self.root
+            .compute_rects(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
         out
     }
 
     pub fn separators(&self) -> Vec<[u32; 4]> {
         let mut out = Vec::new();
-        self.root.separators(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
+        self.root
+            .separators(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
         out
     }
 
@@ -157,9 +172,7 @@ impl Layout {
     /// Remove pane. Returns the new focus ID (sibling of the removed pane).
     pub fn remove(&mut self, target: usize) -> Option<usize> {
         let leaves_before = self.root.leaves();
-        let sibling = leaves_before.iter()
-            .find(|&&id| id != target)
-            .copied();
+        let sibling = leaves_before.iter().find(|&&id| id != target).copied();
 
         match self.root.remove_leaf(target) {
             RemoveResult::Replace(node) => self.root = *node,
@@ -183,18 +196,26 @@ impl Layout {
 
         let mut best: Option<(usize, i32)> = None;
         for (id, rect) in &rects {
-            if *id == from { continue; }
+            if *id == from {
+                continue;
+            }
             let cx = (rect[0] + rect[2] / 2) as i32;
             let cy = (rect[1] + rect[3] / 2) as i32;
             let ddx = cx - from_cx;
             let ddy = cy - from_cy;
             // Must be in the requested direction
-            if dx != 0 && ddx.signum() != dx { continue; }
-            if dy != 0 && ddy.signum() != dy { continue; }
+            if dx != 0 && ddx.signum() != dx {
+                continue;
+            }
+            if dy != 0 && ddy.signum() != dy {
+                continue;
+            }
             // Prefer movement mostly along the requested axis
             let dist = ddx.abs() + ddy.abs();
             if let Some((_, bd)) = best {
-                if dist < bd { best = Some((*id, dist)); }
+                if dist < bd {
+                    best = Some((*id, dist));
+                }
             } else {
                 best = Some((*id, dist));
             }

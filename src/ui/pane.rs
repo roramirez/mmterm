@@ -1,5 +1,5 @@
-use crate::terminal::grid::Color;
 use crate::terminal::TerminalParser;
+use crate::terminal::grid::Color;
 
 pub struct Pane {
     pub parser: TerminalParser,
@@ -9,8 +9,13 @@ pub struct Pane {
 
 impl Pane {
     pub fn new_with_colors(
-        cols: usize, rows: usize, rect: [u32; 4],
-        fg: Color, bg: Color, cursor: Color, selection: Color,
+        cols: usize,
+        rows: usize,
+        rect: [u32; 4],
+        fg: Color,
+        bg: Color,
+        cursor: Color,
+        selection: Color,
         palette: [Color; 16],
     ) -> Self {
         Self {

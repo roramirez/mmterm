@@ -49,13 +49,23 @@ pub fn handle_key(
     if event.state != ElementState::Pressed {
         return Action::None;
     }
-    let ctrl  = modifiers.state().control_key();
+    let ctrl = modifiers.state().control_key();
     let shift = modifiers.state().shift_key();
-    handle_key_inner(&event.logical_key, ctrl, shift, mode, grid_cols, grid_rows, application_cursor_keys)
+    handle_key_inner(
+        &event.logical_key,
+        ctrl,
+        shift,
+        mode,
+        grid_cols,
+        grid_rows,
+        application_cursor_keys,
+    )
 }
 
 pub fn handle_ctrl_w(event: &KeyEvent) -> Action {
-    if event.state != ElementState::Pressed { return Action::None; }
+    if event.state != ElementState::Pressed {
+        return Action::None;
+    }
     ctrl_w_action(&event.logical_key)
 }
 
@@ -84,11 +94,16 @@ pub(crate) fn handle_key_inner(
         if let Key::Character(s) = key {
             if s == "." {
                 let next = match mode {
-                    InputMode::Insert    => InputMode::Normal,
-                    InputMode::Normal    => InputMode::Visual {
-                        start_col: 0, start_row: 0, cur_col: 0, cur_row: 0,
+                    InputMode::Insert => InputMode::Normal,
+                    InputMode::Normal => InputMode::Visual {
+                        start_col: 0,
+                        start_row: 0,
+                        cur_col: 0,
+                        cur_row: 0,
                     },
-                    InputMode::Visual { .. } | InputMode::RenameTab { .. } | InputMode::Search { .. } => InputMode::Insert,
+                    InputMode::Visual { .. }
+                    | InputMode::RenameTab { .. }
+                    | InputMode::Search { .. } => InputMode::Insert,
                 };
                 return Action::SetMode(next);
             }
@@ -104,12 +119,12 @@ pub(crate) fn handle_key_inner(
             Key::Character(s) if s.eq_ignore_ascii_case("v") => return Action::Paste,
             Key::Character(s) if s.eq_ignore_ascii_case("w") => return Action::CloseTab,
             Key::Character(s) if s.eq_ignore_ascii_case("r") => return Action::RenameTab,
-            Key::Named(NamedKey::ArrowUp)   => return Action::ScrollUp(1),
+            Key::Named(NamedKey::ArrowUp) => return Action::ScrollUp(1),
             Key::Named(NamedKey::ArrowDown) => return Action::ScrollDown(1),
-            Key::Named(NamedKey::PageUp)    => return Action::ScrollUp(grid_rows / 2),
-            Key::Named(NamedKey::PageDown)  => return Action::ScrollDown(grid_rows / 2),
-            Key::Named(NamedKey::Home)      => return Action::ScrollToTop,
-            Key::Named(NamedKey::End)       => return Action::ScrollToBottom,
+            Key::Named(NamedKey::PageUp) => return Action::ScrollUp(grid_rows / 2),
+            Key::Named(NamedKey::PageDown) => return Action::ScrollDown(grid_rows / 2),
+            Key::Named(NamedKey::Home) => return Action::ScrollToTop,
+            Key::Named(NamedKey::End) => return Action::ScrollToBottom,
             _ => {}
         }
     }
@@ -125,14 +140,14 @@ pub(crate) fn handle_key_inner(
     if ctrl && !shift {
         match key {
             Key::Character(s) if s.eq_ignore_ascii_case("q") => return Action::Quit,
-            Key::Character(s) if s == ","                    => return Action::OpenConfig,
+            Key::Character(s) if s == "," => return Action::OpenConfig,
             Key::Character(s) if s.eq_ignore_ascii_case("t") => return Action::NewTab,
             // Ctrl++ / Ctrl+= — increase font size
-            Key::Character(s) if s == "+" || s == "="        => return Action::IncreaseFontSize,
+            Key::Character(s) if s == "+" || s == "=" => return Action::IncreaseFontSize,
             // Ctrl+- — decrease font size
-            Key::Character(s) if s == "-"                    => return Action::DecreaseFontSize,
+            Key::Character(s) if s == "-" => return Action::DecreaseFontSize,
             // Ctrl+0 — reset font size
-            Key::Character(s) if s == "0"                    => return Action::ResetFontSize,
+            Key::Character(s) if s == "0" => return Action::ResetFontSize,
             _ => {}
         }
         // Ctrl+PageUp/Down → tab navigation
@@ -146,7 +161,7 @@ pub(crate) fn handle_key_inner(
 
     if shift && !ctrl {
         match key {
-            Key::Named(NamedKey::PageUp)   => return Action::ScrollUp(grid_rows),
+            Key::Named(NamedKey::PageUp) => return Action::ScrollUp(grid_rows),
             Key::Named(NamedKey::PageDown) => return Action::ScrollDown(grid_rows),
             _ => {}
         }
@@ -156,9 +171,14 @@ pub(crate) fn handle_key_inner(
     match mode {
         InputMode::Insert => handle_insert(key, ctrl, application_cursor_keys),
         InputMode::Normal => handle_normal(key, grid_rows),
-        InputMode::Visual { start_col, start_row, cur_col, cur_row } => {
-            handle_visual(key, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows)
-        }
+        InputMode::Visual {
+            start_col,
+            start_row,
+            cur_col,
+            cur_row,
+        } => handle_visual(
+            key, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows,
+        ),
         InputMode::RenameTab { .. } => Action::None,
         InputMode::Search { .. } => Action::None,
     }
@@ -176,12 +196,12 @@ pub(crate) fn ctrl_w_action(key: &Key) -> Action {
             "w" => Action::FocusNext,
             "q" => Action::ClosePane,
             "z" => Action::ZoomPane,
-            _   => Action::None,
+            _ => Action::None,
         },
-        Key::Named(NamedKey::ArrowLeft)  => Action::FocusLeft,
+        Key::Named(NamedKey::ArrowLeft) => Action::FocusLeft,
         Key::Named(NamedKey::ArrowRight) => Action::FocusRight,
-        Key::Named(NamedKey::ArrowUp)    => Action::FocusUp,
-        Key::Named(NamedKey::ArrowDown)  => Action::FocusDown,
+        Key::Named(NamedKey::ArrowUp) => Action::FocusUp,
+        Key::Named(NamedKey::ArrowDown) => Action::FocusDown,
         _ => Action::None,
     }
 }
@@ -207,46 +227,73 @@ fn handle_insert(key: &Key, ctrl: bool, application_cursor_keys: bool) -> Action
     }
 
     match key {
-        Key::Named(NamedKey::Escape)    => Action::SendToPty(vec![0x1b]),
-        Key::Named(NamedKey::Space)     => Action::SendToPty(vec![b' ']),
-        Key::Named(NamedKey::Enter)     => Action::SendToPty(vec![b'\r']),
+        Key::Named(NamedKey::Escape) => Action::SendToPty(vec![0x1b]),
+        Key::Named(NamedKey::Space) => Action::SendToPty(vec![b' ']),
+        Key::Named(NamedKey::Enter) => Action::SendToPty(vec![b'\r']),
         Key::Named(NamedKey::Backspace) => Action::SendToPty(vec![0x7f]),
-        Key::Named(NamedKey::Tab)       => Action::SendToPty(vec![b'\t']),
-        Key::Named(NamedKey::ArrowUp)   => Action::SendToPty(if application_cursor_keys { b"\x1bOA".to_vec() } else { b"\x1b[A".to_vec() }),
-        Key::Named(NamedKey::ArrowDown) => Action::SendToPty(if application_cursor_keys { b"\x1bOB".to_vec() } else { b"\x1b[B".to_vec() }),
-        Key::Named(NamedKey::ArrowRight)=> Action::SendToPty(if application_cursor_keys { b"\x1bOC".to_vec() } else { b"\x1b[C".to_vec() }),
-        Key::Named(NamedKey::ArrowLeft) => Action::SendToPty(if application_cursor_keys { b"\x1bOD".to_vec() } else { b"\x1b[D".to_vec() }),
-        Key::Named(NamedKey::Home)      => Action::SendToPty(if application_cursor_keys { b"\x1bOH".to_vec() } else { b"\x1b[1~".to_vec() }),
-        Key::Named(NamedKey::End)       => Action::SendToPty(if application_cursor_keys { b"\x1bOF".to_vec() } else { b"\x1b[4~".to_vec() }),
-        Key::Named(NamedKey::PageUp)    => Action::SendToPty(b"\x1b[5~".to_vec()),
-        Key::Named(NamedKey::PageDown)  => Action::SendToPty(b"\x1b[6~".to_vec()),
-        Key::Named(NamedKey::Delete)    => Action::SendToPty(b"\x1b[3~".to_vec()),
-        Key::Named(NamedKey::F1)        => Action::SendToPty(b"\x1bOP".to_vec()),
-        Key::Named(NamedKey::F2)        => Action::SendToPty(b"\x1bOQ".to_vec()),
-        Key::Named(NamedKey::F3)        => Action::SendToPty(b"\x1bOR".to_vec()),
-        Key::Named(NamedKey::F4)        => Action::SendToPty(b"\x1bOS".to_vec()),
-        Key::Named(NamedKey::F5)        => Action::SendToPty(b"\x1b[15~".to_vec()),
-        Key::Named(NamedKey::F6)        => Action::SendToPty(b"\x1b[17~".to_vec()),
-        Key::Named(NamedKey::F7)        => Action::SendToPty(b"\x1b[18~".to_vec()),
-        Key::Named(NamedKey::F8)        => Action::SendToPty(b"\x1b[19~".to_vec()),
-        Key::Named(NamedKey::F9)        => Action::SendToPty(b"\x1b[20~".to_vec()),
-        Key::Named(NamedKey::F10)       => Action::SendToPty(b"\x1b[21~".to_vec()),
-        Key::Named(NamedKey::F11)       => Action::SendToPty(b"\x1b[23~".to_vec()),
-        Key::Named(NamedKey::F12)       => Action::SendToPty(b"\x1b[24~".to_vec()),
-        Key::Character(s)               => Action::SendToPty(s.as_bytes().to_vec()),
+        Key::Named(NamedKey::Tab) => Action::SendToPty(vec![b'\t']),
+        Key::Named(NamedKey::ArrowUp) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOA".to_vec()
+        } else {
+            b"\x1b[A".to_vec()
+        }),
+        Key::Named(NamedKey::ArrowDown) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOB".to_vec()
+        } else {
+            b"\x1b[B".to_vec()
+        }),
+        Key::Named(NamedKey::ArrowRight) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOC".to_vec()
+        } else {
+            b"\x1b[C".to_vec()
+        }),
+        Key::Named(NamedKey::ArrowLeft) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOD".to_vec()
+        } else {
+            b"\x1b[D".to_vec()
+        }),
+        Key::Named(NamedKey::Home) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOH".to_vec()
+        } else {
+            b"\x1b[1~".to_vec()
+        }),
+        Key::Named(NamedKey::End) => Action::SendToPty(if application_cursor_keys {
+            b"\x1bOF".to_vec()
+        } else {
+            b"\x1b[4~".to_vec()
+        }),
+        Key::Named(NamedKey::PageUp) => Action::SendToPty(b"\x1b[5~".to_vec()),
+        Key::Named(NamedKey::PageDown) => Action::SendToPty(b"\x1b[6~".to_vec()),
+        Key::Named(NamedKey::Delete) => Action::SendToPty(b"\x1b[3~".to_vec()),
+        Key::Named(NamedKey::F1) => Action::SendToPty(b"\x1bOP".to_vec()),
+        Key::Named(NamedKey::F2) => Action::SendToPty(b"\x1bOQ".to_vec()),
+        Key::Named(NamedKey::F3) => Action::SendToPty(b"\x1bOR".to_vec()),
+        Key::Named(NamedKey::F4) => Action::SendToPty(b"\x1bOS".to_vec()),
+        Key::Named(NamedKey::F5) => Action::SendToPty(b"\x1b[15~".to_vec()),
+        Key::Named(NamedKey::F6) => Action::SendToPty(b"\x1b[17~".to_vec()),
+        Key::Named(NamedKey::F7) => Action::SendToPty(b"\x1b[18~".to_vec()),
+        Key::Named(NamedKey::F8) => Action::SendToPty(b"\x1b[19~".to_vec()),
+        Key::Named(NamedKey::F9) => Action::SendToPty(b"\x1b[20~".to_vec()),
+        Key::Named(NamedKey::F10) => Action::SendToPty(b"\x1b[21~".to_vec()),
+        Key::Named(NamedKey::F11) => Action::SendToPty(b"\x1b[23~".to_vec()),
+        Key::Named(NamedKey::F12) => Action::SendToPty(b"\x1b[24~".to_vec()),
+        Key::Character(s) => Action::SendToPty(s.as_bytes().to_vec()),
         _ => Action::None,
     }
 }
 
 fn handle_normal(key: &Key, grid_rows: usize) -> Action {
     match key {
-        Key::Named(NamedKey::Escape)   => Action::SetMode(InputMode::Insert),
-        Key::Named(NamedKey::PageUp)   => Action::ScrollUp(grid_rows),
+        Key::Named(NamedKey::Escape) => Action::SetMode(InputMode::Insert),
+        Key::Named(NamedKey::PageUp) => Action::ScrollUp(grid_rows),
         Key::Named(NamedKey::PageDown) => Action::ScrollDown(grid_rows),
         Key::Character(s) => match s.as_str() {
             "i" => Action::SetMode(InputMode::Insert),
             "v" => Action::SetMode(InputMode::Visual {
-                start_col: 0, start_row: 0, cur_col: 0, cur_row: 0,
+                start_col: 0,
+                start_row: 0,
+                cur_col: 0,
+                cur_row: 0,
             }),
             "q" => Action::ClosePane,
             "/" => Action::SearchOpen,
@@ -254,7 +301,7 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
             "N" => Action::SearchPrev,
             "j" => Action::ScrollDown(3),
             "k" => Action::ScrollUp(3),
-            _   => Action::None,
+            _ => Action::None,
         },
         _ => Action::None,
     }
@@ -272,21 +319,23 @@ fn handle_visual(
     let rows = rows.saturating_sub(1);
     let cols = cols.saturating_sub(1);
 
-    let move_to = |nc: usize, nr: usize| Action::SetMode(InputMode::Visual {
-        start_col,
-        start_row,
-        cur_col: nc.min(cols),
-        cur_row: nr.min(rows),
-    });
+    let move_to = |nc: usize, nr: usize| {
+        Action::SetMode(InputMode::Visual {
+            start_col,
+            start_row,
+            cur_col: nc.min(cols),
+            cur_row: nr.min(rows),
+        })
+    };
 
     match key {
-        Key::Named(NamedKey::Escape)     => Action::SetMode(InputMode::Insert),
-        Key::Named(NamedKey::ArrowLeft)  => move_to(cur_col.saturating_sub(1), cur_row),
+        Key::Named(NamedKey::Escape) => Action::SetMode(InputMode::Insert),
+        Key::Named(NamedKey::ArrowLeft) => move_to(cur_col.saturating_sub(1), cur_row),
         Key::Named(NamedKey::ArrowRight) => move_to((cur_col + 1).min(cols), cur_row),
-        Key::Named(NamedKey::ArrowUp)    => move_to(cur_col, cur_row.saturating_sub(1)),
-        Key::Named(NamedKey::ArrowDown)  => move_to(cur_col, (cur_row + 1).min(rows)),
-        Key::Named(NamedKey::Home)       => move_to(0, cur_row),
-        Key::Named(NamedKey::End)        => move_to(cols, cur_row),
+        Key::Named(NamedKey::ArrowUp) => move_to(cur_col, cur_row.saturating_sub(1)),
+        Key::Named(NamedKey::ArrowDown) => move_to(cur_col, (cur_row + 1).min(rows)),
+        Key::Named(NamedKey::Home) => move_to(0, cur_row),
+        Key::Named(NamedKey::End) => move_to(cols, cur_row),
         Key::Character(s) => match s.as_str() {
             "h" => move_to(cur_col.saturating_sub(1), cur_row),
             "l" => move_to((cur_col + 1).min(cols), cur_row),

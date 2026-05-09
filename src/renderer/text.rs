@@ -48,13 +48,23 @@ impl FontMetrics {
         let baseline = ascender + 1;
         log::info!(
             "FontMetrics at {font_px}px: cell={}x{} baseline={}",
-            cell_width, cell_height, baseline
+            cell_width,
+            cell_height,
+            baseline
         );
-        Self { font_px, cell_width: cell_width.max(1), cell_height: cell_height.max(1), baseline }
+        Self {
+            font_px,
+            cell_width: cell_width.max(1),
+            cell_height: cell_height.max(1),
+            baseline,
+        }
     }
 
     pub fn grid_size_for(&self, w: u32, h: u32) -> (usize, usize) {
-        ((w / self.cell_width).max(1) as usize, (h / self.cell_height).max(1) as usize)
+        (
+            (w / self.cell_width).max(1) as usize,
+            (h / self.cell_height).max(1) as usize,
+        )
     }
 }
 
@@ -67,7 +77,11 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(font_family: &str, font_px: f32) -> Self {
         let glyphs = GlyphCache::new(font_family);
-        Self { font_px, status_font_px: 13.0, glyphs }
+        Self {
+            font_px,
+            status_font_px: 13.0,
+            glyphs,
+        }
     }
 
     /// Compute metrics for a given font size using the shared glyph cache.
@@ -91,7 +105,10 @@ impl Renderer {
         inactive_dim: f32,
         bell_flash: bool,
     ) {
-        let bg_fill = panes.first().map(|p| p.grid.default_bg).unwrap_or(Color::BLACK);
+        let bg_fill = panes
+            .first()
+            .map(|p| p.grid.default_bg)
+            .unwrap_or(Color::BLACK);
         buf.fill(color_u32(bg_fill));
 
         for pane in panes {
@@ -129,18 +146,37 @@ impl Renderer {
         }
 
         self.draw_tab_bar(buf, buf_width, tab_titles);
-        self.draw_status_bar(buf, buf_width, buf_height, mode, search_total, search_current, cwd);
+        self.draw_status_bar(
+            buf,
+            buf_width,
+            buf_height,
+            mode,
+            search_total,
+            search_current,
+            cwd,
+        );
     }
 
-    fn draw_pane(&mut self, buf: &mut [u32], buf_width: u32, pane: &PaneView, mode: &InputMode, m: &FontMetrics, dim_factor: f32) {
+    fn draw_pane(
+        &mut self,
+        buf: &mut [u32],
+        buf_width: u32,
+        pane: &PaneView,
+        mode: &InputMode,
+        m: &FontMetrics,
+        dim_factor: f32,
+    ) {
         let [rx, ry, rw, rh] = pane.rect;
         let grid = pane.grid;
 
         let selection_range = if pane.is_active {
             match mode {
-                InputMode::Visual { start_col, start_row, cur_col, cur_row } => {
-                    Some((*start_col, *start_row, *cur_col, *cur_row))
-                }
+                InputMode::Visual {
+                    start_col,
+                    start_row,
+                    cur_col,
+                    cur_row,
+                } => Some((*start_col, *start_row, *cur_col, *cur_row)),
                 _ => None,
             }
         } else {
@@ -176,14 +212,15 @@ impl Renderer {
                     continue;
                 }
 
-                let is_cursor = pane.show_cursor
-                    && col == grid.cursor_col
-                    && row == grid.cursor_row;
+                let is_cursor =
+                    pane.show_cursor && col == grid.cursor_col && row == grid.cursor_row;
                 let is_selected = selection_range.map_or(false, |(sc, sr, ec, er)| {
-                    let (r0, c0, r1, c1) =
-                        if (sr, sc) <= (er, ec) { (sr, sc, er, ec) } else { (er, ec, sr, sc) };
-                    (row > r0 || (row == r0 && col >= c0))
-                        && (row < r1 || (row == r1 && col <= c1))
+                    let (r0, c0, r1, c1) = if (sr, sc) <= (er, ec) {
+                        (sr, sc, er, ec)
+                    } else {
+                        (er, ec, sr, sc)
+                    };
+                    (row > r0 || (row == r0 && col >= c0)) && (row < r1 || (row == r1 && col <= c1))
                 });
 
                 // Search highlight: scan matches for this abs_row.
@@ -239,7 +276,11 @@ impl Renderer {
                 };
                 let bg32 = {
                     let c = color_u32(bg);
-                    if pane.is_active { c } else { dim_color(c, dim_factor) }
+                    if pane.is_active {
+                        c
+                    } else {
+                        dim_color(c, dim_factor)
+                    }
                 };
 
                 for dy in 0..m.cell_height {
@@ -269,17 +310,25 @@ impl Renderer {
                             for gx in 0..gw {
                                 let base = ((gy * gw + gx) * 4) as usize;
                                 let a = info.bitmap[base + 3];
-                                if a == 0 { continue; }
+                                if a == 0 {
+                                    continue;
+                                }
                                 let r = info.bitmap[base] as u32;
                                 let g = info.bitmap[base + 1] as u32;
                                 let b = info.bitmap[base + 2] as u32;
                                 let sx = x_base + gx;
                                 let sy = cell_y + y_offset + gy;
-                                if sx >= rx + rw || sy >= ry + rh { continue; }
+                                if sx >= rx + rw || sy >= ry + rh {
+                                    continue;
+                                }
                                 let idx = (sy * buf_width + sx) as usize;
                                 if idx < buf.len() {
                                     let px = (0xFF_u32 << 24) | (r << 16) | (g << 8) | b;
-                                    let px = if pane.is_active { px } else { dim_color(px, dim_factor) };
+                                    let px = if pane.is_active {
+                                        px
+                                    } else {
+                                        dim_color(px, dim_factor)
+                                    };
                                     buf[idx] = blend(bg32, px, a);
                                 }
                             }
@@ -288,15 +337,23 @@ impl Renderer {
                         // Grayscale alpha bitmap: blend fg color with background.
                         let fg32 = {
                             let c = color_u32(fg);
-                            if pane.is_active { c } else { dim_color(c, dim_factor) }
+                            if pane.is_active {
+                                c
+                            } else {
+                                dim_color(c, dim_factor)
+                            }
                         };
                         for gy in 0..gh {
                             for gx in 0..gw {
                                 let alpha = info.bitmap[(gy * gw + gx) as usize];
-                                if alpha == 0 { continue; }
+                                if alpha == 0 {
+                                    continue;
+                                }
                                 let sx = x_base + gx;
                                 let sy = cell_y + y_offset + gy;
-                                if sx >= rx + rw || sy >= ry + rh { continue; }
+                                if sx >= rx + rw || sy >= ry + rh {
+                                    continue;
+                                }
                                 let idx = (sy * buf_width + sx) as usize;
                                 if idx < buf.len() {
                                     buf[idx] = blend(bg32, fg32, alpha);
@@ -309,7 +366,11 @@ impl Renderer {
                 // Underline (1px, 2px from bottom): SGR 4 or OSC 8 hyperlink
                 if cell.underline || cell.url.is_some() {
                     let ul_color = if cell.url.is_some() {
-                        if pane.is_active { HYPERLINK_UL } else { dim_color(HYPERLINK_UL, dim_factor) }
+                        if pane.is_active {
+                            HYPERLINK_UL
+                        } else {
+                            dim_color(HYPERLINK_UL, dim_factor)
+                        }
                     } else {
                         color_u32(fg)
                     };
@@ -317,9 +378,13 @@ impl Renderer {
                     if ul_y < ry + rh {
                         for dx in 0..draw_w {
                             let sx = cell_x + dx;
-                            if sx >= rx + rw { break; }
+                            if sx >= rx + rw {
+                                break;
+                            }
                             let idx = (ul_y * buf_width + sx) as usize;
-                            if idx < buf.len() { buf[idx] = ul_color; }
+                            if idx < buf.len() {
+                                buf[idx] = ul_color;
+                            }
                         }
                     }
                 }
@@ -331,9 +396,13 @@ impl Renderer {
                         let st_color = color_u32(fg);
                         for dx in 0..draw_w {
                             let sx = cell_x + dx;
-                            if sx >= rx + rw { break; }
+                            if sx >= rx + rw {
+                                break;
+                            }
                             let idx = (st_y * buf_width + sx) as usize;
-                            if idx < buf.len() { buf[idx] = st_color; }
+                            if idx < buf.len() {
+                                buf[idx] = st_color;
+                            }
                         }
                     }
                 }
@@ -388,7 +457,7 @@ impl Renderer {
     }
 
     fn draw_tab_bar(&mut self, buf: &mut [u32], width: u32, tabs: &[(String, bool, bool)]) {
-        let bar_bg  = 0xFF_11_11_1d_u32;
+        let bar_bg = 0xFF_11_11_1d_u32;
         let sep_col = 0xFF_31_32_44_u32;
         let fp = self.status_font_px;
         let cw = self.glyphs.rasterize('M', fp, false).1;
@@ -397,14 +466,18 @@ impl Renderer {
         for y in 0..TAB_BAR_H {
             for x in 0..width {
                 let idx = (y * width + x) as usize;
-                if idx < buf.len() { buf[idx] = bar_bg; }
+                if idx < buf.len() {
+                    buf[idx] = bar_bg;
+                }
             }
         }
         // Bottom separator
         let sep_y = TAB_BAR_H - 1;
         for x in 0..width {
             let idx = (sep_y * width + x) as usize;
-            if idx < buf.len() { buf[idx] = sep_col; }
+            if idx < buf.len() {
+                buf[idx] = sep_col;
+            }
         }
 
         let mut cursor_x = 4u32;
@@ -420,12 +493,24 @@ impl Renderer {
             for dy in 2..TAB_BAR_H - 2 {
                 for dx in 0..tab_w {
                     let idx = (dy * width + cursor_x + dx) as usize;
-                    if idx < buf.len() { buf[idx] = badge_bg; }
+                    if idx < buf.len() {
+                        buf[idx] = badge_bg;
+                    }
                 }
             }
 
             // Label
-            self.draw_str(buf, width, TAB_BAR_H, cursor_x + 6, 2, label, fp, *is_active, text_color);
+            self.draw_str(
+                buf,
+                width,
+                TAB_BAR_H,
+                cursor_x + 6,
+                2,
+                label,
+                fp,
+                *is_active,
+                text_color,
+            );
 
             // Activity dot: small filled square in the top-right corner of the badge
             if *has_activity && !*is_active {
@@ -436,7 +521,9 @@ impl Renderer {
                 for dy in 0..DOT {
                     for dx in 0..DOT {
                         let idx = ((dot_y + dy) * width + dot_x + dx) as usize;
-                        if idx < buf.len() { buf[idx] = dot_color; }
+                        if idx < buf.len() {
+                            buf[idx] = dot_color;
+                        }
                     }
                 }
             }
@@ -463,41 +550,72 @@ impl Renderer {
         let panel_w = (bw as f32 * 0.65) as u32;
         // Fixed panel height: title + footer + visible rows (fit inside window)
         let footer_rows = 2u32; // hint + status
-        let max_visible = ((bh.saturating_sub(STATUS_BAR_H + row_h * 2 + row_h * footer_rows)) / row_h).max(4);
+        let max_visible =
+            ((bh.saturating_sub(STATUS_BAR_H + row_h * 2 + row_h * footer_rows)) / row_h).max(4);
         let panel_h = row_h * (max_visible + 2 + footer_rows);
         let px = (bw - panel_w) / 2;
         let py = (bh.saturating_sub(panel_h)) / 2;
 
-        let bg     = 0xFF_1a_1b_26_u32;
+        let bg = 0xFF_1a_1b_26_u32;
         let border = 0xFF_89_b4_fa_u32;
 
         // Background + border
         for dy in 0..panel_h {
             for dx in 0..panel_w {
                 let idx = ((py + dy) * bw + px + dx) as usize;
-                if idx < buf.len() { buf[idx] = bg; }
+                if idx < buf.len() {
+                    buf[idx] = bg;
+                }
             }
         }
         for dx in 0..panel_w {
             let t = (py * bw + px + dx) as usize;
             let b = ((py + panel_h - 1) * bw + px + dx) as usize;
-            if t < buf.len() { buf[t] = border; }
-            if b < buf.len() { buf[b] = border; }
+            if t < buf.len() {
+                buf[t] = border;
+            }
+            if b < buf.len() {
+                buf[b] = border;
+            }
         }
         for dy in 0..panel_h {
             let l = ((py + dy) * bw + px) as usize;
             let r = ((py + dy) * bw + px + panel_w - 1) as usize;
-            if l < buf.len() { buf[l] = border; }
-            if r < buf.len() { buf[r] = border; }
+            if l < buf.len() {
+                buf[l] = border;
+            }
+            if r < buf.len() {
+                buf[r] = border;
+            }
         }
 
         // Title bar
-        self.draw_str(buf, bw, bh, px + pad, py + 4, "CONFIGURATION", fp, true, 0xFF_cb_a6_f7);
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad,
+            py + 4,
+            "CONFIGURATION",
+            fp,
+            true,
+            0xFF_cb_a6_f7,
+        );
         // scroll indicator
         let total = panel.fields.len();
         let scroll_info = format!("{}/{}", panel.selected + 1, total);
         let si_x = px + panel_w - cw * scroll_info.len() as u32 - pad;
-        self.draw_str(buf, bw, bh, si_x, py + 4, &scroll_info, fp, false, 0xFF_58_5b_70);
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            si_x,
+            py + 4,
+            &scroll_info,
+            fp,
+            false,
+            0xFF_58_5b_70,
+        );
 
         // Scroll window: keep selected in view
         let sel = panel.selected;
@@ -511,22 +629,38 @@ impl Renderer {
         let mut draw_y = content_y;
 
         for (i, field) in panel.fields.iter().enumerate().skip(scroll_start) {
-            if draw_y + row_h > py + panel_h - row_h * footer_rows { break; }
+            if draw_y + row_h > py + panel_h - row_h * footer_rows {
+                break;
+            }
 
             // Section header
             if let Some(sec) = field.section {
                 // separator line
                 for dx in 1..panel_w - 1 {
                     let idx = (draw_y * bw + px + dx) as usize;
-                    if idx < buf.len() { buf[idx] = 0xFF_24_25_3a; }
+                    if idx < buf.len() {
+                        buf[idx] = 0xFF_24_25_3a;
+                    }
                 }
                 let sec_label = format!("── {} ", sec);
-                self.draw_str(buf, bw, bh, px + pad, draw_y + 1, &sec_label, fp, true, 0xFF_58_5b_70);
+                self.draw_str(
+                    buf,
+                    bw,
+                    bh,
+                    px + pad,
+                    draw_y + 1,
+                    &sec_label,
+                    fp,
+                    true,
+                    0xFF_58_5b_70,
+                );
                 draw_y += section_h;
-                if draw_y + row_h > py + panel_h - row_h * footer_rows { break; }
+                if draw_y + row_h > py + panel_h - row_h * footer_rows {
+                    break;
+                }
             }
 
-            let is_sel     = i == sel;
+            let is_sel = i == sel;
             let is_editing = panel.editing && is_sel;
 
             // Row background
@@ -534,14 +668,18 @@ impl Renderer {
             for dx in 1..panel_w - 1 {
                 for dy in 0..row_h {
                     let idx = ((draw_y + dy) * bw + px + dx) as usize;
-                    if idx < buf.len() { buf[idx] = row_bg; }
+                    if idx < buf.len() {
+                        buf[idx] = row_bg;
+                    }
                 }
             }
             if is_sel {
                 // left accent bar
                 for dy in 0..row_h {
                     let idx = ((draw_y + dy) * bw + px + 1) as usize;
-                    if idx < buf.len() { buf[idx] = border; }
+                    if idx < buf.len() {
+                        buf[idx] = border;
+                    }
                 }
             }
 
@@ -555,20 +693,47 @@ impl Renderer {
                             let sx = px + panel_w - pad - 10 + dx;
                             let sy = draw_y + dy;
                             let idx = (sy * bw + sx) as usize;
-                            if idx < buf.len() { buf[idx] = swatch_color; }
+                            if idx < buf.len() {
+                                buf[idx] = swatch_color;
+                            }
                         }
                     }
                 }
             }
 
             let label_color = if is_sel { 0xFF_f9_e2_af } else { 0xFF_ba_c2_de };
-            let cursor_str  = if is_editing { "_" } else { "" };
-            let text = format!("{:<18} {}{}", field.label, panel.display_value(i), cursor_str);
-            self.draw_str(buf, bw, bh, px + pad + 4, draw_y + 2, &text, fp, false, label_color);
+            let cursor_str = if is_editing { "_" } else { "" };
+            let text = format!(
+                "{:<18} {}{}",
+                field.label,
+                panel.display_value(i),
+                cursor_str
+            );
+            self.draw_str(
+                buf,
+                bw,
+                bh,
+                px + pad + 4,
+                draw_y + 2,
+                &text,
+                fp,
+                false,
+                label_color,
+            );
 
             if is_editing {
                 let ex = px + panel_w - cw * 7 - pad;
-                self.draw_str(buf, bw, bh, ex, draw_y + 2, "[editing]", fp, false, 0xFF_a6_e3_a1);
+                self.draw_str(
+                    buf,
+                    bw,
+                    bh,
+                    ex,
+                    draw_y + 2,
+                    "[editing]",
+                    fp,
+                    false,
+                    0xFF_a6_e3_a1,
+                );
             }
 
             draw_y += row_h;
@@ -579,22 +744,58 @@ impl Renderer {
         // divider
         for dx in 1..panel_w - 1 {
             let idx = (footer_y * bw + px + dx) as usize;
-            if idx < buf.len() { buf[idx] = 0xFF_31_32_44; }
+            if idx < buf.len() {
+                buf[idx] = 0xFF_31_32_44;
+            }
         }
 
         let hint = format!("hint: {}", panel.fields[panel.selected].hint);
-        self.draw_str(buf, bw, bh, px + pad, footer_y + 2, &hint, fp, false, 0xFF_58_5b_70);
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad,
+            footer_y + 2,
+            &hint,
+            fp,
+            false,
+            0xFF_58_5b_70,
+        );
 
         let status_y = py + panel_h - row_h;
-        let status = panel.status.as_deref()
+        let status = panel
+            .status
+            .as_deref()
             .unwrap_or("j/k: move  Enter/i: edit  Ctrl+S: save  q/Esc: cancel");
-        let status_color = if panel.status.is_some() { 0xFF_f3_8b_a8 } else { 0xFF_58_5b_70 };
-        self.draw_str(buf, bw, bh, px + pad, status_y, status, fp, false, status_color);
+        let status_color = if panel.status.is_some() {
+            0xFF_f3_8b_a8
+        } else {
+            0xFF_58_5b_70
+        };
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad,
+            status_y,
+            status,
+            fp,
+            false,
+            status_color,
+        );
     }
 
     fn draw_str(
-        &mut self, buf: &mut [u32], bw: u32, bh: u32,
-        mut x: u32, y: u32, s: &str, px: f32, bold: bool, color: u32,
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        mut x: u32,
+        y: u32,
+        s: &str,
+        px: f32,
+        bold: bool,
+        color: u32,
     ) {
         let m_metrics = self.glyphs.metrics('M', px, bold);
         let advance = m_metrics.advance_width.ceil() as u32;
@@ -608,10 +809,14 @@ impl Renderer {
             for gy in 0..gh {
                 for gx in 0..gw {
                     let alpha = info.bitmap[(gy * gw + gx) as usize];
-                    if alpha == 0 { continue; }
+                    if alpha == 0 {
+                        continue;
+                    }
                     let sx = x + gx;
                     let sy = cy + gy;
-                    if sx >= bw || sy >= bh { continue; }
+                    if sx >= bw || sy >= bh {
+                        continue;
+                    }
                     let idx = (sy * bw + sx) as usize;
                     if idx < buf.len() {
                         buf[idx] = blend(buf[idx], color, alpha);
@@ -622,20 +827,33 @@ impl Renderer {
         }
     }
 
-    fn draw_status_bar(&mut self, buf: &mut [u32], width: u32, height: u32, mode: &InputMode, search_total: usize, search_current: usize, cwd: Option<&str>) {
+    fn draw_status_bar(
+        &mut self,
+        buf: &mut [u32],
+        width: u32,
+        height: u32,
+        mode: &InputMode,
+        search_total: usize,
+        search_current: usize,
+        cwd: Option<&str>,
+    ) {
         let bar_y = height.saturating_sub(STATUS_BAR_H);
         let bar_bg = 0xFF_18_18_25_u32;
 
         for y in bar_y..height {
             for x in 0..width {
                 let idx = (y * width + x) as usize;
-                if idx < buf.len() { buf[idx] = bar_bg; }
+                if idx < buf.len() {
+                    buf[idx] = bar_bg;
+                }
             }
         }
         if bar_y > 0 {
             for x in 0..width {
                 let idx = (bar_y * width + x) as usize;
-                if idx < buf.len() { buf[idx] = 0xFF_31_32_44; }
+                if idx < buf.len() {
+                    buf[idx] = 0xFF_31_32_44;
+                }
             }
         }
 
@@ -651,7 +869,9 @@ impl Renderer {
         for dy in 0..badge_h {
             for dx in 0..badge_w {
                 let idx = ((badge_y + dy) * width + badge_x + dx) as usize;
-                if idx < buf.len() { buf[idx] = badge_color; }
+                if idx < buf.len() {
+                    buf[idx] = badge_color;
+                }
             }
         }
 
@@ -663,12 +883,18 @@ impl Renderer {
             for gy in 0..gh {
                 for gx in 0..gw {
                     let alpha = bitmap[(gy * gw + gx) as usize];
-                    if alpha == 0 { continue; }
+                    if alpha == 0 {
+                        continue;
+                    }
                     let sx = text_x + gx;
                     let sy = cy + gy;
-                    if sx >= width || sy >= height { continue; }
+                    if sx >= width || sy >= height {
+                        continue;
+                    }
                     let idx = (sy * width + sx) as usize;
-                    if idx < buf.len() { buf[idx] = blend(badge_color, badge_fg, alpha); }
+                    if idx < buf.len() {
+                        buf[idx] = blend(badge_color, badge_fg, alpha);
+                    }
                 }
             }
             text_x += char_w;
@@ -683,14 +909,34 @@ impl Renderer {
             } else {
                 format!("/{query}  [{}/{}]", search_current + 1, search_total)
             };
-            self.draw_str(buf, width, height, badge_x + badge_w + 10, badge_y + 2, &info, px, false, 0xFF_ba_c2_de);
+            self.draw_str(
+                buf,
+                width,
+                height,
+                badge_x + badge_w + 10,
+                badge_y + 2,
+                &info,
+                px,
+                false,
+                0xFF_ba_c2_de,
+            );
         }
 
         // Show CWD right-aligned in the status bar.
         if let Some(path) = cwd {
             let cwd_w = path.len() as u32 * char_w;
             if let Some(cwd_x) = width.checked_sub(cwd_w + 10) {
-                self.draw_str(buf, width, height, cwd_x, badge_y + 2, path, px, false, 0xFF_58_5b_70);
+                self.draw_str(
+                    buf,
+                    width,
+                    height,
+                    cwd_x,
+                    badge_y + 2,
+                    path,
+                    px,
+                    false,
+                    0xFF_58_5b_70,
+                );
             }
         }
     }
@@ -705,15 +951,35 @@ fn get_cell<'a>(grid: &'a Grid, scroll_offset: usize, row: usize, col: usize) ->
     let sb_row = sb_start + row;
     if sb_row < sb_len {
         let line = &grid.scrollback[sb_row];
-        if col < line.len() { &line[col] } else { &BLANK_CELL }
+        if col < line.len() {
+            &line[col]
+        } else {
+            &BLANK_CELL
+        }
     } else {
         let live_row = sb_row.saturating_sub(sb_len);
-        if live_row < grid.rows { grid.cell(col, live_row) } else { &BLANK_CELL }
+        if live_row < grid.rows {
+            grid.cell(col, live_row)
+        } else {
+            &BLANK_CELL
+        }
     }
 }
 
 // bg will differ per grid but this fallback is only hit for out-of-bounds scrollback
-static BLANK_CELL: Cell = Cell { c: ' ', fg: Color::WHITE, bg: Color::rgb(0x12, 0x12, 0x12), bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None };
+static BLANK_CELL: Cell = Cell {
+    c: ' ',
+    fg: Color::WHITE,
+    bg: Color::rgb(0x12, 0x12, 0x12),
+    bold: false,
+    dim: false,
+    underline: false,
+    strikethrough: false,
+    reverse: false,
+    wide: false,
+    wide_cont: false,
+    url: None,
+};
 
 fn mode_style(mode: &InputMode) -> (&'static str, u32) {
     match mode {

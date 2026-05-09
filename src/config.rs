@@ -30,8 +30,12 @@ pub struct FontConfig {
     pub size: f32,
 }
 
-fn default_inactive_dim() -> f32 { 0.55 }
-fn default_detect_urls() -> bool { true }
+fn default_inactive_dim() -> f32 {
+    0.55
+}
+fn default_detect_urls() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
@@ -62,10 +66,18 @@ pub struct ColorsConfig {
 }
 
 impl ColorsConfig {
-    pub fn bg(&self) -> Color { parse_hex(&self.background) }
-    pub fn fg(&self) -> Color { parse_hex(&self.foreground) }
-    pub fn cursor(&self) -> Color { parse_hex(&self.cursor) }
-    pub fn selection(&self) -> Color { parse_hex(&self.selection) }
+    pub fn bg(&self) -> Color {
+        parse_hex(&self.background)
+    }
+    pub fn fg(&self) -> Color {
+        parse_hex(&self.foreground)
+    }
+    pub fn cursor(&self) -> Color {
+        parse_hex(&self.cursor)
+    }
+    pub fn selection(&self) -> Color {
+        parse_hex(&self.selection)
+    }
 
     pub fn palette_colors(&self) -> [Color; 16] {
         let mut out = [Color::rgb(0, 0, 0); 16];
@@ -79,27 +91,41 @@ impl ColorsConfig {
 pub fn parse_hex(s: &str) -> Color {
     let s = s.trim_start_matches('#');
     let n = u32::from_str_radix(s, 16).unwrap_or(0);
-    Color::rgb(((n >> 16) & 0xFF) as u8, ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8)
+    Color::rgb(
+        ((n >> 16) & 0xFF) as u8,
+        ((n >> 8) & 0xFF) as u8,
+        (n & 0xFF) as u8,
+    )
 }
 
 impl Default for FontConfig {
-    fn default() -> Self { default_config().font }
+    fn default() -> Self {
+        default_config().font
+    }
 }
 
 impl Default for WindowConfig {
-    fn default() -> Self { default_config().window }
+    fn default() -> Self {
+        default_config().window
+    }
 }
 
 impl Default for ShellConfig {
-    fn default() -> Self { default_config().shell }
+    fn default() -> Self {
+        default_config().shell
+    }
 }
 
 impl Default for ColorsConfig {
-    fn default() -> Self { default_config().colors }
+    fn default() -> Self {
+        default_config().colors
+    }
 }
 
 impl Default for Config {
-    fn default() -> Self { default_config() }
+    fn default() -> Self {
+        default_config()
+    }
 }
 
 impl Config {
@@ -107,7 +133,10 @@ impl Config {
         let path = config_path();
         match std::fs::read_to_string(&path) {
             Ok(raw) => match toml::from_str(&raw) {
-                Ok(cfg) => { log::info!("Loaded config from {}", path.display()); cfg }
+                Ok(cfg) => {
+                    log::info!("Loaded config from {}", path.display());
+                    cfg
+                }
                 Err(e) => {
                     log::warn!("Invalid config at {}: {e} — using defaults", path.display());
                     Self::default()
@@ -122,10 +151,12 @@ impl Config {
 
     pub fn save(&self) {
         let path = config_path();
-        if let Some(dir) = path.parent() { let _ = std::fs::create_dir_all(dir); }
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
         match toml::to_string_pretty(self) {
             Ok(content) => match std::fs::write(&path, content) {
-                Ok(_)  => log::info!("Config saved to {}", path.display()),
+                Ok(_) => log::info!("Config saved to {}", path.display()),
                 Err(e) => log::error!("Failed to save config: {e}"),
             },
             Err(e) => log::error!("Failed to serialize config: {e}"),
@@ -134,7 +165,9 @@ impl Config {
 
     pub fn write_default_if_missing() {
         let path = config_path();
-        if path.exists() { return; }
+        if path.exists() {
+            return;
+        }
         Self::default().save();
         log::info!("Created default config at {}", path.display());
     }

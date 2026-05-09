@@ -1,11 +1,14 @@
-use super::*;
 use super::super::grid::Color;
+use super::*;
 
 fn make_parser(cols: usize, rows: usize) -> TerminalParser {
     TerminalParser::new_with_colors(
-        cols, rows,
-        Color::WHITE, Color::BLACK,
-        Color::CURSOR, Color::SELECTION,
+        cols,
+        rows,
+        Color::WHITE,
+        Color::BLACK,
+        Color::CURSOR,
+        Color::SELECTION,
         [Color::BLACK; 16],
     )
 }
@@ -301,12 +304,18 @@ fn color256_grayscale_range() {
 
 #[test]
 fn parse_osc7_absolute_path() {
-    assert_eq!(parse_osc7_uri("file:///home/user"), Some("/home/user".to_string()));
+    assert_eq!(
+        parse_osc7_uri("file:///home/user"),
+        Some("/home/user".to_string())
+    );
 }
 
 #[test]
 fn parse_osc7_with_hostname() {
-    assert_eq!(parse_osc7_uri("file://mymachine/home/user"), Some("/home/user".to_string()));
+    assert_eq!(
+        parse_osc7_uri("file://mymachine/home/user"),
+        Some("/home/user".to_string())
+    );
 }
 
 // ── DEC private modes ────────────────────────────────────────────────────────
@@ -362,7 +371,9 @@ fn mouse_sgr_mode_1006() {
 #[test]
 fn erase_in_display_above() {
     let mut p = make_parser(5, 4);
-    for _ in 0..4 { p.process(b"AAAAA\r\n"); }
+    for _ in 0..4 {
+        p.process(b"AAAAA\r\n");
+    }
     p.grid.cursor_row = 2;
     p.grid.cursor_col = 2;
     p.process(b"\x1b[1J"); // erase above cursor
@@ -410,7 +421,7 @@ fn erase_in_line_entire() {
 fn sgr_bold_dim_off_code_22() {
     let mut p = make_parser(10, 5);
     p.process(b"\x1b[1;2m"); // bold + dim
-    p.process(b"\x1b[22m");  // turn both off
+    p.process(b"\x1b[22m"); // turn both off
     assert!(!p.grid.bold);
     assert!(!p.grid.dim);
 }
@@ -539,7 +550,10 @@ fn osc8_hyperlink_sets_url_on_cells() {
     p.process(b"link");
     p.process(b"\x1b]8;;\x07"); // close
     assert!(p.grid.cell(0, 0).url.is_some());
-    assert_eq!(p.grid.cell(0, 0).url.as_deref().map(|s| s.as_str()), Some("https://example.com"));
+    assert_eq!(
+        p.grid.cell(0, 0).url.as_deref().map(|s| s.as_str()),
+        Some("https://example.com")
+    );
     assert!(p.grid.cell(4, 0).url.is_none());
 }
 
@@ -560,8 +574,8 @@ fn color256_rgb_cube() {
 fn sgr_reset_code_zero_in_multi_param_sequence() {
     let mut p = make_parser(10, 5);
     p.process(b"\x1b[1;0;4m"); // bold, then reset (0), then underline
-    assert!(!p.grid.bold);      // reset cleared bold
-    assert!(p.grid.underline);  // underline set after reset
+    assert!(!p.grid.bold); // reset cleared bold
+    assert!(p.grid.underline); // underline set after reset
 }
 
 // ── Scroll region with single param (p1 defaults to rows-1) ──────────────────

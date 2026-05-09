@@ -3,9 +3,13 @@ use crate::terminal::grid::Color;
 
 fn make_pane(cols: usize, rows: usize) -> Pane {
     Pane::new_with_colors(
-        cols, rows, [0, 0, cols as u32 * 8, rows as u32 * 16],
-        Color::WHITE, Color::BLACK,
-        Color::CURSOR, Color::SELECTION,
+        cols,
+        rows,
+        [0, 0, cols as u32 * 8, rows as u32 * 16],
+        Color::WHITE,
+        Color::BLACK,
+        Color::CURSOR,
+        Color::SELECTION,
         [Color::BLACK; 16],
     )
 }

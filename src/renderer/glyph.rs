@@ -90,7 +90,7 @@ impl ColorEmojiRenderer {
                     let base = row * pitch + col * 4;
                     src_rgba.push(raw[base + 2]); // R
                     src_rgba.push(raw[base + 1]); // G
-                    src_rgba.push(raw[base]);     // B
+                    src_rgba.push(raw[base]); // B
                     src_rgba.push(raw[base + 3]); // A
                 }
             }
@@ -141,11 +141,21 @@ impl GlyphCache {
         let bold_font = load_system_font(family, true).unwrap_or_else(|| load_fallback(true));
         let fallbacks = load_fallback_fonts();
         let ft_emoji = load_color_emoji_renderer();
-        Self { font, bold_font, fallbacks, ft_emoji, cache: HashMap::new() }
+        Self {
+            font,
+            bold_font,
+            fallbacks,
+            ft_emoji,
+            cache: HashMap::new(),
+        }
     }
 
     pub fn get(&mut self, c: char, px: f32, bold: bool) -> &GlyphInfo {
-        let key = GlyphKey { c, px: px as u32, bold };
+        let key = GlyphKey {
+            c,
+            px: px as u32,
+            bold,
+        };
         if !self.cache.contains_key(&key) {
             let info = self.resolve_glyph(c, px, bold);
             self.cache.insert(key.clone(), info);
@@ -234,13 +244,19 @@ fn load_system_font(family: &str, bold: bool) -> Option<Font> {
     props.weight = if bold { Weight::BOLD } else { Weight::NORMAL };
     props.style = Style::Normal;
 
-    let handle = source.select_best_match(
-        &[FamilyName::Title(family.to_string()), FamilyName::Monospace],
-        &props,
-    ).ok()?;
+    let handle = source
+        .select_best_match(
+            &[FamilyName::Title(family.to_string()), FamilyName::Monospace],
+            &props,
+        )
+        .ok()?;
     let bytes = font_bytes(handle)?;
     let font = Font::from_bytes(bytes.as_slice(), FontSettings::default()).ok()?;
-    log::info!("Loaded {} font: {}", if bold { "bold" } else { "regular" }, family);
+    log::info!(
+        "Loaded {} font: {}",
+        if bold { "bold" } else { "regular" },
+        family
+    );
     Some(font)
 }
 
@@ -283,7 +299,7 @@ fn scale_rgba_bilinear(src: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u3
             let dst_idx = ((dy * dst_w + dx) * 4) as usize;
             for ch in 0..4usize {
                 let v = (1.0 - fy) * ((1.0 - fx) * get(x0, y0, ch) + fx * get(x1, y0, ch))
-                      + fy          * ((1.0 - fx) * get(x0, y1, ch) + fx * get(x1, y1, ch));
+                    + fy * ((1.0 - fx) * get(x0, y1, ch) + fx * get(x1, y1, ch));
                 dst[dst_idx + ch] = v.round().clamp(0.0, 255.0) as u8;
             }
         }

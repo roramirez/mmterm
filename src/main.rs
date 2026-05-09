@@ -8,8 +8,8 @@ mod ui;
 
 use arboard::Clipboard;
 use config::Config;
-use crossbeam_channel::{unbounded, Receiver};
-use input::{handle_ctrl_w, handle_key, InputMode};
+use crossbeam_channel::{Receiver, unbounded};
+use input::{InputMode, handle_ctrl_w, handle_key};
 use renderer::{FontMetrics, PaneView, Renderer};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 use tui_config::{ConfigAction, ConfigPanel};
 use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, Modifiers, WindowEvent};
+use winit::event::{ElementState, Modifiers, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::window::{CursorIcon, Icon, Window, WindowId};
 
@@ -129,25 +129,49 @@ impl App {
         let (cols, rows) = self.tabs[tab_idx].metrics.grid_size_for(w, h);
         let c = &self.config.colors;
         let pane = Pane::new_with_colors(
-            cols, rows, rect,
-            c.fg(), c.bg(), c.cursor(), c.selection(),
+            cols,
+            rows,
+            rect,
+            c.fg(),
+            c.bg(),
+            c.cursor(),
+            c.selection(),
             c.palette_colors(),
         );
         let (tx, rx) = unbounded::<Vec<u8>>();
-        let shell = self.config.shell.program.clone()
+        let shell = self
+            .config
+            .shell
+            .program
+            .clone()
             .or_else(|| std::env::var("SHELL").ok())
             .unwrap_or_else(|| "/bin/bash".to_string());
         let proxy = self.proxy.clone();
-        let wakeup = Box::new(move || { let _ = proxy.send_event(()); });
-        match pty::PtySession::spawn_with_shell(cols as u16, rows as u16, tx, &shell, cwd.as_ref(), wakeup) {
-            Ok(pty) => { self.tabs[tab_idx].panes.insert(id, PaneEntry { pane, pty, rx }); }
+        let wakeup = Box::new(move || {
+            let _ = proxy.send_event(());
+        });
+        match pty::PtySession::spawn_with_shell(
+            cols as u16,
+            rows as u16,
+            tx,
+            &shell,
+            cwd.as_ref(),
+            wakeup,
+        ) {
+            Ok(pty) => {
+                self.tabs[tab_idx]
+                    .panes
+                    .insert(id, PaneEntry { pane, pty, rx });
+            }
             Err(e) => log::error!("PTY spawn failed: {e}"),
         }
         id
     }
 
     fn spawn_pane(&mut self, rect: [u32; 4]) -> usize {
-        let cwd = self.tabs.get(self.active_tab)
+        let cwd = self
+            .tabs
+            .get(self.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
         self.spawn_pane_into(self.active_tab, rect, cwd)
@@ -156,12 +180,17 @@ impl App {
     // ── Tab management ───────────────────────────────────────────────────────
 
     fn new_tab(&mut self, win_w: u32, win_h: u32) {
-        let cwd = self.tabs.get(self.active_tab)
+        let cwd = self
+            .tabs
+            .get(self.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
         let metrics = self.renderer.make_metrics(self.renderer.font_px);
         let layout = Layout::new(0, win_w, win_h);
-        let initial_rect = layout.rects().first().map(|(_, r)| *r)
+        let initial_rect = layout
+            .rects()
+            .first()
+            .map(|(_, r)| *r)
             .unwrap_or([0, TAB_BAR_H, win_w, win_h]);
         let tab_idx = self.tabs.len();
         self.tabs.push(TabState {
@@ -188,7 +217,9 @@ impl App {
 
     fn prev_tab(&mut self) {
         if self.tabs.len() > 1 {
-            self.active_tab = self.active_tab.checked_sub(1)
+            self.active_tab = self
+                .active_tab
+                .checked_sub(1)
                 .unwrap_or(self.tabs.len() - 1);
         }
     }
@@ -219,7 +250,10 @@ impl App {
                 let mut got_data = false;
                 loop {
                     match entry.rx.try_recv() {
-                        Ok(bytes) => { entry.pane.process(&bytes); got_data = true; }
+                        Ok(bytes) => {
+                            entry.pane.process(&bytes);
+                            got_data = true;
+                        }
                         Err(crossbeam_channel::TryRecvError::Empty) => break,
                         Err(crossbeam_channel::TryRecvError::Disconnected) => {
                             exited.push((tab_idx, id));
@@ -243,7 +277,9 @@ impl App {
     }
 
     fn close_pane_on_tab(&mut self, tab_idx: usize, pane_id: usize, event_loop: &ActiveEventLoop) {
-        if tab_idx >= self.tabs.len() { return; }
+        if tab_idx >= self.tabs.len() {
+            return;
+        }
         if self.tabs[tab_idx].panes.len() == 1 {
             if self.tabs.len() == 1 {
                 event_loop.exit();
@@ -291,8 +327,12 @@ impl App {
     fn do_split(&mut self, dir: SplitDir) {
         self.tab_mut().zoomed = false;
         let active = self.tab().active;
-        let active_rect = self.tab().layout.rects()
-            .into_iter().find(|(id, _)| *id == active)
+        let active_rect = self
+            .tab()
+            .layout
+            .rects()
+            .into_iter()
+            .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
             .unwrap_or([0, TAB_BAR_H, 100, 100]);
 
@@ -351,7 +391,9 @@ impl App {
     /// Returns the mouse_mode and mouse_sgr flags for the active pane.
     fn active_mouse_mode(&self) -> (u16, bool) {
         let active = self.tab().active;
-        self.tab().panes.get(&active)
+        self.tab()
+            .panes
+            .get(&active)
             .map(|e| (e.pane.parser.grid.mouse_mode, e.pane.parser.grid.mouse_sgr))
             .unwrap_or((0, false))
     }
@@ -381,8 +423,7 @@ impl App {
     fn pane_at_pixel(&self, px: f64, py: f64) -> Option<usize> {
         let rects = self.tab().layout.rects();
         for (id, [rx, ry, rw, rh]) in rects {
-            if px >= rx as f64 && py >= ry as f64
-                && px < (rx + rw) as f64 && py < (ry + rh) as f64
+            if px >= rx as f64 && py >= ry as f64 && px < (rx + rw) as f64 && py < (ry + rh) as f64
             {
                 return Some(id);
             }
@@ -395,16 +436,17 @@ impl App {
         let entry = tab.panes.get(&pane_id)?;
         let [rx, ry, rw, rh] = entry.pane.rect;
         let m = &tab.metrics;
-        if px < rx as f64 || py < ry as f64
-            || px >= (rx + rw) as f64 || py >= (ry + rh) as f64
-        {
+        if px < rx as f64 || py < ry as f64 || px >= (rx + rw) as f64 || py >= (ry + rh) as f64 {
             return None;
         }
         let col = ((px - rx as f64) / m.cell_width as f64) as usize;
         let row = ((py - ry as f64) / m.cell_height as f64) as usize;
         let cols = entry.pane.parser.grid.cols;
         let rows = entry.pane.parser.grid.rows;
-        Some((col.min(cols.saturating_sub(1)), row.min(rows.saturating_sub(1))))
+        Some((
+            col.min(cols.saturating_sub(1)),
+            row.min(rows.saturating_sub(1)),
+        ))
     }
 
     fn url_at_pixel(&self, px: f64, py: f64) -> Option<String> {
@@ -422,10 +464,18 @@ impl App {
             let sb_row = sb_start + row;
             if sb_row < sb_len {
                 let line = &grid.scrollback[sb_row];
-                if col < line.len() { &line[col] } else { return None; }
+                if col < line.len() {
+                    &line[col]
+                } else {
+                    return None;
+                }
             } else {
                 let live_row = sb_row.saturating_sub(sb_len);
-                if live_row < grid.rows { grid.cell(col, live_row) } else { return None; }
+                if live_row < grid.rows {
+                    grid.cell(col, live_row)
+                } else {
+                    return None;
+                }
             }
         };
         cell.url.as_ref().map(|u| u.as_ref().clone())
@@ -442,39 +492,61 @@ impl App {
                     cur_row: row,
                 };
                 self.mouse_selecting = true;
-                if let Some(w) = &self.window { w.request_redraw(); }
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
             }
         }
     }
 
     fn update_mouse_selection(&mut self, px: f64, py: f64) {
-        if let InputMode::Visual { start_col, start_row, .. } = self.mode.clone() {
+        if let InputMode::Visual {
+            start_col,
+            start_row,
+            ..
+        } = self.mode.clone()
+        {
             let active = self.tab().active;
             if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
-                self.mode = InputMode::Visual { start_col, start_row, cur_col: col, cur_row: row };
+                self.mode = InputMode::Visual {
+                    start_col,
+                    start_row,
+                    cur_col: col,
+                    cur_row: row,
+                };
             }
         }
     }
 
     fn finish_mouse_selection(&mut self) {
-        if let InputMode::Visual { start_col, start_row, cur_col, cur_row } = self.mode.clone() {
+        if let InputMode::Visual {
+            start_col,
+            start_row,
+            cur_col,
+            cur_row,
+        } = self.mode.clone()
+        {
             self.mode = InputMode::Insert;
             if start_col == cur_col && start_row == cur_row {
                 if let Some(url) = self.hovered_url.clone() {
                     open_url(&url);
                 }
-                if let Some(w) = &self.window { w.request_redraw(); }
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
                 return;
             }
             let active = self.tab().active;
             if let Some(entry) = self.tab().panes.get(&active) {
-                let text = entry.pane.parser.grid.selected_text(
-                    start_col, start_row, cur_col, cur_row,
-                );
+                let text = entry
+                    .pane
+                    .parser
+                    .grid
+                    .selected_text(start_col, start_row, cur_col, cur_row);
                 if !text.is_empty() {
-                    let cb = self.clipboard.get_or_insert_with(|| {
-                        Clipboard::new().expect("clipboard unavailable")
-                    });
+                    let cb = self
+                        .clipboard
+                        .get_or_insert_with(|| Clipboard::new().expect("clipboard unavailable"));
                     match cb.set_text(text) {
                         Ok(()) => log::info!("Copied mouse selection to clipboard"),
                         Err(e) => log::warn!("Clipboard write failed: {e}"),
@@ -482,7 +554,9 @@ impl App {
                 }
             }
         }
-        if let Some(w) = &self.window { w.request_redraw(); }
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
     }
 
     // ── Config panel ──────────────────────────────────────────────────────────
@@ -490,7 +564,9 @@ impl App {
     fn change_font_size(&mut self, delta: f32) {
         let current = self.tabs[self.active_tab].metrics.font_px;
         let new_size = (current + delta).clamp(6.0, 72.0);
-        if (new_size - current).abs() < 0.1 { return; }
+        if (new_size - current).abs() < 0.1 {
+            return;
+        }
         // Only update active tab's metrics — config is not touched
         let new_metrics = self.renderer.make_metrics(new_size);
         let idx = self.active_tab;
@@ -599,7 +675,9 @@ impl App {
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
 
-        let (sb_len, grid_rows) = self.tabs[tab_idx].panes.get(&active)
+        let (sb_len, grid_rows) = self.tabs[tab_idx]
+            .panes
+            .get(&active)
             .map(|e| (e.pane.parser.grid.scrollback.len(), e.pane.parser.grid.rows))
             .unwrap_or((0, 24));
 
@@ -665,12 +743,12 @@ impl App {
         };
 
         let action = match &event.logical_key {
-            Key::Named(NamedKey::Escape)    => panel.handle_escape(),
-            Key::Named(NamedKey::Enter)     => panel.handle_char('\r'),
+            Key::Named(NamedKey::Escape) => panel.handle_escape(),
+            Key::Named(NamedKey::Enter) => panel.handle_char('\r'),
             Key::Named(NamedKey::Backspace) => panel.handle_backspace(),
-            Key::Named(NamedKey::ArrowUp)   => panel.handle_up(),
+            Key::Named(NamedKey::ArrowUp) => panel.handle_up(),
             Key::Named(NamedKey::ArrowDown) => panel.handle_down(),
-            Key::Named(NamedKey::Space)     => panel.handle_char(' '),
+            Key::Named(NamedKey::Space) => panel.handle_char(' '),
             Key::Character(s) => {
                 if ctrl && s.eq_ignore_ascii_case("s") {
                     panel.save()
@@ -685,9 +763,13 @@ impl App {
         match action {
             ConfigAction::Save(cfg) => {
                 let window = self.window.clone();
-                if let Some(w) = window { self.apply_config(cfg, &w); }
+                if let Some(w) = window {
+                    self.apply_config(cfg, &w);
+                }
             }
-            ConfigAction::Cancel => { self.config_panel = None; }
+            ConfigAction::Cancel => {
+                self.config_panel = None;
+            }
             ConfigAction::None => {}
         }
     }
@@ -695,16 +777,22 @@ impl App {
     // ── Render ────────────────────────────────────────────────────────────────
 
     fn redraw(&mut self) {
-        if self.blink_last.elapsed() >= Duration::from_millis(self.config.window.cursor_blink_ms as u64) {
+        if self.blink_last.elapsed()
+            >= Duration::from_millis(self.config.window.cursor_blink_ms as u64)
+        {
             self.blink_last = Instant::now();
             self.cursor_blink = !self.cursor_blink;
         }
 
-        let Some(surface) = &mut self.surface else { return };
+        let Some(surface) = &mut self.surface else {
+            return;
+        };
         let Some(window) = &self.window else { return };
         let size = window.inner_size();
         let (w, h) = (size.width, size.height);
-        if w == 0 || h == 0 { return; }
+        if w == 0 || h == 0 {
+            return;
+        }
 
         if self.surface_size != (w, h) {
             if let (Ok(wn), Ok(hn)) = (NonZeroU32::try_from(w), NonZeroU32::try_from(h)) {
@@ -716,7 +804,10 @@ impl App {
         let mut buf = surface.buffer_mut().unwrap();
         let pixels: &mut [u32] = &mut buf;
 
-        if self.tabs.is_empty() { buf.present().unwrap(); return; }
+        if self.tabs.is_empty() {
+            buf.present().unwrap();
+            return;
+        }
 
         self.tabs[self.active_tab].has_activity = false;
 
@@ -759,48 +850,60 @@ impl App {
                 vec![]
             }
         } else {
-            rects.iter().filter_map(|(id, rect)| {
-                let entry = tab.panes.get(id)?;
-                let is_active = *id == active_id;
-                let show_cursor = is_active
-                    && matches!(self.mode, InputMode::Insert)
-                    && self.cursor_blink
-                    && entry.pane.scroll_offset == 0
-                    && entry.pane.parser.grid.cursor_visible;
-                let (sm, sc) = if is_active && search_match_len > 0 {
-                    (search_matches.as_slice(), Some(search_current_val))
-                } else {
-                    (&[][..], None)
-                };
-                Some(PaneView {
-                    grid: &entry.pane.parser.grid,
-                    rect: *rect,
-                    scroll_offset: entry.pane.scroll_offset,
-                    is_active,
-                    show_cursor,
-                    search_matches: sm,
-                    search_match_len,
-                    search_current: sc,
+            rects
+                .iter()
+                .filter_map(|(id, rect)| {
+                    let entry = tab.panes.get(id)?;
+                    let is_active = *id == active_id;
+                    let show_cursor = is_active
+                        && matches!(self.mode, InputMode::Insert)
+                        && self.cursor_blink
+                        && entry.pane.scroll_offset == 0
+                        && entry.pane.parser.grid.cursor_visible;
+                    let (sm, sc) = if is_active && search_match_len > 0 {
+                        (search_matches.as_slice(), Some(search_current_val))
+                    } else {
+                        (&[][..], None)
+                    };
+                    Some(PaneView {
+                        grid: &entry.pane.parser.grid,
+                        rect: *rect,
+                        scroll_offset: entry.pane.scroll_offset,
+                        is_active,
+                        show_cursor,
+                        search_matches: sm,
+                        search_match_len,
+                        search_current: sc,
+                    })
                 })
-            }).collect()
+                .collect()
         };
 
-        let tab_titles: Vec<(String, bool, bool)> = self.tabs.iter().enumerate()
+        let tab_titles: Vec<(String, bool, bool)> = self
+            .tabs
+            .iter()
+            .enumerate()
             .map(|(i, tab)| {
                 let is_active = i == self.active_tab;
-                let osc_title = tab.panes.get(&tab.active)
+                let osc_title = tab
+                    .panes
+                    .get(&tab.active)
                     .and_then(|e| e.pane.parser.grid.osc_title.as_deref())
                     .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
                 let label = if is_active {
                     if let InputMode::RenameTab { buf } = &self.mode {
                         format!(" {}| ", buf)
                     } else {
-                        tab.name.as_deref().or(osc_title)
+                        tab.name
+                            .as_deref()
+                            .or(osc_title)
                             .map(|n| format!(" {} ", n))
                             .unwrap_or_else(|| format!(" {} ", i + 1))
                     }
                 } else {
-                    tab.name.as_deref().or(osc_title)
+                    tab.name
+                        .as_deref()
+                        .or(osc_title)
                         .map(|n| format!(" {} ", n))
                         .unwrap_or_else(|| format!(" {} ", i + 1))
                 };
@@ -811,17 +914,35 @@ impl App {
         let metrics = self.tabs[self.active_tab].metrics.clone();
         let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
         let home = std::env::var("HOME").unwrap_or_default();
-        let cwd_owned: Option<String> = self.tabs[self.active_tab].panes
+        let cwd_owned: Option<String> = self.tabs[self.active_tab]
+            .panes
             .get(&active_id)
             .and_then(|e| e.pane.parser.grid.cwd.as_deref())
-            .map(|p| if !home.is_empty() && p.starts_with(&home) {
-                format!("~{}", &p[home.len()..])
-            } else {
-                p.to_string()
+            .map(|p| {
+                if !home.is_empty() && p.starts_with(&home) {
+                    format!("~{}", &p[home.len()..])
+                } else {
+                    p.to_string()
+                }
             });
-        let bell_flash = self.tabs[self.active_tab].bell_flash_until
+        let bell_flash = self.tabs[self.active_tab]
+            .bell_flash_until
             .map_or(false, |t| t > Instant::now());
-        self.renderer.draw(pixels, w, h, &views, draw_separators, &self.mode, &tab_titles, &metrics, self.search_matches.len(), self.search_current, cwd_owned.as_deref(), self.config.window.inactive_dim, bell_flash);
+        self.renderer.draw(
+            pixels,
+            w,
+            h,
+            &views,
+            draw_separators,
+            &self.mode,
+            &tab_titles,
+            &metrics,
+            self.search_matches.len(),
+            self.search_current,
+            cwd_owned.as_deref(),
+            self.config.window.inactive_dim,
+            bell_flash,
+        );
 
         if let Some(panel) = &self.config_panel {
             self.renderer.draw_config_panel(pixels, w, h, panel);
@@ -880,7 +1001,9 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::KeyboardInput { event, .. } => {
-                if event.state != ElementState::Pressed { return; }
+                if event.state != ElementState::Pressed {
+                    return;
+                }
 
                 // Reset blink on every keypress so cursor is always visible after input.
                 self.cursor_blink = true;
@@ -898,37 +1021,59 @@ impl ApplicationHandler for App {
 
                 if matches!(self.mode, InputMode::Search { .. }) {
                     self.handle_search_key(&event);
-                    if let Some(w) = &self.window { w.request_redraw(); }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                     return;
                 }
 
                 if self.ctrl_w_pending {
                     self.ctrl_w_pending = false;
                     match handle_ctrl_w(&event) {
-                        Action::SplitH    => self.do_split(SplitDir::H),
-                        Action::SplitV    => self.do_split(SplitDir::V),
+                        Action::SplitH => self.do_split(SplitDir::H),
+                        Action::SplitV => self.do_split(SplitDir::V),
                         Action::FocusLeft => self.focus_dir(-1, 0),
-                        Action::FocusRight=> self.focus_dir(1, 0),
-                        Action::FocusUp   => self.focus_dir(0, -1),
+                        Action::FocusRight => self.focus_dir(1, 0),
+                        Action::FocusUp => self.focus_dir(0, -1),
                         Action::FocusDown => self.focus_dir(0, 1),
                         Action::FocusNext => self.focus_next(),
                         Action::ClosePane => self.do_close_pane(event_loop),
-                        Action::ZoomPane  => { self.tab_mut().zoomed = !self.tab().zoomed; }
+                        Action::ZoomPane => {
+                            self.tab_mut().zoomed = !self.tab().zoomed;
+                        }
                         _ => {}
                     }
-                    if let Some(w) = &self.window { w.request_redraw(); }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                     return;
                 }
 
                 let (grid_cols, grid_rows, app_cursor) = {
                     let tab = self.tab();
-                    tab.panes.get(&tab.active)
-                        .map(|e| (e.pane.parser.grid.cols, e.pane.parser.grid.rows, e.pane.parser.grid.application_cursor_keys))
+                    tab.panes
+                        .get(&tab.active)
+                        .map(|e| {
+                            (
+                                e.pane.parser.grid.cols,
+                                e.pane.parser.grid.rows,
+                                e.pane.parser.grid.application_cursor_keys,
+                            )
+                        })
                         .unwrap_or((80, 24, false))
                 };
 
-                match handle_key(&event, &self.modifiers, &self.mode, grid_cols, grid_rows, app_cursor) {
-                    Action::CtrlWPrefix => { self.ctrl_w_pending = true; }
+                match handle_key(
+                    &event,
+                    &self.modifiers,
+                    &self.mode,
+                    grid_cols,
+                    grid_rows,
+                    app_cursor,
+                ) {
+                    Action::CtrlWPrefix => {
+                        self.ctrl_w_pending = true;
+                    }
 
                     Action::SendToPty(bytes) => {
                         let active = self.tab().active;
@@ -944,11 +1089,22 @@ impl ApplicationHandler for App {
                             } else {
                                 let (col, row) = {
                                     let tab = self.tab();
-                                    tab.panes.get(&tab.active)
-                                        .map(|e| (e.pane.parser.grid.cursor_col, e.pane.parser.grid.cursor_row))
+                                    tab.panes
+                                        .get(&tab.active)
+                                        .map(|e| {
+                                            (
+                                                e.pane.parser.grid.cursor_col,
+                                                e.pane.parser.grid.cursor_row,
+                                            )
+                                        })
                                         .unwrap_or((0, 0))
                                 };
-                                InputMode::Visual { start_col: col, start_row: row, cur_col: col, cur_row: row }
+                                InputMode::Visual {
+                                    start_col: col,
+                                    start_row: row,
+                                    cur_col: col,
+                                    cur_row: row,
+                                }
                             }
                         } else {
                             new_mode
@@ -958,32 +1114,47 @@ impl ApplicationHandler for App {
 
                     Action::ScrollUp(n) => {
                         let active = self.tab().active;
-                        if let Some(e) = self.tab_mut().panes.get_mut(&active) { e.pane.scroll_up(n); }
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_up(n);
+                        }
                     }
                     Action::ScrollDown(n) => {
                         let active = self.tab().active;
-                        if let Some(e) = self.tab_mut().panes.get_mut(&active) { e.pane.scroll_down(n); }
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_down(n);
+                        }
                     }
                     Action::ScrollToTop => {
                         let active = self.tab().active;
-                        if let Some(e) = self.tab_mut().panes.get_mut(&active) { e.pane.scroll_top(); }
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_top();
+                        }
                     }
                     Action::ScrollToBottom => {
                         let active = self.tab().active;
-                        if let Some(e) = self.tab_mut().panes.get_mut(&active) { e.pane.scroll_bottom(); }
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_bottom();
+                        }
                     }
 
                     Action::Paste => {
-                        let text = self.clipboard.as_mut().and_then(|cb| cb.get_text().ok())
+                        let text = self
+                            .clipboard
+                            .as_mut()
+                            .and_then(|cb| cb.get_text().ok())
                             .or_else(|| Clipboard::new().ok()?.get_text().ok());
                         if let Some(text) = text {
                             let active = self.tab().active;
                             if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
                                 let bracketed = entry.pane.parser.grid.bracketed_paste;
                                 let mut data = Vec::new();
-                                if bracketed { data.extend_from_slice(b"\x1b[200~"); }
+                                if bracketed {
+                                    data.extend_from_slice(b"\x1b[200~");
+                                }
                                 data.extend_from_slice(text.as_bytes());
-                                if bracketed { data.extend_from_slice(b"\x1b[201~"); }
+                                if bracketed {
+                                    data.extend_from_slice(b"\x1b[201~");
+                                }
                                 let _ = entry.pty.write_input(&data);
                             }
                         } else {
@@ -992,12 +1163,20 @@ impl ApplicationHandler for App {
                     }
 
                     Action::Copy => {
-                        if let InputMode::Visual { start_col, start_row, cur_col, cur_row } = self.mode.clone() {
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                        } = self.mode.clone()
+                        {
                             let active = self.tab().active;
                             if let Some(entry) = self.tab().panes.get(&active) {
-                                let text = entry.pane.parser.grid.selected_text(
-                                    start_col, start_row, cur_col, cur_row,
-                                );
+                                let text = entry
+                                    .pane
+                                    .parser
+                                    .grid
+                                    .selected_text(start_col, start_row, cur_col, cur_row);
                                 if !text.is_empty() {
                                     let cb = self.clipboard.get_or_insert_with(|| {
                                         Clipboard::new().expect("clipboard unavailable")
@@ -1012,34 +1191,50 @@ impl ApplicationHandler for App {
                         }
                     }
 
-                    Action::SplitH    => self.do_split(SplitDir::H),
-                    Action::SplitV    => self.do_split(SplitDir::V),
+                    Action::SplitH => self.do_split(SplitDir::H),
+                    Action::SplitV => self.do_split(SplitDir::V),
                     Action::FocusLeft => self.focus_dir(-1, 0),
-                    Action::FocusRight=> self.focus_dir(1, 0),
-                    Action::FocusUp   => self.focus_dir(0, -1),
+                    Action::FocusRight => self.focus_dir(1, 0),
+                    Action::FocusUp => self.focus_dir(0, -1),
                     Action::FocusDown => self.focus_dir(0, 1),
                     Action::FocusNext => self.focus_next(),
                     Action::ClosePane => self.do_close_pane(event_loop),
 
-                    Action::NewTab  => {
-                        let (w, h) = self.window.as_ref()
-                            .map(|w| { let s = w.inner_size(); (s.width, s.height) })
+                    Action::NewTab => {
+                        let (w, h) = self
+                            .window
+                            .as_ref()
+                            .map(|w| {
+                                let s = w.inner_size();
+                                (s.width, s.height)
+                            })
                             .unwrap_or((800, 600));
                         self.new_tab(w, h);
                     }
-                    Action::NextTab   => { self.next_tab(); if let Some(w) = &self.window { w.request_redraw(); } }
-                    Action::PrevTab   => { self.prev_tab(); if let Some(w) = &self.window { w.request_redraw(); } }
-                    Action::CloseTab  => self.close_tab(event_loop),
+                    Action::NextTab => {
+                        self.next_tab();
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    Action::PrevTab => {
+                        self.prev_tab();
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    Action::CloseTab => self.close_tab(event_loop),
                     Action::RenameTab => {
-                        let current = self.tabs[self.active_tab].name.clone()
-                            .unwrap_or_default();
+                        let current = self.tabs[self.active_tab].name.clone().unwrap_or_default();
                         self.mode = InputMode::RenameTab { buf: current };
                     }
 
                     Action::SearchOpen => {
                         self.search_matches.clear();
                         self.search_current = 0;
-                        self.mode = InputMode::Search { query: String::new() };
+                        self.mode = InputMode::Search {
+                            query: String::new(),
+                        };
                     }
                     Action::SearchNext => {
                         if !self.search_matches.is_empty() {
@@ -1076,8 +1271,14 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_pos = Some((position.x, position.y));
                 let url = self.url_at_pixel(position.x, position.y);
-                let icon = if url.is_some() { CursorIcon::Pointer } else { CursorIcon::Text };
-                if let Some(w) = &self.window { w.set_cursor(icon); }
+                let icon = if url.is_some() {
+                    CursorIcon::Pointer
+                } else {
+                    CursorIcon::Text
+                };
+                if let Some(w) = &self.window {
+                    w.set_cursor(icon);
+                }
                 self.hovered_url = url;
                 let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
                 if mouse_mode >= 1002 {
@@ -1095,15 +1296,17 @@ impl ApplicationHandler for App {
                     }
                 } else if self.mouse_selecting {
                     self.update_mouse_selection(position.x, position.y);
-                    if let Some(w) = &self.window { w.request_redraw(); }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                 }
             }
 
             WindowEvent::MouseInput { state, button, .. } => {
                 let btn_code = match button {
-                    MouseButton::Left   => 0u8,
+                    MouseButton::Left => 0u8,
                     MouseButton::Middle => 1u8,
-                    MouseButton::Right  => 2u8,
+                    MouseButton::Right => 2u8,
                     _ => 3u8,
                 };
                 let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
@@ -1140,7 +1343,10 @@ impl ApplicationHandler for App {
                 } else if button == MouseButton::Middle {
                     // Middle-click paste
                     if state == ElementState::Pressed {
-                        let text = self.clipboard.as_mut().and_then(|cb| cb.get_text().ok())
+                        let text = self
+                            .clipboard
+                            .as_mut()
+                            .and_then(|cb| cb.get_text().ok())
                             .or_else(|| Clipboard::new().ok()?.get_text().ok());
                         if let Some(text) = text {
                             let active = self.tab().active;
@@ -1179,14 +1385,18 @@ impl ApplicationHandler for App {
                     if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
                         entry.pane.scroll_up(n);
                     }
-                    if let Some(w) = &self.window { w.request_redraw(); }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                 } else {
                     let n = (-lines).ceil() as usize;
                     let active = self.tab().active;
                     if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
                         entry.pane.scroll_down(n);
                     }
-                    if let Some(w) = &self.window { w.request_redraw(); }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                 }
             }
 
@@ -1214,9 +1424,7 @@ impl ApplicationHandler for App {
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
-            event_loop.set_control_flow(ControlFlow::WaitUntil(
-                Instant::now() + blink_dur,
-            ));
+            event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + blink_dur));
         } else {
             let mut next = Instant::now() + (blink_dur - elapsed);
             // Wake up early if a bell flash is still active so we clear it on expiry.
@@ -1234,11 +1442,19 @@ impl ApplicationHandler for App {
 
 fn open_url(url: &str) {
     #[cfg(target_os = "linux")]
-    { let _ = std::process::Command::new("xdg-open").arg(url).spawn(); }
+    {
+        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    }
     #[cfg(target_os = "macos")]
-    { let _ = std::process::Command::new("open").arg(url).spawn(); }
+    {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
     #[cfg(target_os = "windows")]
-    { let _ = std::process::Command::new("cmd").args(["/c", "start", url]).spawn(); }
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", url])
+            .spawn();
+    }
 }
 
 fn main() {

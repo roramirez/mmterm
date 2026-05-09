@@ -42,7 +42,19 @@ pub struct Cell {
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { c: ' ', fg: Color::WHITE, bg: Color::BLACK, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
+        Self {
+            c: ' ',
+            fg: Color::WHITE,
+            bg: Color::BLACK,
+            bold: false,
+            dim: false,
+            underline: false,
+            strikethrough: false,
+            reverse: false,
+            wide: false,
+            wide_cont: false,
+            url: None,
+        }
     }
 }
 
@@ -122,7 +134,19 @@ impl Grid {
         selection_color: Color,
         palette: [Color; 16],
     ) -> Self {
-        let blank = Cell { c: ' ', fg: default_fg, bg: default_bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None };
+        let blank = Cell {
+            c: ' ',
+            fg: default_fg,
+            bg: default_bg,
+            bold: false,
+            dim: false,
+            underline: false,
+            strikethrough: false,
+            reverse: false,
+            wide: false,
+            wide_cont: false,
+            url: None,
+        };
         Self {
             cols,
             rows,
@@ -252,7 +276,11 @@ impl Grid {
             self.advance_row();
         }
 
-        let (fg, bg) = if self.reverse { (self.bg, self.fg) } else { (self.fg, self.bg) };
+        let (fg, bg) = if self.reverse {
+            (self.bg, self.fg)
+        } else {
+            (self.fg, self.bg)
+        };
         let bold = self.bold;
         let dim = self.dim;
         let underline = self.underline;
@@ -278,7 +306,10 @@ impl Grid {
         if wide && self.cursor_col < self.cols {
             let blank = self.erase_cell();
             let cont = self.cell_mut(self.cursor_col, self.cursor_row);
-            *cont = Cell { wide_cont: true, ..blank };
+            *cont = Cell {
+                wide_cont: true,
+                ..blank
+            };
             self.cursor_col += 1;
         }
     }
@@ -347,7 +378,11 @@ impl Grid {
         let mut result = String::new();
         for row in r0..=r1 {
             let col_start = if row == r0 { c0 } else { 0 };
-            let col_end = if row == r1 { c1 } else { self.cols.saturating_sub(1) };
+            let col_end = if row == r1 {
+                c1
+            } else {
+                self.cols.saturating_sub(1)
+            };
             let mut line = String::new();
             for col in col_start..=col_end {
                 if col < self.cols && row < self.rows {
@@ -363,14 +398,38 @@ impl Grid {
     }
 
     pub fn blank_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.default_bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
+        Cell {
+            c: ' ',
+            fg: self.default_fg,
+            bg: self.default_bg,
+            bold: false,
+            dim: false,
+            underline: false,
+            strikethrough: false,
+            reverse: false,
+            wide: false,
+            wide_cont: false,
+            url: None,
+        }
     }
 
     // Erase operations (ED, EL, scroll blank rows) use the current SGR background,
     // not the default — this is the BCE (Background Color Erase) behaviour that
     // xterm and most terminals implement.
     pub fn erase_cell(&self) -> Cell {
-        Cell { c: ' ', fg: self.default_fg, bg: self.bg, bold: false, dim: false, underline: false, strikethrough: false, reverse: false, wide: false, wide_cont: false, url: None }
+        Cell {
+            c: ' ',
+            fg: self.default_fg,
+            bg: self.bg,
+            bold: false,
+            dim: false,
+            underline: false,
+            strikethrough: false,
+            reverse: false,
+            wide: false,
+            wide_cont: false,
+            url: None,
+        }
     }
 
     pub fn clear_line(&mut self, row: usize) {
@@ -416,9 +475,9 @@ impl Grid {
 /// up to the first whitespace or C0 control character.
 fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
     let tail = &chars[start..];
-    let prefix_len = if tail.starts_with(&['h','t','t','p','s',':','/','/']) {
+    let prefix_len = if tail.starts_with(&['h', 't', 't', 'p', 's', ':', '/', '/']) {
         8
-    } else if tail.starts_with(&['h','t','t','p',':','/','/']) {
+    } else if tail.starts_with(&['h', 't', 't', 'p', ':', '/', '/']) {
         7
     } else {
         return None;
@@ -426,7 +485,9 @@ fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
     let mut len = prefix_len;
     while len < tail.len() {
         let c = tail[len];
-        if c <= ' ' { break; }
+        if c <= ' ' {
+            break;
+        }
         len += 1;
     }
     if len > prefix_len { Some(len) } else { None }

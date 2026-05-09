@@ -10,7 +10,11 @@ pub enum InputMode {
         cur_row: usize,
     },
     /// Inline tab-rename: buf holds the name being typed
-    RenameTab { buf: String },
+    RenameTab {
+        buf: String,
+    },
     /// Scrollback search: query holds the pattern being typed
-    Search { query: String },
+    Search {
+        query: String,
+    },
 }
