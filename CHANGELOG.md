@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - default log directory is now `~/.mmterm` (created automatically) instead of `$HOME`
 
+### Documentation
+
+- document session logging, `inactive_dim`, `detect_urls`, `Ctrl+Shift+L`, and `Ctrl+W z` in README and SPEC
+
+
 ## [0.1.0] - 2026-05-09
 
 ### Added

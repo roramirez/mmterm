@@ -124,7 +124,7 @@ pub enum Action {
 
 ## Adding a Feature — 4-Step Checklist
 
-Every new feature or bug fix must include an entry in `CHANGELOG.md` under
+Every commit must include an entry in `CHANGELOG.md` under
 `## [Unreleased]`. Use the appropriate section:
 
 | Section | When |
@@ -134,6 +134,7 @@ Every new feature or bug fix must include an entry in `CHANGELOG.md` under
 | `Fixed` | Bug fix |
 | `Removed` | Feature removed |
 | `Security` | Security fix |
+| `Documentation` | Changes to `doc/`, `README.md`, or other user-facing docs |
 
 One line per entry, imperative mood, lowercase first letter. Example:
 

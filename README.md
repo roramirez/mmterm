@@ -14,6 +14,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Scrollback search** — live match highlighting across 10 000-line buffer
 - **OSC 8 hyperlinks** — clickable URLs rendered in the terminal
 - **Pane zoom** — full-window focus for the active pane
+- **Session logging** — capture PTY output per-pane to `~/.mmterm/` with `Ctrl+Shift+L`
 - **Color emoji** — rendered via FreeType CBDT/CBLC
 - **TUI config editor** — edit settings in-process with `Ctrl+,`
 - **Zero-config startup** — bundled JetBrains Mono fallback font
@@ -70,6 +71,10 @@ cursor_blink_ms = 500
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
 
+[logging]
+auto_log = false         # start logging automatically for every new pane
+log_dir  = ""            # destination directory (empty = ~/.mmterm)
+
 [colors]
 background = "#121212"
 foreground = "#a0a0a0"
@@ -112,6 +117,7 @@ You can also edit settings live with `Ctrl+,`.
 | `Ctrl+W w` | Cycle focus |
 | `Ctrl+W q` | Close pane |
 | `Ctrl+W z` | Toggle pane zoom |
+| `Ctrl+Shift+L` | Toggle session logging for active pane |
 
 ### Scrollback
 

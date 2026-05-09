@@ -136,7 +136,7 @@ vim-style modal input, split panes, and multi-tab sessions.
 ### Configuration
 - TOML file at `$XDG_CONFIG_HOME/mmterm/config.toml`
   (created with defaults on first run).
-- Sections: `[font]`, `[window]`, `[shell]`, `[colors]`.
+- Sections: `[font]`, `[window]`, `[shell]`, `[logging]`, `[colors]`.
 - In-process TUI config panel: `Ctrl+,` (editable fields, saved on Enter).
 
 | Section | Key | Type | Default |
@@ -147,12 +147,26 @@ vim-style modal input, split panes, and multi-tab sessions.
 | window | height | uint | `600` |
 | window | title | string | `"mmterm"` |
 | window | cursor_blink_ms | uint | `500` |
+| window | inactive_dim | float | `0.55` |
+| window | detect_urls | bool | `true` |
 | shell | program | string? | `$SHELL` |
+| logging | auto_log | bool | `false` |
+| logging | log_dir | string | `""` (→ `~/.mmterm`) |
 | colors | background | #RRGGBB | `#121212` |
 | colors | foreground | #RRGGBB | `#a0a0a0` |
 | colors | cursor | #RRGGBB | `#bbbbbb` |
 | colors | selection | #RRGGBB | `#3d3d3d` |
 | colors | palette | [#RRGGBB ×16] | Monokai/Hardcore |
+
+### Session Logging
+- `Ctrl+Shift+L` — toggle PTY output capture for the active pane.
+- Raw bytes (including ANSI sequences) are written to
+  `<log_dir>/mmterm-<unix_timestamp>-pane<id>.log`.
+- Default directory is `~/.mmterm`, created automatically on first use.
+- Override with `log_dir` in `[logging]`; set `auto_log = true` to start
+  logging automatically for every new pane.
+- The active pane shows a `● REC` badge in the status bar while recording.
+- Log file is closed (and flushed) when logging is toggled off or the pane closes.
 
 ### Cursor
 - Block cursor (inverted fg/bg) on the active pane.
@@ -177,6 +191,7 @@ vim-style modal input, split panes, and multi-tab sessions.
 | `Ctrl+-` | Decrease font size (active tab) |
 | `Ctrl+0` | Reset font size (active tab) |
 | `Ctrl+,` | Open config panel |
+| `Ctrl+Shift+L` | Toggle session logging (active pane) |
 | `Ctrl+Shift+V` | Paste from clipboard |
 | `Ctrl+Shift+↑/↓` | Scroll one line |
 | `Ctrl+Shift+PgUp/PgDn` | Scroll half screen |
@@ -197,6 +212,7 @@ vim-style modal input, split panes, and multi-tab sessions.
 | `Ctrl+W j` / `↓` | Focus pane below |
 | `Ctrl+W w` | Cycle focus to next pane |
 | `Ctrl+W q` | Close active pane |
+| `Ctrl+W z` | Toggle pane zoom (full-window focus) |
 
 ### Normal Mode
 
