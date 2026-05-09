@@ -72,7 +72,7 @@ struct App {
     mouse_selecting: bool,
     proxy: EventLoopProxy<()>,
     surface_size: (u32, u32),
-    search_matches: Vec<(usize, usize)>,
+    search_matches: Vec<(usize, usize, usize)>,
     search_current: usize,
     hovered_url: Option<String>,
 }
@@ -601,6 +601,7 @@ impl App {
         match &event.logical_key {
             Key::Named(NamedKey::Escape) => {
                 self.mode = InputMode::Normal;
+                self.search_matches.clear();
             }
             Key::Named(NamedKey::Enter) if !self.search_matches.is_empty() => {
                 let next = (self.search_current + 1) % self.search_matches.len();
@@ -612,6 +613,10 @@ impl App {
                 self.mode = InputMode::Search { query: q };
                 self.update_search_matches();
             }
+            // Ctrl+C or c — copy current match text to clipboard
+            Key::Character(s) if s == "\x03" || s == "c" => {
+                self.copy_current_match();
+            }
             Key::Character(s) => {
                 let mut q = query;
                 q.push_str(s);
@@ -622,45 +627,85 @@ impl App {
         }
     }
 
+    fn copy_current_match(&mut self) {
+        let Some(&(abs_row, col, len)) = self.search_matches.get(self.search_current) else {
+            return;
+        };
+        let tab_idx = self.active_tab;
+        let active = self.tabs[tab_idx].active;
+        let Some(entry) = self.tabs[tab_idx].panes.get(&active) else {
+            return;
+        };
+        let grid = &entry.pane.parser.grid;
+        let sb_len = grid.scrollback.len();
+        let text: String = if abs_row < sb_len {
+            grid.scrollback[abs_row]
+                .iter()
+                .skip(col)
+                .take(len)
+                .map(|c| c.c)
+                .collect()
+        } else {
+            let row = abs_row - sb_len;
+            (col..col + len)
+                .filter(|&c| c < grid.cols)
+                .map(|c| grid.cell(c, row).c)
+                .collect()
+        };
+        if !text.is_empty() {
+            let cb = self
+                .clipboard
+                .get_or_insert_with(|| Clipboard::new().expect("clipboard unavailable"));
+            match cb.set_text(text) {
+                Ok(()) => log::info!("Copied search match to clipboard"),
+                Err(e) => log::warn!("Clipboard write failed: {e}"),
+            }
+        }
+    }
+
     fn update_search_matches(&mut self) {
-        let query_chars: Vec<char> = match &self.mode {
-            InputMode::Search { query } => query.chars().collect(),
+        let query = match &self.mode {
+            InputMode::Search { query } => query.clone(),
             _ => return,
         };
 
         self.search_matches.clear();
         self.search_current = 0;
 
-        if query_chars.is_empty() {
+        if query.is_empty() {
             return;
         }
+
+        let re = match regex::Regex::new(&query) {
+            Ok(r) => r,
+            Err(_) => return,
+        };
 
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
 
-        let matches: Vec<(usize, usize)> = {
+        let matches: Vec<(usize, usize, usize)> = {
             if let Some(entry) = self.tabs[tab_idx].panes.get(&active) {
                 let grid = &entry.pane.parser.grid;
                 let sb_len = grid.scrollback.len();
-                let qlen = query_chars.len();
-                let mut m: Vec<(usize, usize)> = Vec::new();
+                let mut m: Vec<(usize, usize, usize)> = Vec::new();
 
                 for (abs_row, line) in grid.scrollback.iter().enumerate() {
-                    let text: Vec<char> = line.iter().map(|c| c.c).collect();
-                    for (col, window) in text.windows(qlen).enumerate() {
-                        if window == query_chars.as_slice() {
-                            m.push((abs_row, col));
-                        }
+                    let text: String = line.iter().map(|c| c.c).collect();
+                    for mat in re.find_iter(&text) {
+                        let col = text[..mat.start()].chars().count();
+                        let len = mat.as_str().chars().count();
+                        m.push((abs_row, col, len));
                     }
                 }
 
                 for row in 0..grid.rows {
                     let abs_row = sb_len + row;
-                    let text: Vec<char> = (0..grid.cols).map(|c| grid.cell(c, row).c).collect();
-                    for (col, window) in text.windows(qlen).enumerate() {
-                        if window == query_chars.as_slice() {
-                            m.push((abs_row, col));
-                        }
+                    let text: String = (0..grid.cols).map(|c| grid.cell(c, row).c).collect();
+                    for mat in re.find_iter(&text) {
+                        let col = text[..mat.start()].chars().count();
+                        let len = mat.as_str().chars().count();
+                        m.push((abs_row, col, len));
                     }
                 }
 
@@ -682,7 +727,7 @@ impl App {
             return;
         }
         self.search_current = idx;
-        let (abs_row, _) = self.search_matches[idx];
+        let (abs_row, _, _) = self.search_matches[idx];
 
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
@@ -829,10 +874,7 @@ impl App {
 
         let active_id = tab.active;
         let zoomed = tab.zoomed;
-        let search_match_len = match &self.mode {
-            InputMode::Search { query } => query.chars().count(),
-            _ => 0,
-        };
+        let has_search = !self.search_matches.is_empty();
         let search_matches = &self.search_matches;
         let search_current_val = self.search_current;
 
@@ -843,7 +885,7 @@ impl App {
                     && self.cursor_blink
                     && entry.pane.scroll_offset == 0
                     && entry.pane.parser.grid.cursor_visible;
-                let (sm, sc) = if search_match_len > 0 {
+                let (sm, sc) = if has_search {
                     (search_matches.as_slice(), Some(search_current_val))
                 } else {
                     (&[][..], None)
@@ -856,7 +898,6 @@ impl App {
                     show_cursor,
                     blink_visible: self.cursor_blink,
                     search_matches: sm,
-                    search_match_len,
                     search_current: sc,
                 }]
             } else {
@@ -873,7 +914,7 @@ impl App {
                         && self.cursor_blink
                         && entry.pane.scroll_offset == 0
                         && entry.pane.parser.grid.cursor_visible;
-                    let (sm, sc) = if is_active && search_match_len > 0 {
+                    let (sm, sc) = if is_active && has_search {
                         (search_matches.as_slice(), Some(search_current_val))
                     } else {
                         (&[][..], None)
@@ -886,7 +927,6 @@ impl App {
                         show_cursor,
                         blink_visible: self.cursor_blink,
                         search_matches: sm,
-                        search_match_len,
                         search_current: sc,
                     })
                 })
@@ -1148,6 +1188,20 @@ impl ApplicationHandler for App {
                         let active = self.tab().active;
                         if let Some(e) = self.tab_mut().panes.get_mut(&active) {
                             e.pane.scroll_bottom();
+                        }
+                    }
+                    Action::ClearScrollback => {
+                        let active = self.tab().active;
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.parser.grid.scrollback.clear();
+                            e.pane.parser.grid.clear_screen();
+                            e.pane.parser.grid.cursor_col = 0;
+                            e.pane.parser.grid.cursor_row = 0;
+                            e.pane.scroll_bottom();
+                        }
+                        self.search_matches.clear();
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
                         }
                     }
 

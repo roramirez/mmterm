@@ -1104,6 +1104,7 @@ dependencies = [
  "image",
  "log",
  "portable-pty",
+ "regex",
  "serde",
  "softbuffer",
  "toml",

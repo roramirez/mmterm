@@ -228,6 +228,21 @@ fn ctrl_shift_arrow_down_scrolls_down_1() {
 }
 
 #[test]
+fn ctrl_shift_k_clears_scrollback() {
+    let a = handle_key_inner(
+        &char_key("k"),
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ClearScrollback));
+}
+
+#[test]
 fn ctrl_shift_page_up_moves_tab_left() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),

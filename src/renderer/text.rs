@@ -22,9 +22,8 @@ pub struct PaneView<'a> {
     pub show_cursor: bool,
     /// When false, cells with `cell.blink` have their glyph hidden (off phase).
     pub blink_visible: bool,
-    /// Match positions (abs_row, start_col) sorted by abs_row. abs_row = scrollback_len + grid_row.
-    pub search_matches: &'a [(usize, usize)],
-    pub search_match_len: usize,
+    /// Match positions (abs_row, start_col, len) sorted by abs_row. abs_row = scrollback_len + grid_row.
+    pub search_matches: &'a [(usize, usize, usize)],
     pub search_current: Option<usize>,
 }
 
@@ -193,7 +192,7 @@ impl Renderer {
             // Absolute row in the combined scrollback+grid address space.
             let abs_row = sb_len.saturating_sub(pane.scroll_offset) + row;
             // Binary-search lower bound for this row's matches (matches are sorted by abs_row).
-            let row_match_lo = pane.search_matches.partition_point(|&(r, _)| r < abs_row);
+            let row_match_lo = pane.search_matches.partition_point(|&(r, _, _)| r < abs_row);
 
             let mut col = 0usize;
             while col < grid.cols {
@@ -227,13 +226,13 @@ impl Renderer {
                 });
 
                 // Search highlight: scan matches for this abs_row.
-                let (in_match, is_current_match) = if pane.search_match_len > 0 {
+                let (in_match, is_current_match) = if !pane.search_matches.is_empty() {
                     let mut found = false;
                     let mut current = false;
                     let mut i = row_match_lo;
                     while i < pane.search_matches.len() && pane.search_matches[i].0 == abs_row {
-                        let mc = pane.search_matches[i].1;
-                        if col >= mc && col < mc + pane.search_match_len {
+                        let (_, mc, mlen) = pane.search_matches[i];
+                        if col >= mc && col < mc + mlen {
                             found = true;
                             current = pane.search_current == Some(i);
                             break;

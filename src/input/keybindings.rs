@@ -36,6 +36,7 @@ pub enum Action {
     SearchOpen,
     SearchNext,
     SearchPrev,
+    ClearScrollback,
     Quit,
     None,
 }
@@ -123,6 +124,7 @@ pub(crate) fn handle_key_inner(
             Key::Character(s) if s.eq_ignore_ascii_case("v") => return Action::Paste,
             Key::Character(s) if s.eq_ignore_ascii_case("w") => return Action::CloseTab,
             Key::Character(s) if s.eq_ignore_ascii_case("r") => return Action::RenameTab,
+            Key::Character(s) if s.eq_ignore_ascii_case("k") => return Action::ClearScrollback,
             Key::Named(NamedKey::ArrowUp) => return Action::ScrollUp(1),
             Key::Named(NamedKey::ArrowDown) => return Action::ScrollDown(1),
             Key::Named(NamedKey::PageUp) => return Action::MoveTabLeft,

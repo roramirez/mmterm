@@ -47,6 +47,9 @@ dirs-next = "2"
 # PNG decoding for window icon
 image = { version = "0.25", default-features = false, features = ["png"] }
 
+# Regex search in scrollback
+regex = "1"
+
 # Error handling
 anyhow = "1"
 
