@@ -408,3 +408,54 @@ fn scan_urls_no_false_positive_on_plain_text() {
         assert!(g.cell(col, 0).url.is_none());
     }
 }
+
+#[test]
+fn scan_urls_strips_trailing_closing_paren() {
+    // URL wrapped in parens: the trailing ) should not be part of the URL.
+    let url = "https://example.com/path";
+    let text = format!("({})", url);
+    let mut g = make_grid(text.len() + 4, 3);
+    write_str(&mut g, &text);
+    g.scan_urls();
+    let url_start = 1; // after '('
+    assert_eq!(
+        g.cell(url_start, 0).url.as_deref().map(|s| s.as_str()),
+        Some(url)
+    );
+    // The closing ')' cell must not carry a URL
+    assert!(g.cell(url_start + url.len(), 0).url.is_none());
+}
+
+#[test]
+fn scan_urls_keeps_paren_when_balanced_inside_url() {
+    // URLs like https://en.wikipedia.org/wiki/Rust_(language) keep the ')'
+    // because there is a matching '(' inside the URL body.
+    let url = "https://en.wikipedia.org/wiki/Rust_(language)";
+    let mut g = make_grid(url.len() + 4, 3);
+    write_str(&mut g, url);
+    g.scan_urls();
+    assert_eq!(
+        g.cell(url.len() - 1, 0).url.as_deref().map(|s| s.as_str()),
+        Some(url)
+    );
+}
+
+#[test]
+fn scan_urls_strips_trailing_dot_and_comma() {
+    for suffix in [".", ","] {
+        let url = "https://example.com/path";
+        let text = format!("{}{}", url, suffix);
+        let mut g = make_grid(text.len() + 4, 3);
+        write_str(&mut g, &text);
+        g.scan_urls();
+        assert_eq!(
+            g.cell(0, 0).url.as_deref().map(|s| s.as_str()),
+            Some(url),
+            "trailing {suffix:?} should be stripped"
+        );
+        assert!(
+            g.cell(url.len(), 0).url.is_none(),
+            "trailing {suffix:?} cell should have no URL"
+        );
+    }
+}

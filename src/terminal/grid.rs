@@ -503,6 +503,28 @@ fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
         }
         len += 1;
     }
+    if len <= prefix_len {
+        return None;
+    }
+    // Strip trailing punctuation that is almost never part of the URL.
+    // For ')' we only strip if there is no matching '(' inside the URL body.
+    const TRAILING: &[char] = &['.', ',', ';', ':', '!', '?', '\'', '"', ']', '>'];
+    while len > prefix_len {
+        let c = tail[len - 1];
+        if TRAILING.contains(&c) {
+            len -= 1;
+        } else if c == ')' {
+            let open = tail[prefix_len..len].iter().filter(|&&x| x == '(').count();
+            let close = tail[prefix_len..len].iter().filter(|&&x| x == ')').count();
+            if close > open {
+                len -= 1;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
     if len > prefix_len { Some(len) } else { None }
 }
 
