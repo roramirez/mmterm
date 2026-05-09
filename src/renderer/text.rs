@@ -20,6 +20,8 @@ pub struct PaneView<'a> {
     pub scroll_offset: usize,
     pub is_active: bool,
     pub show_cursor: bool,
+    /// When false, cells with `cell.blink` have their glyph hidden (off phase).
+    pub blink_visible: bool,
     /// Match positions (abs_row, start_col) sorted by abs_row. abs_row = scrollback_len + grid_row.
     pub search_matches: &'a [(usize, usize)],
     pub search_match_len: usize,
@@ -293,7 +295,7 @@ impl Renderer {
                     }
                 }
 
-                if cell.c != ' ' {
+                if cell.c != ' ' && !(cell.blink && !pane.blink_visible) {
                     let info = self.glyphs.get(cell.c, m.font_px, cell.bold);
                     let (gw, gh) = (info.width, info.height);
                     let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
@@ -979,6 +981,7 @@ static BLANK_CELL: Cell = Cell {
     underline: false,
     strikethrough: false,
     reverse: false,
+    blink: false,
     wide: false,
     wide_cont: false,
     url: None,

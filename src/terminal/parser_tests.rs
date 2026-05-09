@@ -154,6 +154,23 @@ fn sgr_strikethrough() {
 }
 
 #[test]
+fn sgr_blink() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[5m");
+    assert!(p.grid.blink);
+    p.process(b"\x1b[25m");
+    assert!(!p.grid.blink);
+}
+
+#[test]
+fn sgr_blink_stamped_on_cell() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[5mA\x1b[25mB");
+    assert!(p.grid.cell(0, 0).blink);
+    assert!(!p.grid.cell(1, 0).blink);
+}
+
+#[test]
 fn sgr_reset_clears_attributes() {
     let mut p = make_parser(10, 5);
     p.process(b"\x1b[1;2;4;9m");
@@ -162,6 +179,7 @@ fn sgr_reset_clears_attributes() {
     assert!(!p.grid.dim);
     assert!(!p.grid.underline);
     assert!(!p.grid.strikethrough);
+    assert!(!p.grid.blink);
 }
 
 #[test]

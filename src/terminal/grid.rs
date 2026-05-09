@@ -32,6 +32,7 @@ pub struct Cell {
     pub underline: bool,
     pub strikethrough: bool,
     pub reverse: bool,
+    pub blink: bool,
     /// True when this is the left half of a 2-column wide character.
     pub wide: bool,
     /// True when this is the right (placeholder) half of a wide character.
@@ -51,6 +52,7 @@ impl Default for Cell {
             underline: false,
             strikethrough: false,
             reverse: false,
+            blink: false,
             wide: false,
             wide_cont: false,
             url: None,
@@ -71,6 +73,7 @@ struct SavedScreen {
     underline: bool,
     strikethrough: bool,
     reverse: bool,
+    blink: bool,
     scrollback: VecDeque<Vec<Cell>>,
     current_url: Option<Arc<String>>,
 }
@@ -91,6 +94,7 @@ pub struct Grid {
     pub underline: bool,
     pub strikethrough: bool,
     pub reverse: bool,
+    pub blink: bool,
     // DECSC/DECRC saved cursor
     pub saved_cursor_col: usize,
     pub saved_cursor_row: usize,
@@ -143,6 +147,7 @@ impl Grid {
             underline: false,
             strikethrough: false,
             reverse: false,
+            blink: false,
             wide: false,
             wide_cont: false,
             url: None,
@@ -162,6 +167,7 @@ impl Grid {
             underline: false,
             strikethrough: false,
             reverse: false,
+            blink: false,
             saved_cursor_col: 0,
             saved_cursor_row: 0,
             scrollback: VecDeque::new(),
@@ -201,6 +207,7 @@ impl Grid {
             underline: self.underline,
             strikethrough: self.strikethrough,
             reverse: self.reverse,
+            blink: self.blink,
             scrollback: std::mem::take(&mut self.scrollback),
             current_url: self.current_url.take(),
         });
@@ -215,6 +222,7 @@ impl Grid {
         self.underline = false;
         self.strikethrough = false;
         self.reverse = false;
+        self.blink = false;
     }
 
     pub fn exit_alternate_screen(&mut self) {
@@ -231,6 +239,7 @@ impl Grid {
             self.underline = saved.underline;
             self.strikethrough = saved.strikethrough;
             self.reverse = saved.reverse;
+            self.blink = saved.blink;
             self.scrollback = saved.scrollback;
             self.current_url = saved.current_url;
         }
@@ -286,6 +295,7 @@ impl Grid {
         let underline = self.underline;
         let strikethrough = self.strikethrough;
         let reverse = self.reverse;
+        let blink = self.blink;
         let wide = char_cols == 2;
         let url = self.current_url.clone();
 
@@ -298,6 +308,7 @@ impl Grid {
         cell.underline = underline;
         cell.strikethrough = strikethrough;
         cell.reverse = reverse;
+        cell.blink = blink;
         cell.wide = wide;
         cell.wide_cont = false;
         cell.url = url;
@@ -407,6 +418,7 @@ impl Grid {
             underline: false,
             strikethrough: false,
             reverse: false,
+            blink: false,
             wide: false,
             wide_cont: false,
             url: None,
@@ -426,6 +438,7 @@ impl Grid {
             underline: false,
             strikethrough: false,
             reverse: false,
+            blink: false,
             wide: false,
             wide_cont: false,
             url: None,

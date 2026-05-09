@@ -174,6 +174,7 @@ impl Perform for Performer<'_> {
                     self.grid.underline = false;
                     self.grid.strikethrough = false;
                     self.grid.reverse = false;
+                    self.grid.blink = false;
                     return;
                 }
                 let mut i = 0;
@@ -187,10 +188,12 @@ impl Perform for Performer<'_> {
                             self.grid.underline = false;
                             self.grid.strikethrough = false;
                             self.grid.reverse = false;
+                            self.grid.blink = false;
                         }
                         1 => self.grid.bold = true,
                         2 => self.grid.dim = true,
                         4 => self.grid.underline = true,
+                        5 => self.grid.blink = true,
                         7 => self.grid.reverse = true,
                         9 => self.grid.strikethrough = true,
                         22 => {
@@ -198,6 +201,7 @@ impl Perform for Performer<'_> {
                             self.grid.dim = false;
                         }
                         24 => self.grid.underline = false,
+                        25 => self.grid.blink = false,
                         27 => self.grid.reverse = false,
                         29 => self.grid.strikethrough = false,
                         // Standard foreground colors 30-37
