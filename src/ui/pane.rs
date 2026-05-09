@@ -27,9 +27,16 @@ impl Pane {
     }
 
     pub fn process(&mut self, bytes: &[u8]) {
+        let sb_before = self.parser.grid.scrollback_len();
         self.parser.process(bytes);
-        // Any new output snaps back to live view
-        self.scroll_offset = 0;
+        let sb_after = self.parser.grid.scrollback_len();
+        if self.scroll_offset > 0 {
+            // Compensate for lines pushed into scrollback so the view stays
+            // pinned to the same content. Clamp in case scrollback shrank
+            // (e.g. alternate screen entered).
+            let added = sb_after.saturating_sub(sb_before);
+            self.scroll_offset = (self.scroll_offset + added).min(sb_after);
+        }
     }
 
     pub fn resize(&mut self, cols: usize, rows: usize, rect: [u32; 4]) {

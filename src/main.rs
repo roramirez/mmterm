@@ -1159,6 +1159,7 @@ impl ApplicationHandler for App {
                     Action::SendToPty(bytes) => {
                         let active = self.tab().active;
                         if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+                            entry.pane.scroll_bottom();
                             let _ = entry.pty.write_input(&bytes);
                         }
                     }
