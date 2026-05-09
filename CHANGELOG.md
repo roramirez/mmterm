@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-09
+
 ### Added
 
 - session logging: `Ctrl+Shift+L` toggles PTY output capture to `~/mmterm-<timestamp>-pane<id>.log`; active pane shows a `● REC` badge in the status bar; configurable via `[logging]` in config (`auto_log`, `log_dir`)
@@ -90,4 +92,5 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Fixed CPU busy-loop in PTY event loop
 
-[Unreleased]: https://github.com/roramirez/mmterm/commits/main
+[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/roramirez/mmterm/releases/tag/v0.1.0
