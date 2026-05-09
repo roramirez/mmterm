@@ -217,7 +217,7 @@ fn ctrl_shift_arrow_down_scrolls_down_1() {
 }
 
 #[test]
-fn ctrl_shift_page_up_scrolls_half_page() {
+fn ctrl_shift_page_up_moves_tab_left() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),
         true,
@@ -227,11 +227,11 @@ fn ctrl_shift_page_up_scrolls_half_page() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScrollUp(12)));
+    assert!(matches!(a, Action::MoveTabLeft));
 }
 
 #[test]
-fn ctrl_shift_page_down_scrolls_half_page() {
+fn ctrl_shift_page_down_moves_tab_right() {
     let a = handle_key_inner(
         &named(NamedKey::PageDown),
         true,
@@ -241,7 +241,7 @@ fn ctrl_shift_page_down_scrolls_half_page() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScrollDown(12)));
+    assert!(matches!(a, Action::MoveTabRight));
 }
 
 #[test]

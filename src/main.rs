@@ -224,6 +224,20 @@ impl App {
         }
     }
 
+    fn move_tab_left(&mut self) {
+        if self.tabs.len() > 1 && self.active_tab > 0 {
+            self.tabs.swap(self.active_tab, self.active_tab - 1);
+            self.active_tab -= 1;
+        }
+    }
+
+    fn move_tab_right(&mut self) {
+        if self.tabs.len() > 1 && self.active_tab + 1 < self.tabs.len() {
+            self.tabs.swap(self.active_tab, self.active_tab + 1);
+            self.active_tab += 1;
+        }
+    }
+
     fn close_tab(&mut self, event_loop: &ActiveEventLoop) {
         if self.tabs.len() == 1 {
             event_loop.exit();
@@ -1219,6 +1233,18 @@ impl ApplicationHandler for App {
                     }
                     Action::PrevTab => {
                         self.prev_tab();
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    Action::MoveTabLeft => {
+                        self.move_tab_left();
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    Action::MoveTabRight => {
+                        self.move_tab_right();
                         if let Some(w) = &self.window {
                             w.request_redraw();
                         }
