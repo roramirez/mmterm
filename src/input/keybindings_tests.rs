@@ -127,25 +127,25 @@ fn visual() -> InputMode {
 
 #[test]
 fn ctrl_w_char_returns_ctrl_w_prefix() {
-    let a = handle_key_inner(&char_key("w"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("w"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::CtrlWPrefix));
 }
 
 #[test]
 fn ctrl_dot_from_insert_enters_normal() {
-    let a = handle_key_inner(&char_key("."), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("."), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Normal)));
 }
 
 #[test]
 fn ctrl_dot_from_normal_enters_visual() {
-    let a = handle_key_inner(&char_key("."), true, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(&char_key("."), true, false, false, &normal(), 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Visual { .. })));
 }
 
 #[test]
 fn ctrl_dot_from_visual_enters_insert() {
-    let a = handle_key_inner(&char_key("."), true, false, &visual(), 80, 24, false);
+    let a = handle_key_inner(&char_key("."), true, false, false, &visual(), 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
@@ -154,37 +154,46 @@ fn ctrl_dot_from_search_enters_insert() {
     let mode = InputMode::Search {
         query: String::new(),
     };
-    let a = handle_key_inner(&char_key("."), true, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("."), true, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
 #[test]
 fn ctrl_backslash_enters_normal() {
-    let a = handle_key_inner(&char_key("\\"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("\\"),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SetMode(InputMode::Normal)));
 }
 
 #[test]
 fn ctrl_pipe_enters_normal() {
-    let a = handle_key_inner(&char_key("|"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("|"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Normal)));
 }
 
 #[test]
 fn ctrl_shift_v_pastes() {
-    let a = handle_key_inner(&char_key("v"), true, true, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("v"), true, true, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::Paste));
 }
 
 #[test]
 fn ctrl_shift_w_closes_tab() {
-    let a = handle_key_inner(&char_key("w"), true, true, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("w"), true, true, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::CloseTab));
 }
 
 #[test]
 fn ctrl_shift_r_renames_tab() {
-    let a = handle_key_inner(&char_key("r"), true, true, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("r"), true, true, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::RenameTab));
 }
 
@@ -194,6 +203,7 @@ fn ctrl_shift_arrow_up_scrolls_up_1() {
         &named(NamedKey::ArrowUp),
         true,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -208,6 +218,7 @@ fn ctrl_shift_arrow_down_scrolls_down_1() {
         &named(NamedKey::ArrowDown),
         true,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -222,6 +233,7 @@ fn ctrl_shift_page_up_moves_tab_left() {
         &named(NamedKey::PageUp),
         true,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -236,6 +248,7 @@ fn ctrl_shift_page_down_moves_tab_right() {
         &named(NamedKey::PageDown),
         true,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -246,68 +259,86 @@ fn ctrl_shift_page_down_moves_tab_right() {
 
 #[test]
 fn ctrl_shift_home_scrolls_to_top() {
-    let a = handle_key_inner(&named(NamedKey::Home), true, true, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::Home),
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::ScrollToTop));
 }
 
 #[test]
 fn ctrl_shift_end_scrolls_to_bottom() {
-    let a = handle_key_inner(&named(NamedKey::End), true, true, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::End),
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::ScrollToBottom));
 }
 
 #[test]
 fn ctrl_c_in_visual_copies() {
-    let a = handle_key_inner(&char_key("c"), true, false, &visual(), 80, 24, false);
+    let a = handle_key_inner(&char_key("c"), true, false, false, &visual(), 80, 24, false);
     assert!(matches!(a, Action::Copy));
 }
 
 #[test]
 fn ctrl_c_in_insert_does_not_copy() {
     // In insert mode ctrl+c is sent as byte 0x03 to the PTY
-    let a = handle_key_inner(&char_key("c"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("c"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::SendToPty(ref v) if v == &[3]));
 }
 
 #[test]
 fn ctrl_q_quits() {
-    let a = handle_key_inner(&char_key("q"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("q"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::Quit));
 }
 
 #[test]
 fn ctrl_comma_opens_config() {
-    let a = handle_key_inner(&char_key(","), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key(","), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::OpenConfig));
 }
 
 #[test]
 fn ctrl_t_opens_new_tab() {
-    let a = handle_key_inner(&char_key("t"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("t"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::NewTab));
 }
 
 #[test]
 fn ctrl_plus_increases_font_size() {
-    let a = handle_key_inner(&char_key("+"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("+"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::IncreaseFontSize));
 }
 
 #[test]
 fn ctrl_equals_increases_font_size() {
-    let a = handle_key_inner(&char_key("="), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("="), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::IncreaseFontSize));
 }
 
 #[test]
 fn ctrl_minus_decreases_font_size() {
-    let a = handle_key_inner(&char_key("-"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("-"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::DecreaseFontSize));
 }
 
 #[test]
 fn ctrl_zero_resets_font_size() {
-    let a = handle_key_inner(&char_key("0"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(&char_key("0"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::ResetFontSize));
 }
 
@@ -316,6 +347,7 @@ fn ctrl_page_up_prev_tab() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),
         true,
+        false,
         false,
         &insert(),
         80,
@@ -331,6 +363,7 @@ fn ctrl_page_down_next_tab() {
         &named(NamedKey::PageDown),
         true,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -345,6 +378,7 @@ fn shift_page_up_scrolls_full_page() {
         &named(NamedKey::PageUp),
         false,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -359,6 +393,7 @@ fn shift_page_down_scrolls_full_page() {
         &named(NamedKey::PageDown),
         false,
         true,
+        false,
         &insert(),
         80,
         24,
@@ -375,6 +410,7 @@ fn insert_escape_sends_esc_byte() {
         &named(NamedKey::Escape),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -387,6 +423,7 @@ fn insert_escape_sends_esc_byte() {
 fn insert_enter_sends_cr() {
     let a = handle_key_inner(
         &named(NamedKey::Enter),
+        false,
         false,
         false,
         &insert(),
@@ -403,6 +440,7 @@ fn insert_backspace_sends_del() {
         &named(NamedKey::Backspace),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -415,6 +453,7 @@ fn insert_backspace_sends_del() {
 fn insert_tab_sends_tab_byte() {
     let a = handle_key_inner(
         &named(NamedKey::Tab),
+        false,
         false,
         false,
         &insert(),
@@ -431,6 +470,7 @@ fn insert_space_sends_space() {
         &named(NamedKey::Space),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -441,7 +481,16 @@ fn insert_space_sends_space() {
 
 #[test]
 fn insert_char_sends_utf8_bytes() {
-    let a = handle_key_inner(&char_key("a"), false, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("a"),
+        false,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"a"));
 }
 
@@ -450,6 +499,7 @@ fn insert_ctrl_enter_sends_newline() {
     let a = handle_key_inner(
         &named(NamedKey::Enter),
         true,
+        false,
         false,
         &insert(),
         80,
@@ -463,6 +513,7 @@ fn insert_ctrl_enter_sends_newline() {
 fn insert_arrow_up_normal_cursor() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowUp),
+        false,
         false,
         false,
         &insert(),
@@ -479,6 +530,7 @@ fn insert_arrow_up_application_cursor() {
         &named(NamedKey::ArrowUp),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -491,6 +543,7 @@ fn insert_arrow_up_application_cursor() {
 fn insert_arrow_down_normal_cursor() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowDown),
+        false,
         false,
         false,
         &insert(),
@@ -507,6 +560,7 @@ fn insert_arrow_right_normal_cursor() {
         &named(NamedKey::ArrowRight),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -519,6 +573,7 @@ fn insert_arrow_right_normal_cursor() {
 fn insert_arrow_left_normal_cursor() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowLeft),
+        false,
         false,
         false,
         &insert(),
@@ -535,6 +590,7 @@ fn insert_home_normal() {
         &named(NamedKey::Home),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -547,6 +603,7 @@ fn insert_home_normal() {
 fn insert_home_application_cursor() {
     let a = handle_key_inner(
         &named(NamedKey::Home),
+        false,
         false,
         false,
         &insert(),
@@ -563,6 +620,7 @@ fn insert_end_normal() {
         &named(NamedKey::End),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -575,6 +633,7 @@ fn insert_end_normal() {
 fn insert_page_up_sends_csi_5() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),
+        false,
         false,
         false,
         &insert(),
@@ -591,6 +650,7 @@ fn insert_page_down_sends_csi_6() {
         &named(NamedKey::PageDown),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -603,6 +663,7 @@ fn insert_page_down_sends_csi_6() {
 fn insert_delete_sends_csi_3() {
     let a = handle_key_inner(
         &named(NamedKey::Delete),
+        false,
         false,
         false,
         &insert(),
@@ -622,7 +683,7 @@ fn insert_f1_through_f4() {
         (NamedKey::F4, b"\x1bOS"),
     ];
     for (k, expected) in cases {
-        let a = handle_key_inner(&named(*k), false, false, &insert(), 80, 24, false);
+        let a = handle_key_inner(&named(*k), false, false, false, &insert(), 80, 24, false);
         assert!(
             matches!(a, Action::SendToPty(ref v) if v.as_slice() == *expected),
             "F key mismatch"
@@ -643,7 +704,7 @@ fn insert_f5_through_f12() {
         (NamedKey::F12, b"\x1b[24~"),
     ];
     for (k, expected) in cases {
-        let a = handle_key_inner(&named(*k), false, false, &insert(), 80, 24, false);
+        let a = handle_key_inner(&named(*k), false, false, false, &insert(), 80, 24, false);
         assert!(
             matches!(a, Action::SendToPty(ref v) if v.as_slice() == *expected),
             "F key mismatch"
@@ -659,6 +720,7 @@ fn normal_escape_enters_insert() {
         &named(NamedKey::Escape),
         false,
         false,
+        false,
         &normal(),
         80,
         24,
@@ -669,49 +731,121 @@ fn normal_escape_enters_insert() {
 
 #[test]
 fn normal_i_enters_insert() {
-    let a = handle_key_inner(&char_key("i"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("i"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
 #[test]
 fn normal_v_enters_visual() {
-    let a = handle_key_inner(&char_key("v"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("v"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SetMode(InputMode::Visual { .. })));
 }
 
 #[test]
 fn normal_q_closes_pane() {
-    let a = handle_key_inner(&char_key("q"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("q"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::ClosePane));
 }
 
 #[test]
 fn normal_slash_opens_search() {
-    let a = handle_key_inner(&char_key("/"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("/"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SearchOpen));
 }
 
 #[test]
 fn normal_n_search_next() {
-    let a = handle_key_inner(&char_key("n"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("n"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SearchNext));
 }
 
 #[test]
 fn normal_shift_n_search_prev() {
-    let a = handle_key_inner(&char_key("N"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("N"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SearchPrev));
 }
 
 #[test]
 fn normal_j_scrolls_down_3() {
-    let a = handle_key_inner(&char_key("j"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("j"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::ScrollDown(3)));
 }
 
 #[test]
 fn normal_k_scrolls_up_3() {
-    let a = handle_key_inner(&char_key("k"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("k"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::ScrollUp(3)));
 }
 
@@ -719,6 +853,7 @@ fn normal_k_scrolls_up_3() {
 fn normal_page_up_scrolls_full_grid() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),
+        false,
         false,
         false,
         &normal(),
@@ -735,6 +870,7 @@ fn normal_page_down_scrolls_full_grid() {
         &named(NamedKey::PageDown),
         false,
         false,
+        false,
         &normal(),
         80,
         24,
@@ -745,7 +881,16 @@ fn normal_page_down_scrolls_full_grid() {
 
 #[test]
 fn normal_unknown_key_returns_none() {
-    let a = handle_key_inner(&char_key("x"), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("x"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::None));
 }
 
@@ -772,7 +917,16 @@ fn vis_col_row(a: Action) -> (usize, usize) {
 #[test]
 fn visual_escape_enters_insert() {
     let mode = visual_at(0, 0, 5, 5);
-    let a = handle_key_inner(&named(NamedKey::Escape), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::Escape),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
@@ -781,6 +935,7 @@ fn visual_h_moves_left() {
     let mode = visual_at(0, 0, 5, 5);
     let (col, row) = vis_col_row(handle_key_inner(
         &char_key("h"),
+        false,
         false,
         false,
         &mode,
@@ -799,6 +954,7 @@ fn visual_l_moves_right() {
         &char_key("l"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -813,6 +969,7 @@ fn visual_k_moves_up() {
     let mode = visual_at(0, 0, 5, 5);
     let (col, row) = vis_col_row(handle_key_inner(
         &char_key("k"),
+        false,
         false,
         false,
         &mode,
@@ -831,6 +988,7 @@ fn visual_j_moves_down() {
         &char_key("j"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -845,6 +1003,7 @@ fn visual_zero_jumps_to_col_zero() {
     let mode = visual_at(0, 0, 10, 5);
     let (col, _) = vis_col_row(handle_key_inner(
         &char_key("0"),
+        false,
         false,
         false,
         &mode,
@@ -862,6 +1021,7 @@ fn visual_dollar_jumps_to_last_col() {
         &char_key("$"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -875,6 +1035,7 @@ fn visual_g_jumps_to_row_zero() {
     let mode = visual_at(0, 0, 5, 10);
     let (_, row) = vis_col_row(handle_key_inner(
         &char_key("g"),
+        false,
         false,
         false,
         &mode,
@@ -892,6 +1053,7 @@ fn visual_capital_g_jumps_to_last_row() {
         &char_key("G"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -903,14 +1065,14 @@ fn visual_capital_g_jumps_to_last_row() {
 #[test]
 fn visual_v_enters_insert() {
     let mode = visual_at(0, 0, 5, 5);
-    let a = handle_key_inner(&char_key("v"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("v"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
 #[test]
 fn visual_q_enters_insert() {
     let mode = visual_at(0, 0, 5, 5);
-    let a = handle_key_inner(&char_key("q"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("q"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
 }
 
@@ -919,6 +1081,7 @@ fn visual_arrow_left_moves_cursor() {
     let mode = visual_at(0, 0, 5, 5);
     let (col, _) = vis_col_row(handle_key_inner(
         &named(NamedKey::ArrowLeft),
+        false,
         false,
         false,
         &mode,
@@ -936,6 +1099,7 @@ fn visual_arrow_right_moves_cursor() {
         &named(NamedKey::ArrowRight),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -949,6 +1113,7 @@ fn visual_home_jumps_to_col_zero() {
     let mode = visual_at(0, 0, 10, 5);
     let (col, _) = vis_col_row(handle_key_inner(
         &named(NamedKey::Home),
+        false,
         false,
         false,
         &mode,
@@ -966,6 +1131,7 @@ fn visual_end_jumps_to_last_col() {
         &named(NamedKey::End),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -979,6 +1145,7 @@ fn visual_h_at_col_zero_clamps() {
     let mode = visual_at(0, 0, 0, 5);
     let (col, _) = vis_col_row(handle_key_inner(
         &char_key("h"),
+        false,
         false,
         false,
         &mode,
@@ -996,6 +1163,7 @@ fn visual_k_at_row_zero_clamps() {
         &char_key("k"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -1011,6 +1179,7 @@ fn visual_l_at_last_col_clamps() {
         &char_key("l"),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -1022,7 +1191,7 @@ fn visual_l_at_last_col_clamps() {
 #[test]
 fn visual_start_coords_preserved_on_move() {
     let mode = visual_at(3, 7, 5, 5);
-    let a = handle_key_inner(&char_key("j"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("j"), false, false, false, &mode, 80, 24, false);
     match a {
         Action::SetMode(InputMode::Visual {
             start_col,
@@ -1041,7 +1210,7 @@ fn visual_start_coords_preserved_on_move() {
 #[test]
 fn rename_tab_mode_returns_none() {
     let mode = InputMode::RenameTab { buf: String::new() };
-    let a = handle_key_inner(&char_key("a"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("a"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::None));
 }
 
@@ -1050,7 +1219,7 @@ fn search_mode_returns_none() {
     let mode = InputMode::Search {
         query: "foo".into(),
     };
-    let a = handle_key_inner(&char_key("a"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("a"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::None));
 }
 
@@ -1060,6 +1229,7 @@ fn search_mode_returns_none() {
 fn insert_arrow_down_application_cursor() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowDown),
+        false,
         false,
         false,
         &insert(),
@@ -1076,6 +1246,7 @@ fn insert_arrow_right_application_cursor() {
         &named(NamedKey::ArrowRight),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -1090,6 +1261,7 @@ fn insert_arrow_left_application_cursor() {
         &named(NamedKey::ArrowLeft),
         false,
         false,
+        false,
         &insert(),
         80,
         24,
@@ -1100,7 +1272,16 @@ fn insert_arrow_left_application_cursor() {
 
 #[test]
 fn insert_end_application_cursor() {
-    let a = handle_key_inner(&named(NamedKey::End), false, false, &insert(), 80, 24, true);
+    let a = handle_key_inner(
+        &named(NamedKey::End),
+        false,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        true,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOF"));
 }
 
@@ -1109,13 +1290,31 @@ fn insert_end_application_cursor() {
 #[test]
 fn insert_ctrl_char_with_code_1_sends_raw_byte() {
     // '\x01' has code point 1, which falls in the raw 1..=26 branch
-    let a = handle_key_inner(&char_key("\x01"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("\x01"),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == &[1u8]));
 }
 
 #[test]
 fn insert_ctrl_char_with_code_26_sends_raw_byte() {
-    let a = handle_key_inner(&char_key("\x1a"), true, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &char_key("\x1a"),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == &[26u8]));
 }
 
@@ -1125,6 +1324,7 @@ fn insert_ctrl_char_with_code_26_sends_raw_byte() {
 fn insert_unrecognized_named_key_returns_none() {
     let a = handle_key_inner(
         &named(NamedKey::Alt),
+        false,
         false,
         false,
         &insert(),
@@ -1141,6 +1341,7 @@ fn insert_unrecognized_named_key_returns_none() {
 fn normal_unrecognized_named_key_returns_none() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowLeft),
+        false,
         false,
         false,
         &normal(),
@@ -1160,6 +1361,7 @@ fn visual_arrow_up_moves_cursor() {
         &named(NamedKey::ArrowUp),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -1176,6 +1378,7 @@ fn visual_arrow_down_moves_cursor() {
         &named(NamedKey::ArrowDown),
         false,
         false,
+        false,
         &mode,
         80,
         24,
@@ -1190,13 +1393,75 @@ fn visual_arrow_down_moves_cursor() {
 #[test]
 fn visual_unknown_char_returns_none() {
     let mode = visual_at(0, 0, 5, 5);
-    let a = handle_key_inner(&char_key("x"), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(&char_key("x"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::None));
 }
 
 #[test]
 fn visual_unrecognized_named_key_returns_none() {
     let mode = visual_at(0, 0, 5, 5);
-    let a = handle_key_inner(&named(NamedKey::Alt), false, false, &mode, 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::Alt),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::None));
+}
+
+// ── Alt modifier encoding ─────────────────────────────────────────────────────
+
+#[test]
+fn insert_alt_tab_sends_esc_tab() {
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, b'\t']));
+}
+
+#[test]
+fn insert_alt_char_sends_esc_prefixed() {
+    let a = handle_key_inner(&char_key("b"), false, false, true, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, b'b']));
+}
+
+#[test]
+fn insert_alt_enter_sends_esc_cr() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, b'\r']));
+}
+
+#[test]
+fn insert_plain_tab_still_sends_tab_byte() {
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[b'\t']));
 }

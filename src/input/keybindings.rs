@@ -53,10 +53,12 @@ pub fn handle_key(
     }
     let ctrl = modifiers.state().control_key();
     let shift = modifiers.state().shift_key();
+    let alt = modifiers.state().alt_key();
     handle_key_inner(
         &event.logical_key,
         ctrl,
         shift,
+        alt,
         mode,
         grid_cols,
         grid_rows,
@@ -75,6 +77,7 @@ pub(crate) fn handle_key_inner(
     key: &Key,
     ctrl: bool,
     shift: bool,
+    alt: bool,
     mode: &InputMode,
     grid_cols: usize,
     grid_rows: usize,
@@ -171,7 +174,7 @@ pub(crate) fn handle_key_inner(
 
     // ── Per-mode handling ────────────────────────────────────────────────
     match mode {
-        InputMode::Insert => handle_insert(key, ctrl, application_cursor_keys),
+        InputMode::Insert => handle_insert(key, ctrl, alt, application_cursor_keys),
         InputMode::Normal => handle_normal(key, grid_rows),
         InputMode::Visual {
             start_col,
@@ -208,7 +211,7 @@ pub(crate) fn ctrl_w_action(key: &Key) -> Action {
     }
 }
 
-fn handle_insert(key: &Key, ctrl: bool, application_cursor_keys: bool) -> Action {
+fn handle_insert(key: &Key, ctrl: bool, alt: bool, application_cursor_keys: bool) -> Action {
     // Escape is forwarded to PTY — vim / other TUI apps need it
     if ctrl {
         if let Key::Character(s) = key {
@@ -225,6 +228,21 @@ fn handle_insert(key: &Key, ctrl: bool, application_cursor_keys: bool) -> Action
         }
         if *key == Key::Named(NamedKey::Enter) {
             return Action::SendToPty(vec![b'\n']);
+        }
+    }
+
+    // Alt+key: prefix with ESC (standard xterm Alt encoding)
+    if alt && !ctrl {
+        let inner = match key {
+            Key::Named(NamedKey::Tab) => Some(vec![b'\t']),
+            Key::Named(NamedKey::Enter) => Some(vec![b'\r']),
+            Key::Named(NamedKey::Backspace) => Some(vec![0x7f]),
+            Key::Character(s) => Some(s.as_bytes().to_vec()),
+            _ => None,
+        };
+        if let Some(mut bytes) = inner {
+            bytes.insert(0, 0x1b);
+            return Action::SendToPty(bytes);
         }
     }
 
