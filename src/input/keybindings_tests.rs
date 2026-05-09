@@ -1058,19 +1058,43 @@ fn search_mode_returns_none() {
 
 #[test]
 fn insert_arrow_down_application_cursor() {
-    let a = handle_key_inner(&named(NamedKey::ArrowDown), false, false, &insert(), 80, 24, true);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        true,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOB"));
 }
 
 #[test]
 fn insert_arrow_right_application_cursor() {
-    let a = handle_key_inner(&named(NamedKey::ArrowRight), false, false, &insert(), 80, 24, true);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        true,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOC"));
 }
 
 #[test]
 fn insert_arrow_left_application_cursor() {
-    let a = handle_key_inner(&named(NamedKey::ArrowLeft), false, false, &insert(), 80, 24, true);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        true,
+    );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOD"));
 }
 
@@ -1099,7 +1123,15 @@ fn insert_ctrl_char_with_code_26_sends_raw_byte() {
 
 #[test]
 fn insert_unrecognized_named_key_returns_none() {
-    let a = handle_key_inner(&named(NamedKey::Alt), false, false, &insert(), 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::Alt),
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::None));
 }
 
@@ -1107,7 +1139,15 @@ fn insert_unrecognized_named_key_returns_none() {
 
 #[test]
 fn normal_unrecognized_named_key_returns_none() {
-    let a = handle_key_inner(&named(NamedKey::ArrowLeft), false, false, &normal(), 80, 24, false);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::None));
 }
 
