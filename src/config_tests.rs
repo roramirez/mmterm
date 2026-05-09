@@ -123,3 +123,41 @@ palette = []
     let cfg: Config = toml::from_str(toml).expect("parse failed");
     assert_eq!(cfg.window.inactive_dim, 0.55);
 }
+
+#[test]
+fn default_inactive_dim_value() {
+    assert_eq!(default_inactive_dim(), 0.55);
+}
+
+#[test]
+fn default_detect_urls_value() {
+    assert!(default_detect_urls());
+}
+
+#[test]
+fn detect_urls_default_applied_when_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert!(cfg.window.detect_urls);
+}
+
+#[test]
+fn save_does_not_panic() {
+    Config::default().save();
+}

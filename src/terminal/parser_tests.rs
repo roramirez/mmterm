@@ -696,3 +696,14 @@ fn dcs_sequence_hook_put_unhook_do_not_panic() {
     p.process(b"X");
     assert_eq!(p.grid.cell(0, 0).c, 'X');
 }
+
+#[test]
+fn osc_title_empty_string_clears_title() {
+    let mut p = make_parser(10, 5);
+    // Set a title first
+    p.process(b"\x1b]2;my title\x07");
+    assert_eq!(p.grid.osc_title.as_deref(), Some("my title"));
+    // Send OSC with empty title — should clear to None
+    p.process(b"\x1b]2;\x07");
+    assert!(p.grid.osc_title.is_none());
+}

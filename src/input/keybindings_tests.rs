@@ -1053,3 +1053,110 @@ fn search_mode_returns_none() {
     let a = handle_key_inner(&char_key("a"), false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::None));
 }
+
+// ── Insert: application cursor keys (remaining directions) ───────────────────
+
+#[test]
+fn insert_arrow_down_application_cursor() {
+    let a = handle_key_inner(&named(NamedKey::ArrowDown), false, false, &insert(), 80, 24, true);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOB"));
+}
+
+#[test]
+fn insert_arrow_right_application_cursor() {
+    let a = handle_key_inner(&named(NamedKey::ArrowRight), false, false, &insert(), 80, 24, true);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOC"));
+}
+
+#[test]
+fn insert_arrow_left_application_cursor() {
+    let a = handle_key_inner(&named(NamedKey::ArrowLeft), false, false, &insert(), 80, 24, true);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOD"));
+}
+
+#[test]
+fn insert_end_application_cursor() {
+    let a = handle_key_inner(&named(NamedKey::End), false, false, &insert(), 80, 24, true);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1bOF"));
+}
+
+// ── Insert: ctrl + char with raw code 1-26 ───────────────────────────────────
+
+#[test]
+fn insert_ctrl_char_with_code_1_sends_raw_byte() {
+    // '\x01' has code point 1, which falls in the raw 1..=26 branch
+    let a = handle_key_inner(&char_key("\x01"), true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[1u8]));
+}
+
+#[test]
+fn insert_ctrl_char_with_code_26_sends_raw_byte() {
+    let a = handle_key_inner(&char_key("\x1a"), true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[26u8]));
+}
+
+// ── Insert: unrecognized named key returns None ───────────────────────────────
+
+#[test]
+fn insert_unrecognized_named_key_returns_none() {
+    let a = handle_key_inner(&named(NamedKey::Alt), false, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::None));
+}
+
+// ── Normal: unrecognized named key returns None ───────────────────────────────
+
+#[test]
+fn normal_unrecognized_named_key_returns_none() {
+    let a = handle_key_inner(&named(NamedKey::ArrowLeft), false, false, &normal(), 80, 24, false);
+    assert!(matches!(a, Action::None));
+}
+
+// ── Visual: arrow up / down ───────────────────────────────────────────────────
+
+#[test]
+fn visual_arrow_up_moves_cursor() {
+    let mode = visual_at(0, 0, 5, 5);
+    let (col, row) = vis_col_row(handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    ));
+    assert_eq!(col, 5);
+    assert_eq!(row, 4);
+}
+
+#[test]
+fn visual_arrow_down_moves_cursor() {
+    let mode = visual_at(0, 0, 5, 5);
+    let (col, row) = vis_col_row(handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    ));
+    assert_eq!(col, 5);
+    assert_eq!(row, 6);
+}
+
+// ── Visual: catch-all returns None ───────────────────────────────────────────
+
+#[test]
+fn visual_unknown_char_returns_none() {
+    let mode = visual_at(0, 0, 5, 5);
+    let a = handle_key_inner(&char_key("x"), false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn visual_unrecognized_named_key_returns_none() {
+    let mode = visual_at(0, 0, 5, 5);
+    let a = handle_key_inner(&named(NamedKey::Alt), false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::None));
+}

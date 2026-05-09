@@ -373,3 +373,52 @@ fn validate_hex_valid_with_hash() {
     assert!(!panel.editing);
     assert_eq!(panel.fields[F_COLOR_BG].value, "#AABBCC");
 }
+
+#[test]
+fn validate_bool_true_passes() {
+    let mut panel = make_panel();
+    panel.selected = F_DETECT_URLS; // Bool kind
+    panel.editing = true;
+    panel.edit_buf = "true".to_string();
+    panel.handle_char('\r');
+    assert!(!panel.editing);
+}
+
+#[test]
+fn validate_bool_false_passes() {
+    let mut panel = make_panel();
+    panel.selected = F_DETECT_URLS;
+    panel.editing = true;
+    panel.edit_buf = "false".to_string();
+    panel.handle_char('\r');
+    assert!(!panel.editing);
+}
+
+#[test]
+fn validate_bool_invalid_fails() {
+    let mut panel = make_panel();
+    panel.selected = F_DETECT_URLS;
+    panel.editing = true;
+    panel.edit_buf = "yes".to_string();
+    panel.handle_char('\r');
+    assert!(panel.status.is_some());
+}
+
+#[test]
+fn build_config_empty_font_family_returns_error() {
+    let mut panel = make_panel();
+    panel.fields[F_FONT_FAMILY].value = String::new();
+    let action = panel.save();
+    assert!(matches!(action, ConfigAction::None));
+    assert!(panel.status.as_deref().unwrap_or("").contains("Error"));
+}
+
+#[test]
+fn build_config_zero_font_size_returns_error() {
+    let mut panel = make_panel();
+    // bypass validate() by writing directly — tests the <= 0 guard in build_config
+    panel.fields[F_FONT_SIZE].value = "0.0".to_string();
+    let action = panel.save();
+    assert!(matches!(action, ConfigAction::None));
+    assert!(panel.status.as_deref().unwrap_or("").contains("Error"));
+}
