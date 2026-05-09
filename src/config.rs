@@ -181,5 +181,5 @@ fn config_path() -> PathBuf {
 }
 
 #[cfg(test)]
-#[path = "config_tests.rs"]
+#[path = "config_test.rs"]
 mod tests;

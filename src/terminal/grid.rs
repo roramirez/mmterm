@@ -529,5 +529,5 @@ fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
 }
 
 #[cfg(test)]
-#[path = "grid_tests.rs"]
+#[path = "grid_test.rs"]
 mod tests;

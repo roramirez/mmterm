@@ -403,7 +403,7 @@ fn parse_osc7_uri(uri: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-#[path = "parser_tests.rs"]
+#[path = "parser_test.rs"]
 mod tests;
 
 fn color256(n: u8, palette: &[Color; 16]) -> Color {

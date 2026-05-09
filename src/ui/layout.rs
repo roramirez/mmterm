@@ -225,5 +225,5 @@ impl Layout {
 }
 
 #[cfg(test)]
-#[path = "layout_tests.rs"]
+#[path = "layout_test.rs"]
 mod tests;

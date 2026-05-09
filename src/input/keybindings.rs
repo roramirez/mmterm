@@ -375,5 +375,5 @@ fn handle_visual(
 }
 
 #[cfg(test)]
-#[path = "keybindings_tests.rs"]
+#[path = "keybindings_test.rs"]
 mod tests;

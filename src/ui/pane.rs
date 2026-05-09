@@ -56,5 +56,5 @@ impl Pane {
 }
 
 #[cfg(test)]
-#[path = "pane_tests.rs"]
+#[path = "pane_test.rs"]
 mod tests;

@@ -414,5 +414,5 @@ fn normalize_hex(s: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "tui_config_tests.rs"]
+#[path = "tui_config_test.rs"]
 mod tests;
