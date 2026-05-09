@@ -124,6 +124,26 @@ pub enum Action {
 
 ## Adding a Feature — 4-Step Checklist
 
+Every new feature or bug fix must include an entry in `CHANGELOG.md` under
+`## [Unreleased]`. Use the appropriate section:
+
+| Section | When |
+|---|---|
+| `Added` | New user-visible feature or capability |
+| `Changed` | Modified behaviour of an existing feature |
+| `Fixed` | Bug fix |
+| `Removed` | Feature removed |
+| `Security` | Security fix |
+
+One line per entry, imperative mood, lowercase first letter. Example:
+
+```markdown
+## [Unreleased]
+
+### Added
+- regex search with copy-match and clear-scrollback actions
+```
+
 ### 1. Keybinding
 - Add variant to `Action` in `src/input/keybindings.rs`
 - Return it from `handle_key` or `handle_ctrl_w`
