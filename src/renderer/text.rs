@@ -192,7 +192,9 @@ impl Renderer {
             // Absolute row in the combined scrollback+grid address space.
             let abs_row = sb_len.saturating_sub(pane.scroll_offset) + row;
             // Binary-search lower bound for this row's matches (matches are sorted by abs_row).
-            let row_match_lo = pane.search_matches.partition_point(|&(r, _, _)| r < abs_row);
+            let row_match_lo = pane
+                .search_matches
+                .partition_point(|&(r, _, _)| r < abs_row);
 
             let mut col = 0usize;
             while col < grid.cols {
