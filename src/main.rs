@@ -12,6 +12,7 @@ use crossbeam_channel::{Receiver, unbounded};
 use input::{InputMode, handle_ctrl_w, handle_key};
 use renderer::{FontMetrics, PaneView, Renderer};
 use std::collections::HashMap;
+use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -32,6 +33,8 @@ struct PaneEntry {
     pane: Pane,
     pty: pty::PtySession,
     rx: Receiver<Vec<u8>>,
+    /// Active log file; None when logging is off. Dropped (closed) on toggle-off.
+    log_file: Option<std::fs::File>,
 }
 
 // ── Per-tab state ────────────────────────────────────────────────────────────
@@ -164,9 +167,20 @@ impl App {
             wakeup,
         ) {
             Ok(pty) => {
-                self.tabs[tab_idx]
-                    .panes
-                    .insert(id, PaneEntry { pane, pty, rx });
+                let log_file = if self.config.logging.auto_log {
+                    open_log_file(id, &self.config.logging.log_dir)
+                } else {
+                    None
+                };
+                self.tabs[tab_idx].panes.insert(
+                    id,
+                    PaneEntry {
+                        pane,
+                        pty,
+                        rx,
+                        log_file,
+                    },
+                );
             }
             Err(e) => log::error!("PTY spawn failed: {e}"),
         }
@@ -270,6 +284,9 @@ impl App {
                 loop {
                     match entry.rx.try_recv() {
                         Ok(bytes) => {
+                            if let Some(f) = &mut entry.log_file {
+                                let _ = f.write_all(&bytes);
+                            }
                             entry.pane.process(&bytes);
                             got_data = true;
                         }
@@ -987,6 +1004,10 @@ impl App {
         let bell_flash = self.tabs[self.active_tab]
             .bell_flash_until
             .is_some_and(|t| t > Instant::now());
+        let is_logging = self.tabs[self.active_tab]
+            .panes
+            .get(&active_id)
+            .is_some_and(|e| e.log_file.is_some());
         self.renderer.draw(
             pixels,
             w,
@@ -1001,6 +1022,7 @@ impl App {
             cwd_owned.as_deref(),
             self.config.window.inactive_dim,
             bell_flash,
+            is_logging,
         );
 
         if let Some(panel) = &self.config_panel {
@@ -1369,6 +1391,19 @@ impl ApplicationHandler for App {
                         self.change_font_size(default - current);
                     }
 
+                    Action::ToggleLog => {
+                        let active = self.tab().active;
+                        let log_dir = self.config.logging.log_dir.clone();
+                        if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+                            if entry.log_file.is_some() {
+                                entry.log_file = None;
+                                log::info!("Logging stopped for pane {active}");
+                            } else {
+                                entry.log_file = open_log_file(active, &log_dir);
+                            }
+                        }
+                    }
+
                     Action::OpenConfig => self.open_config_panel(),
                     Action::Quit => event_loop.exit(),
                     Action::ZoomPane => {
@@ -1547,6 +1582,29 @@ impl ApplicationHandler for App {
                 }
             }
             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+        }
+    }
+}
+
+fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::File> {
+    let dir = if log_dir.is_empty() {
+        std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+    } else {
+        log_dir.to_string()
+    };
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let path = format!("{dir}/mmterm-{ts}-pane{pane_id}.log");
+    match std::fs::File::create(&path) {
+        Ok(f) => {
+            log::info!("Logging started: {path}");
+            Some(f)
+        }
+        Err(e) => {
+            log::warn!("Failed to open log file {path}: {e}");
+            None
         }
     }
 }

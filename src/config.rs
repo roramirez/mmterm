@@ -21,6 +21,9 @@ pub struct Config {
     pub shell: ShellConfig,
 
     #[serde(default)]
+    pub logging: LogConfig,
+
+    #[serde(default)]
     pub colors: ColorsConfig,
 }
 
@@ -52,6 +55,33 @@ pub struct WindowConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellConfig {
     pub program: Option<String>,
+}
+
+fn default_auto_log() -> bool {
+    false
+}
+
+fn default_log_dir() -> String {
+    String::new()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogConfig {
+    /// Start logging automatically for every new pane.
+    #[serde(default = "default_auto_log")]
+    pub auto_log: bool,
+    /// Directory for log files. Empty string means $HOME.
+    #[serde(default = "default_log_dir")]
+    pub log_dir: String,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            auto_log: false,
+            log_dir: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

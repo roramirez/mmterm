@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- session logging: `Ctrl+Shift+L` toggles PTY output capture to `~/mmterm-<timestamp>-pane<id>.log`; active pane shows a `● REC` badge in the status bar; configurable via `[logging]` in config (`auto_log`, `log_dir`)
+
 #### Terminal emulation
 - SGR blink attribute (codes 5/25)
 - SGR text attributes: dim, underline, strikethrough, reverse video

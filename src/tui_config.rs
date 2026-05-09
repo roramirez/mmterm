@@ -1,4 +1,4 @@
-use crate::config::{ColorsConfig, Config, FontConfig, ShellConfig, WindowConfig};
+use crate::config::{ColorsConfig, Config, FontConfig, LogConfig, ShellConfig, WindowConfig};
 
 // Field indices — keep in sync with from_config()
 const F_FONT_FAMILY: usize = 0;
@@ -10,11 +10,13 @@ const F_BLINK_MS: usize = 5;
 const F_DIM: usize = 6;
 const F_DETECT_URLS: usize = 7;
 const F_SHELL: usize = 8;
-const F_COLOR_BG: usize = 9;
-const F_COLOR_FG: usize = 10;
-const F_COLOR_CUR: usize = 11;
-const F_COLOR_SEL: usize = 12;
-const F_PALETTE: usize = 13; // F_PALETTE + 0..15
+const F_LOG_AUTO: usize = 9;
+const F_LOG_DIR: usize = 10;
+const F_COLOR_BG: usize = 11;
+const F_COLOR_FG: usize = 12;
+const F_COLOR_CUR: usize = 13;
+const F_COLOR_SEL: usize = 14;
+const F_PALETTE: usize = 15; // F_PALETTE + 0..15
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -138,6 +140,21 @@ impl ConfigPanel {
                 value: cfg.shell.program.clone().unwrap_or_default(),
                 kind: FieldKind::OptText,
                 section: Some("Shell"),
+            },
+            // ── Logging ─────────────────────────────────────────────────────
+            Field {
+                label: "Auto Log",
+                hint: "true or false — start logging automatically for each new pane",
+                value: cfg.logging.auto_log.to_string(),
+                kind: FieldKind::Bool,
+                section: Some("Logging"),
+            },
+            Field {
+                label: "Log Dir",
+                hint: "directory for log files; empty = $HOME",
+                value: cfg.logging.log_dir.clone(),
+                kind: FieldKind::OptText,
+                section: None,
             },
             // ── Colors ──────────────────────────────────────────────────────
             Field {
@@ -366,6 +383,11 @@ impl ConfigPanel {
             if s.is_empty() { None } else { Some(s) }
         };
 
+        let auto_log = get(F_LOG_AUTO)
+            .parse::<bool>()
+            .map_err(|_| "Invalid auto_log — use true or false")?;
+        let log_dir = get(F_LOG_DIR);
+
         let background = get(F_COLOR_BG);
         let foreground = get(F_COLOR_FG);
         let cursor = get(F_COLOR_CUR);
@@ -384,6 +406,7 @@ impl ConfigPanel {
                 detect_urls,
             },
             shell: ShellConfig { program: shell },
+            logging: LogConfig { auto_log, log_dir },
             colors: ColorsConfig {
                 background,
                 foreground,

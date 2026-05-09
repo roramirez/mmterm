@@ -161,3 +161,66 @@ palette = []
 fn save_does_not_panic() {
     Config::default().save();
 }
+
+#[test]
+fn default_auto_log_is_false() {
+    let cfg = Config::default();
+    assert!(!cfg.logging.auto_log);
+}
+
+#[test]
+fn default_log_dir_is_empty() {
+    let cfg = Config::default();
+    assert!(cfg.logging.log_dir.is_empty());
+}
+
+#[test]
+fn logging_section_parsed_from_toml() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[logging]
+auto_log = true
+log_dir  = "/tmp/logs"
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert!(cfg.logging.auto_log);
+    assert_eq!(cfg.logging.log_dir, "/tmp/logs");
+}
+
+#[test]
+fn logging_defaults_when_section_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert!(!cfg.logging.auto_log);
+    assert!(cfg.logging.log_dir.is_empty());
+}

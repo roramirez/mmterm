@@ -106,6 +106,7 @@ impl Renderer {
         cwd: Option<&str>,
         inactive_dim: f32,
         bell_flash: bool,
+        is_logging: bool,
     ) {
         let bg_fill = panes
             .first()
@@ -156,6 +157,7 @@ impl Renderer {
             search_total,
             search_current,
             cwd,
+            is_logging,
         );
     }
 
@@ -842,6 +844,7 @@ impl Renderer {
         search_total: usize,
         search_current: usize,
         cwd: Option<&str>,
+        is_logging: bool,
     ) {
         let bar_y = height.saturating_sub(STATUS_BAR_H);
         let bar_bg = 0xff_18_18_25_u32;
@@ -926,6 +929,46 @@ impl Renderer {
                 false,
                 0xff_ba_c2_de,
             );
+        }
+
+        // Show ● REC badge when session logging is active.
+        if is_logging {
+            let rec_label = "\u{25cf} REC";
+            let rec_w = rec_label.len() as u32 * char_w + BADGE_PAD_X * 2;
+            let rec_color = 0xff_f3_8b_a8_u32; // pink/red
+            let rec_x = badge_x + badge_w + 8;
+            for dy in 0..badge_h {
+                for dx in 0..rec_w {
+                    let idx = ((badge_y + dy) * width + rec_x + dx) as usize;
+                    if idx < buf.len() {
+                        buf[idx] = rec_color;
+                    }
+                }
+            }
+            let mut tx = rec_x + BADGE_PAD_X;
+            for c in rec_label.chars() {
+                let (bitmap, gw, gh) = self.glyphs.rasterize(c, px, true);
+                let baseline = (badge_h as f32 * 0.82) as u32;
+                let cy = badge_y + baseline.saturating_sub(gh);
+                for gy in 0..gh {
+                    for gx in 0..gw {
+                        let alpha = bitmap[(gy * gw + gx) as usize];
+                        if alpha == 0 {
+                            continue;
+                        }
+                        let sx = tx + gx;
+                        let sy = cy + gy;
+                        if sx >= width || sy >= height {
+                            continue;
+                        }
+                        let idx = (sy * width + sx) as usize;
+                        if idx < buf.len() {
+                            buf[idx] = blend(rec_color, badge_fg, alpha);
+                        }
+                    }
+                }
+                tx += char_w;
+            }
         }
 
         // Show CWD right-aligned in the status bar.

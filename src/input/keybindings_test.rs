@@ -234,6 +234,18 @@ fn ctrl_shift_k_clears_scrollback() {
 }
 
 #[test]
+fn ctrl_shift_l_toggles_log() {
+    let a = handle_key_inner(&char_key("l"), true, true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::ToggleLog));
+}
+
+#[test]
+fn ctrl_shift_l_uppercase_toggles_log() {
+    let a = handle_key_inner(&char_key("L"), true, true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::ToggleLog));
+}
+
+#[test]
 fn ctrl_shift_page_up_moves_tab_left() {
     let a = handle_key_inner(
         &named(NamedKey::PageUp),

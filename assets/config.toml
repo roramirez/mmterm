@@ -15,6 +15,12 @@ detect_urls     = true
 [shell]
 # program = "/bin/zsh"
 
+[logging]
+# Start logging automatically for every new pane (Ctrl+Shift+L to toggle per-pane)
+auto_log = false
+# Directory for log files; empty string means $HOME
+log_dir  = ""
+
 [colors]
 background = "#121212"
 foreground = "#a0a0a0"
