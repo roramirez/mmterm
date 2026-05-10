@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tui_config::{ConfigAction, ConfigPanel};
 use ui::{Layout, Pane, SplitDir};
@@ -82,6 +83,7 @@ struct App {
     // Swallow the first Tab keypress after regaining focus so that the Tab
     // from an Alt+Tab window switch isn't forwarded to the PTY.
     swallow_next_tab: bool,
+    wakeup_pending: Arc<AtomicBool>,
 }
 
 impl App {
@@ -110,6 +112,7 @@ impl App {
             search_current: 0,
             hovered_url: None,
             swallow_next_tab: false,
+            wakeup_pending: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -155,8 +158,13 @@ impl App {
             .or_else(|| std::env::var("SHELL").ok())
             .unwrap_or_else(|| "/bin/bash".to_string());
         let proxy = self.proxy.clone();
+        let wakeup_pending = Arc::clone(&self.wakeup_pending);
         let wakeup = Box::new(move || {
-            let _ = proxy.send_event(());
+            // Only send one event while one is already in flight; the event
+            // loop clears the flag in user_event before requesting a redraw.
+            if !wakeup_pending.swap(true, Ordering::AcqRel) {
+                let _ = proxy.send_event(());
+            }
         });
         match pty::PtySession::spawn_with_shell(
             cols as u16,
@@ -270,25 +278,36 @@ impl App {
 
     // ── Drain PTY output ─────────────────────────────────────────────────────
 
-    /// Drain all pending PTY output and return (tab_idx, pane_id) pairs for
-    /// any panes whose PTY process has exited (sender disconnected).
-    fn drain_all(&mut self) -> Vec<(usize, usize)> {
+    /// Drain pending PTY output up to a per-frame byte budget. Returns
+    /// (exited pairs, has_more) — callers should request another redraw when
+    /// has_more is true so the display stays live during high-throughput output.
+    fn drain_all(&mut self) -> (Vec<(usize, usize)>, bool) {
+        // ~256 KB per frame keeps parsing under ~4 ms while still showing
+        // progressive output for commands like `find .`.
+        const BYTES_PER_FRAME: usize = 256 * 1024;
         let active_tab = self.active_tab;
         let detect_urls = self.config.window.detect_urls;
         let mut exited = Vec::new();
+        let mut has_more = false;
         for (tab_idx, tab) in self.tabs.iter_mut().enumerate() {
             let ids: Vec<usize> = tab.panes.keys().copied().collect();
             for id in ids {
                 let entry = tab.panes.get_mut(&id).unwrap();
                 let mut got_data = false;
+                let mut bytes_this_frame = 0;
                 loop {
                     match entry.rx.try_recv() {
                         Ok(bytes) => {
+                            bytes_this_frame += bytes.len();
                             if let Some(f) = &mut entry.log_file {
                                 let _ = f.write_all(&bytes);
                             }
                             entry.pane.process(&bytes);
                             got_data = true;
+                            if bytes_this_frame >= BYTES_PER_FRAME {
+                                has_more = true;
+                                break;
+                            }
                         }
                         Err(crossbeam_channel::TryRecvError::Empty) => break,
                         Err(crossbeam_channel::TryRecvError::Disconnected) => {
@@ -309,7 +328,7 @@ impl App {
                 }
             }
         }
-        exited
+        (exited, has_more)
     }
 
     fn close_pane_on_tab(&mut self, tab_idx: usize, pane_id: usize, event_loop: &ActiveEventLoop) {
@@ -1546,17 +1565,25 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::RedrawRequested => {
-                let exited = self.drain_all();
+                let (exited, has_more) = self.drain_all();
                 for (tab_idx, pane_id) in exited {
                     self.close_pane_on_tab(tab_idx, pane_id, event_loop);
                 }
                 self.redraw();
+                if has_more {
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                }
             }
             _ => {}
         }
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+        // Clear the flag before requesting redraw so PTY threads can queue
+        // the next wakeup as soon as more data arrives after this frame.
+        self.wakeup_pending.store(false, Ordering::Release);
         if let Some(window) = &self.window {
             window.request_redraw();
         }

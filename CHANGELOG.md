@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Performance
+
+- cap PTY bytes parsed per frame to 256 KB and coalesce wakeup events so high-throughput commands (e.g. `find .`) render progressively in both normal and maximized windows
+
 ### Fixed
 
 - default log directory is now `~/.mmterm` (created automatically) instead of `$HOME`
