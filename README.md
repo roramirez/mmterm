@@ -4,6 +4,8 @@
 
 A cross-platform, GPU-free terminal emulator written in Rust with vim-style modal input, split panes, and multi-tab sessions.
 
+![mmterm demo](assets/demo.gif)
+
 Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 
 ## Features

@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- add animated demo GIF to README showcasing split panes, tabs, tab rename, search, zoom, and 256-color output
 - document session logging, `inactive_dim`, `detect_urls`, `Ctrl+Shift+L`, and `Ctrl+W z` in README and SPEC
 
 
