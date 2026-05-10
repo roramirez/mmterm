@@ -1055,9 +1055,42 @@ fn dim_color(c: u32, factor: f32) -> u32 {
 fn blend(bg: u32, fg: u32, alpha: u8) -> u32 {
     let a = alpha as u32;
     let inv = 255 - a;
-    let blend_ch = |b: u32, f: u32| (f * a + b * inv) / 255;
+    // Blend in linear light (gamma-2 approximation: encode=square, decode=sqrt).
+    // Avoids the sRGB-space error that makes antialiased glyphs look washed out.
+    let blend_ch = |b: u32, f: u32| {
+        let mixed = f * f * a + b * b * inv; // [0, 255^2 * 255] fits in u32
+        ((mixed as f32 / 255.0).sqrt().round() as u32).min(255)
+    };
     (0xFF << 24)
         | (blend_ch((bg >> 16) & 0xFF, (fg >> 16) & 0xFF) << 16)
         | (blend_ch((bg >> 8) & 0xFF, (fg >> 8) & 0xFF) << 8)
         | blend_ch(bg & 0xFF, fg & 0xFF)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::blend;
+
+    #[test]
+    fn blend_transparent_returns_bg() {
+        let bg = 0xff_11_22_33;
+        assert_eq!(blend(bg, 0xff_ff_ff_ff, 0), bg);
+    }
+
+    #[test]
+    fn blend_opaque_returns_fg_channels() {
+        let result = blend(0xff_00_00_00, 0xff_80_40_20, 255);
+        assert_eq!((result >> 16) & 0xFF, 0x80);
+        assert_eq!((result >> 8) & 0xFF, 0x40);
+        assert_eq!(result & 0xFF, 0x20);
+    }
+
+    #[test]
+    fn blend_midpoint_is_lighter_than_linear() {
+        // Gamma-correct blending at alpha=128 on black→white should yield a
+        // value visibly above the linear midpoint of 128 (~181 for gamma=2).
+        let result = blend(0xff_00_00_00, 0xff_ff_ff_ff, 128);
+        let ch = result & 0xFF;
+        assert!(ch > 128, "expected gamma-correct midpoint > 128, got {ch}");
+    }
 }
