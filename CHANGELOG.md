@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- headless `App` test infrastructure in `main_test.rs`: 30 unit tests covering tab navigation, reordering, config panel, palette reseeding, search state, and pane hit-testing without a running event loop
 - configurable scrollback buffer size via `scrollback_lines` in `[terminal]` config section (default 10 000, minimum 100)
 - headless renderer tests covering `FontMetrics`, `color_u32`, `dim_color`, `get_cell`, `mode_style`, and all draw paths
 - glyph cache tests covering cache hit, fallback rendering, and bilinear scaling

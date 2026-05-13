@@ -1728,3 +1728,7 @@ fn main() {
     let mut app = App::new(config, proxy);
     event_loop.run_app(&mut app).unwrap();
 }
+
+#[cfg(test)]
+#[path = "main_test.rs"]
+mod tests;
