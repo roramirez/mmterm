@@ -11,6 +11,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - glyph cache tests covering cache hit, fallback rendering, and bilinear scaling
 - PTY session tests for spawn, write, and resize
 - additional unit tests for config defaults, theme listing, tui_config Select cycling, and keybinding alt-modifier encoding
+- renderer tests covering visual selection, search match highlighting, inactive pane dimming, underline, strikethrough, dim, reverse-video, cursor, and scrollbar rendering paths
+- glyph cache tests for embedded fallback font (regular and bold) and fallback chain for unknown font families
+- PTY session tests for spawn-with-cwd, default SHELL spawn, and cwd() readback
 
 - theme system: 9 built-in themes (default, catppuccin-mocha, dracula, gruvbox-dark, monokai, nord, one-dark, solarized-dark, tokyo-night) installed to `~/.config/mmterm/themes/` on first launch
 - theme selector in the config panel (← / → to cycle with live preview)

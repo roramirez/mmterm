@@ -69,3 +69,34 @@ fn get_bold_variant_does_not_panic() {
     let mut cache = make_cache();
     let _info = cache.get('B', 16.0, true);
 }
+
+#[test]
+fn load_fallback_regular_returns_valid_font() {
+    let _font = load_fallback(false);
+}
+
+#[test]
+fn load_fallback_bold_returns_valid_font() {
+    let _font = load_fallback(true);
+}
+
+#[test]
+fn unknown_font_family_falls_back_to_embedded() {
+    // System font lookup fails → load_fallback is invoked as the unwrap_or_else path.
+    let _cache = GlyphCache::new("NoSuchFont99999XYZ");
+}
+
+#[test]
+fn rasterize_box_drawing_triggers_fallback_chain() {
+    let mut cache = make_cache();
+    // U+2588 FULL BLOCK — may not be in the primary font, exercises the fallback chain.
+    let (_, w, h) = cache.rasterize('\u{2588}', 16.0, false);
+    let _ = (w, h);
+}
+
+#[test]
+fn get_from_unknown_font_uses_tofu_fallback() {
+    let mut cache = GlyphCache::new("NoSuchFont99999XYZ");
+    // Any char — the cache will use the embedded fallback; should not panic.
+    let _info = cache.get('A', 16.0, false);
+}

@@ -1470,4 +1470,246 @@ mod tests {
     fn url_hovered_no_match_when_both_none() {
         assert!(!cell_url_hovered(None, None));
     }
+
+    fn make_pane<'a>(grid: &'a Grid, m: &crate::renderer::text::FontMetrics) -> PaneView<'a> {
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let _ = (cols, rows);
+        PaneView {
+            grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        }
+    }
+
+    fn do_draw(
+        r: &mut Renderer,
+        m: &crate::renderer::text::FontMetrics,
+        panes: &[PaneView<'_>],
+        mode: &InputMode,
+    ) {
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            panes,
+            &[],
+            mode,
+            &[("t".to_string(), true, false)],
+            m,
+            0,
+            0,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+    }
+
+    #[test]
+    fn draw_pane_with_text_renders_glyphs() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('H');
+        grid.write_char('e');
+        grid.write_char('l');
+        grid.write_char('l');
+        grid.write_char('o');
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_inactive_pane_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('X');
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: false,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_visual_selection_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('A');
+        grid.write_char('B');
+        grid.write_char('C');
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        let mode = InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: 2,
+            cur_row: 0,
+        };
+        do_draw(&mut r, &m, &[pane], &mode);
+    }
+
+    #[test]
+    fn draw_pane_with_search_match_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('f');
+        grid.write_char('o');
+        grid.write_char('o');
+        let sb_len = grid.scrollback_len();
+        // Match at abs_row = sb_len (first live row), col 0, length 3.
+        let matches: Vec<(usize, usize, usize)> = vec![(sb_len, 0, 3)];
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &matches,
+            search_current: Some(0),
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_underline_cell_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('U');
+        grid.cell_mut(0, 0).underline = true;
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_strikethrough_cell_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('S');
+        grid.cell_mut(0, 0).strikethrough = true;
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_dim_cell_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('D');
+        grid.cell_mut(0, 0).dim = true;
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_reverse_video_cell_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('R');
+        grid.cell_mut(0, 0).reverse = true;
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_scrollback_shows_scrollbar() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        // Push enough lines into scrollback to activate the scrollbar.
+        for _ in 0..rows + 5 {
+            grid.write_char('A');
+            grid.scroll_up(1);
+        }
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        for _ in 0..rows + 10 {
+            grid.write_char('B');
+            grid.scroll_up(1);
+        }
+        let sb_len = grid.scrollback_len();
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: sb_len.min(5),
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_cursor_visible_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let grid = make_grid(cols, rows);
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: true,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
 }

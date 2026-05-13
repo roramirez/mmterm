@@ -1530,3 +1530,50 @@ fn insert_alt_arrow_falls_through_to_regular_match() {
     );
     assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[D"));
 }
+
+#[test]
+fn insert_alt_tab_consumed_silently() {
+    // Alt+Tab is intercepted before the alt-encoding block to avoid sending
+    // it to the PTY while the window manager switches focus.
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn insert_alt_enter_sends_escape_cr() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, b'\r']));
+}
+
+#[test]
+fn insert_alt_backspace_sends_escape_del() {
+    let a = handle_key_inner(
+        &named(NamedKey::Backspace),
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, 0x7f]));
+}
