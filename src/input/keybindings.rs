@@ -21,6 +21,7 @@ pub enum Action {
     FocusNext,
     ClosePane,
     ZoomPane,
+    ToggleFullscreen,
     CtrlWPrefix,
     OpenConfig,
     NewTab,
@@ -174,6 +175,11 @@ pub(crate) fn handle_key_inner(
             Key::Named(NamedKey::PageDown) => return Action::ScrollDown(grid_rows),
             _ => {}
         }
+    }
+
+    // Ctrl+Enter — toggle fullscreen (all modes, like Ghostty on Linux/Windows)
+    if ctrl && !shift && !alt && *key == Key::Named(NamedKey::Enter) {
+        return Action::ToggleFullscreen;
     }
 
     // Alt+Tab / Alt+Shift+Tab — consumed silently so the keystroke isn't

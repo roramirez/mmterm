@@ -513,7 +513,7 @@ fn insert_char_sends_utf8_bytes() {
 }
 
 #[test]
-fn insert_ctrl_enter_sends_newline() {
+fn ctrl_enter_toggles_fullscreen_from_insert() {
     let a = handle_key_inner(
         &named(NamedKey::Enter),
         true,
@@ -524,7 +524,37 @@ fn insert_ctrl_enter_sends_newline() {
         24,
         false,
     );
-    assert!(matches!(a, Action::SendToPty(ref v) if v == &[b'\n']));
+    assert!(matches!(a, Action::ToggleFullscreen));
+}
+
+#[test]
+fn ctrl_enter_toggles_fullscreen_from_normal() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        true,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ToggleFullscreen));
+}
+
+#[test]
+fn ctrl_enter_toggles_fullscreen_from_visual() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        true,
+        false,
+        false,
+        &visual(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ToggleFullscreen));
 }
 
 #[test]

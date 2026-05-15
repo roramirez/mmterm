@@ -28,7 +28,7 @@ use winit::application::ApplicationHandler;
 use winit::event::{ElementState, Modifiers, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
-use winit::window::{CursorIcon, Icon, Window, WindowId};
+use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 
 use crate::input::keybindings::Action;
 use crate::terminal::grid::GridColors;
@@ -1486,6 +1486,16 @@ impl ApplicationHandler for App {
                         }
                     }
 
+                    Action::ToggleFullscreen => {
+                        if let Some(w) = &self.window {
+                            let fs = if w.fullscreen().is_some() {
+                                None
+                            } else {
+                                Some(Fullscreen::Borderless(None))
+                            };
+                            w.set_fullscreen(fs);
+                        }
+                    }
                     Action::OpenConfig => self.open_config_panel(),
                     Action::Quit => event_loop.exit(),
                     Action::ZoomPane => {
