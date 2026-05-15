@@ -22,7 +22,7 @@ fontdue = "0.9"
 vte = "0.13"
 
 # PTY backend (Linux/macOS: forkpty/posix_openpt)
-portable-pty = "0.8"
+portable-pty = "0.9"
 
 # Concurrency: channel between PTY thread and render thread
 crossbeam-channel = "0.5"
