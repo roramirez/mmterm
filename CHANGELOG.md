@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Dependabot configuration for automated Cargo and GitHub Actions dependency updates
+
 ### Fixed
 - OSC 8 hyperlinks always show a dim blue underline; underline brightens on hover
 
