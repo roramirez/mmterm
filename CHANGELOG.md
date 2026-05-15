@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `src/search.rs` and `src/geometry.rs` extract pure functions from `App` for testability; covered by 21 new unit tests
 - `Ctrl+Enter` toggles borderless fullscreen (all modes); inspired by Ghostty's Linux/Windows shortcut
 - Dependabot configuration for automated Cargo and GitHub Actions dependency updates
 - `--debug` flag: writes `DEBUG`-level logs to `~/.mmterm/debug-<timestamp>.log`; panic hook prints the log path on crash

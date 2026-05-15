@@ -1,7 +1,9 @@
 mod config;
+mod geometry;
 mod input;
 mod pty;
 mod renderer;
+mod search;
 mod terminal;
 mod theme;
 mod tui_config;
@@ -495,31 +497,22 @@ impl App {
 
     fn pane_at_pixel(&self, px: f64, py: f64) -> Option<usize> {
         let rects = self.tab().layout.rects();
-        for (id, [rx, ry, rw, rh]) in rects {
-            if px >= rx as f64 && py >= ry as f64 && px < (rx + rw) as f64 && py < (ry + rh) as f64
-            {
-                return Some(id);
-            }
-        }
-        None
+        geometry::pane_at_pixel(&rects, px, py)
     }
 
     fn pixel_to_cell(&self, pane_id: usize, px: f64, py: f64) -> Option<(usize, usize)> {
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let [rx, ry, rw, rh] = entry.pane.rect;
         let m = &tab.metrics;
-        if px < rx as f64 || py < ry as f64 || px >= (rx + rw) as f64 || py >= (ry + rh) as f64 {
-            return None;
-        }
-        let col = ((px - rx as f64) / m.cell_width as f64) as usize;
-        let row = ((py - ry as f64) / m.cell_height as f64) as usize;
-        let cols = entry.pane.parser.grid.cols;
-        let rows = entry.pane.parser.grid.rows;
-        Some((
-            col.min(cols.saturating_sub(1)),
-            row.min(rows.saturating_sub(1)),
-        ))
+        geometry::pixel_to_cell(
+            entry.pane.rect,
+            m.cell_width,
+            m.cell_height,
+            entry.pane.parser.grid.cols,
+            entry.pane.parser.grid.rows,
+            px,
+            py,
+        )
     }
 
     fn url_at_pixel(&self, px: f64, py: f64) -> Option<String> {
@@ -734,50 +727,12 @@ impl App {
         self.search_matches.clear();
         self.search_current = 0;
 
-        if query.is_empty() {
-            return;
-        }
-
-        let re = match regex::Regex::new(&query) {
-            Ok(r) => r,
-            Err(_) => return,
-        };
-
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
 
-        let matches: Vec<(usize, usize, usize)> = {
-            if let Some(entry) = self.tabs[tab_idx].panes.get(&active) {
-                let grid = &entry.pane.parser.grid;
-                let sb_len = grid.scrollback.len();
-                let mut m: Vec<(usize, usize, usize)> = Vec::new();
-
-                for (abs_row, line) in grid.scrollback.iter().enumerate() {
-                    let text: String = line.iter().map(|c| c.c).collect();
-                    for mat in re.find_iter(&text) {
-                        let col = text[..mat.start()].chars().count();
-                        let len = mat.as_str().chars().count();
-                        m.push((abs_row, col, len));
-                    }
-                }
-
-                for row in 0..grid.rows {
-                    let abs_row = sb_len + row;
-                    let text: String = (0..grid.cols).map(|c| grid.cell(c, row).c).collect();
-                    for mat in re.find_iter(&text) {
-                        let col = text[..mat.start()].chars().count();
-                        let len = mat.as_str().chars().count();
-                        m.push((abs_row, col, len));
-                    }
-                }
-
-                m
-            } else {
-                Vec::new()
-            }
-        };
-
-        self.search_matches = matches;
+        if let Some(entry) = self.tabs[tab_idx].panes.get(&active) {
+            self.search_matches = search::compute_search_matches(&entry.pane.parser.grid, &query);
+        }
 
         if !self.search_matches.is_empty() {
             self.scroll_to_match(0);
@@ -800,12 +755,7 @@ impl App {
             .map(|e| (e.pane.parser.grid.scrollback.len(), e.pane.parser.grid.rows))
             .unwrap_or((0, 24));
 
-        let new_offset = if abs_row >= sb_len {
-            0
-        } else {
-            let target_row = grid_rows / 2;
-            (sb_len + target_row).saturating_sub(abs_row).min(sb_len)
-        };
+        let new_offset = search::compute_scroll_offset(abs_row, sb_len, grid_rows);
 
         if let Some(entry) = self.tabs[tab_idx].panes.get_mut(&active) {
             entry.pane.scroll_offset = new_offset;
