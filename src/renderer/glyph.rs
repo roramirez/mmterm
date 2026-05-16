@@ -13,6 +13,7 @@ pub struct GlyphKey {
     pub c: char,
     pub px: u32,
     pub bold: bool,
+    pub italic: bool,
 }
 
 /// Everything needed to place a glyph correctly in its cell.
@@ -128,6 +129,8 @@ impl Drop for ColorEmojiRenderer {
 pub struct GlyphCache {
     font: Font,
     bold_font: Font,
+    italic_font: Font,
+    bold_italic_font: Font,
     /// Outline fonts tried in order when the primary font lacks a glyph.
     fallbacks: Vec<Font>,
     /// FreeType renderer for Noto Color Emoji (CBDT/CBLC color bitmaps).
@@ -137,27 +140,36 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new(family: &str) -> Self {
-        let font = load_system_font(family, false).unwrap_or_else(|| load_fallback(false));
-        let bold_font = load_system_font(family, true).unwrap_or_else(|| load_fallback(true));
+        let font =
+            load_system_font(family, false, false).unwrap_or_else(|| load_fallback(false, false));
+        let bold_font =
+            load_system_font(family, true, false).unwrap_or_else(|| load_fallback(true, false));
+        let italic_font =
+            load_system_font(family, false, true).unwrap_or_else(|| load_fallback(false, true));
+        let bold_italic_font =
+            load_system_font(family, true, true).unwrap_or_else(|| load_fallback(true, true));
         let fallbacks = load_fallback_fonts();
         let ft_emoji = load_color_emoji_renderer();
         Self {
             font,
             bold_font,
+            italic_font,
+            bold_italic_font,
             fallbacks,
             ft_emoji,
             cache: HashMap::new(),
         }
     }
 
-    pub fn get(&mut self, c: char, px: f32, bold: bool) -> &GlyphInfo {
+    pub fn get(&mut self, c: char, px: f32, bold: bool, italic: bool) -> &GlyphInfo {
         let key = GlyphKey {
             c,
             px: px as u32,
             bold,
+            italic,
         };
         if !self.cache.contains_key(&key) {
-            let info = self.resolve_glyph(c, px, bold);
+            let info = self.resolve_glyph(c, px, bold, italic);
             self.cache.insert(key.clone(), info);
         }
         self.cache.get(&key).unwrap()
@@ -171,11 +183,11 @@ impl GlyphCache {
 
     // Keep old API for status bar rendering compatibility (always returns grayscale alpha).
     pub fn rasterize(&mut self, c: char, px: f32, bold: bool) -> (&[u8], u32, u32) {
-        let info = self.get(c, px, bold);
+        let info = self.get(c, px, bold, false);
         (info.bitmap.as_slice(), info.width, info.height)
     }
 
-    fn resolve_glyph(&mut self, c: char, px: f32, bold: bool) -> GlyphInfo {
+    fn resolve_glyph(&mut self, c: char, px: f32, bold: bool, italic: bool) -> GlyphInfo {
         use unicode_width::UnicodeWidthChar;
 
         let make_outline = |m: fontdue::Metrics, bitmap: Vec<u8>| GlyphInfo {
@@ -193,7 +205,12 @@ impl GlyphCache {
         // covers emoji well, and intercepting them here would block color rendering.
         if !is_wide {
             // 1. Primary font: covers ASCII and most monospace glyphs.
-            let primary = if bold { &self.bold_font } else { &self.font };
+            let primary = match (bold, italic) {
+                (true, true) => &self.bold_italic_font,
+                (true, false) => &self.bold_font,
+                (false, true) => &self.italic_font,
+                (false, false) => &self.font,
+            };
             if primary.has_glyph(c) {
                 let (m, bitmap) = primary.rasterize(c, px);
                 // Return even when bitmap is empty (e.g. space): empty = invisible, not missing.
@@ -238,11 +255,11 @@ fn load_color_emoji_renderer() -> Option<ColorEmojiRenderer> {
     Some(renderer)
 }
 
-fn load_system_font(family: &str, bold: bool) -> Option<Font> {
+fn load_system_font(family: &str, bold: bool, italic: bool) -> Option<Font> {
     let source = SystemSource::new();
     let mut props = Properties::new();
     props.weight = if bold { Weight::BOLD } else { Weight::NORMAL };
-    props.style = Style::Normal;
+    props.style = if italic { Style::Italic } else { Style::Normal };
 
     let handle = source
         .select_best_match(
@@ -250,11 +267,25 @@ fn load_system_font(family: &str, bold: bool) -> Option<Font> {
             &props,
         )
         .ok()?;
+
+    // font_kit returns the closest match even when the exact style is unavailable.
+    // Verify the selected file is actually italic by inspecting its path; if not,
+    // return None so the caller falls back to the bundled italic font.
+    if italic {
+        if let Handle::Path { ref path, .. } = handle {
+            let name = path.to_string_lossy().to_lowercase();
+            if !name.contains("italic") && !name.contains("oblique") {
+                return None;
+            }
+        }
+    }
+
     let bytes = font_bytes(handle)?;
     let font = Font::from_bytes(bytes.as_slice(), FontSettings::default()).ok()?;
     log::info!(
-        "Loaded {} font: {}",
+        "Loaded {}{} font: {}",
         if bold { "bold" } else { "regular" },
+        if italic { " italic" } else { "" },
         family
     );
     Some(font)
@@ -267,11 +298,12 @@ fn font_bytes(handle: Handle) -> Option<Vec<u8>> {
     }
 }
 
-fn load_fallback(bold: bool) -> Font {
-    let data: &[u8] = if bold {
-        include_bytes!("../../assets/JetBrainsMono-Bold.ttf")
-    } else {
-        include_bytes!("../../assets/JetBrainsMono-Regular.ttf")
+fn load_fallback(bold: bool, italic: bool) -> Font {
+    let data: &[u8] = match (bold, italic) {
+        (true, true) => include_bytes!("../../assets/JetBrainsMono-BoldItalic.ttf"),
+        (true, false) => include_bytes!("../../assets/JetBrainsMono-Bold.ttf"),
+        (false, true) => include_bytes!("../../assets/JetBrainsMono-Italic.ttf"),
+        (false, false) => include_bytes!("../../assets/JetBrainsMono-Regular.ttf"),
     };
     Font::from_bytes(data, FontSettings::default()).expect("embedded fallback font failed")
 }

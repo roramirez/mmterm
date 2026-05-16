@@ -825,3 +825,41 @@ fn decsc_decrc_clamps_cursor_to_resized_grid() {
     assert!(p.grid.cursor_row <= 9);
     assert!(p.grid.cursor_col <= 39);
 }
+
+#[test]
+fn sgr_italic_on_sets_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    assert!(p.grid.italic);
+}
+
+#[test]
+fn sgr_italic_off_clears_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"\x1b[23m");
+    assert!(!p.grid.italic);
+}
+
+#[test]
+fn sgr_reset_clears_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"\x1b[0m");
+    assert!(!p.grid.italic);
+}
+
+#[test]
+fn write_char_stamps_italic_on_cell() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"A");
+    assert!(p.grid.cell(0, 0).italic);
+}
+
+#[test]
+fn write_char_no_italic_by_default() {
+    let mut p = make_parser(80, 24);
+    p.process(b"A");
+    assert!(!p.grid.cell(0, 0).italic);
+}

@@ -319,7 +319,7 @@ impl Renderer {
                 }
 
                 if cell.c != ' ' && (!cell.blink || pane.blink_visible) {
-                    let info = self.glyphs.get(cell.c, m.font_px, cell.bold);
+                    let info = self.glyphs.get(cell.c, m.font_px, cell.bold, cell.italic);
                     let (gw, gh) = (info.width, info.height);
                     let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
                     let y_offset = glyph_top.max(0) as u32;
@@ -849,7 +849,7 @@ impl Renderer {
         let ascender = m_metrics.height as u32;
         let baseline = ascender;
         for c in s.chars() {
-            let info = self.glyphs.get(c, px, bold);
+            let info = self.glyphs.get(c, px, bold, false);
             let (gw, gh) = (info.width, info.height);
             let glyph_top = baseline as i32 - (gh as i32 + info.ymin);
             let cy = (y as i32 + glyph_top).max(0) as u32;
@@ -1152,6 +1152,7 @@ static BLANK_CELL: Cell = Cell {
     bg: Color::rgb(0x12, 0x12, 0x12),
     bold: false,
     dim: false,
+    italic: false,
     underline: false,
     strikethrough: false,
     reverse: false,

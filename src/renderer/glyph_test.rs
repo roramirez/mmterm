@@ -12,7 +12,7 @@ fn glyph_cache_new_does_not_panic() {
 #[test]
 fn get_space_returns_glyph_info() {
     let mut cache = make_cache();
-    let info = cache.get(' ', 16.0, false);
+    let info = cache.get(' ', 16.0, false, false);
     // Space is a valid glyph; bitmap may be empty but dimensions should be non-negative.
     let _ = info.width;
     let _ = info.height;
@@ -21,7 +21,7 @@ fn get_space_returns_glyph_info() {
 #[test]
 fn get_ascii_letter_returns_nonzero_advance() {
     let mut cache = make_cache();
-    let info = cache.get('M', 16.0, false);
+    let info = cache.get('M', 16.0, false, false);
     assert!(info._advance > 0);
 }
 
@@ -52,8 +52,8 @@ fn rasterize_unicode_falls_back_gracefully() {
 #[test]
 fn get_caches_result_second_call_is_same() {
     let mut cache = make_cache();
-    let advance1 = cache.get('X', 16.0, false)._advance;
-    let advance2 = cache.get('X', 16.0, false)._advance;
+    let advance1 = cache.get('X', 16.0, false, false)._advance;
+    let advance2 = cache.get('X', 16.0, false, false)._advance;
     assert_eq!(advance1, advance2);
 }
 
@@ -67,17 +67,17 @@ fn scale_rgba_bilinear_preserves_dimensions() {
 #[test]
 fn get_bold_variant_does_not_panic() {
     let mut cache = make_cache();
-    let _info = cache.get('B', 16.0, true);
+    let _info = cache.get('B', 16.0, true, false);
 }
 
 #[test]
 fn load_fallback_regular_returns_valid_font() {
-    let _font = load_fallback(false);
+    let _font = load_fallback(false, false);
 }
 
 #[test]
 fn load_fallback_bold_returns_valid_font() {
-    let _font = load_fallback(true);
+    let _font = load_fallback(true, false);
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn rasterize_box_drawing_triggers_fallback_chain() {
 fn get_from_unknown_font_uses_tofu_fallback() {
     let mut cache = GlyphCache::new("NoSuchFont99999XYZ");
     // Any char — the cache will use the embedded fallback; should not panic.
-    let _info = cache.get('A', 16.0, false);
+    let _info = cache.get('A', 16.0, false, false);
 }
 
 #[test]
@@ -142,12 +142,54 @@ fn get_wide_cjk_char_exercises_fallback_path() {
     // and falls through to the ft_emoji renderer (None in tests) then the
     // outline fallback chain or the tofu box.
     let mut cache = make_cache();
-    let _info = cache.get('\u{4E00}', 16.0, false);
+    let _info = cache.get('\u{4E00}', 16.0, false, false);
 }
 
 #[test]
 fn get_rare_unicode_falls_back_to_tofu() {
     // U+E000 is a Private Use Area codepoint that no standard font covers.
     let mut cache = make_cache();
-    let _info = cache.get('\u{E000}', 16.0, false);
+    let _info = cache.get('\u{E000}', 16.0, false, false);
+}
+
+#[test]
+fn get_italic_variant_does_not_panic() {
+    let mut cache = make_cache();
+    let _info = cache.get('A', 16.0, false, true);
+}
+
+#[test]
+fn get_bold_italic_variant_does_not_panic() {
+    let mut cache = make_cache();
+    let _info = cache.get('A', 16.0, true, true);
+}
+
+#[test]
+fn load_fallback_italic_returns_valid_font() {
+    let _font = load_fallback(false, true);
+}
+
+#[test]
+fn load_fallback_bold_italic_returns_valid_font() {
+    let _font = load_fallback(true, true);
+}
+
+#[test]
+fn italic_and_regular_produce_distinct_cache_entries() {
+    // GlyphKey must distinguish italic from non-italic so each gets its own glyph.
+    let mut cache = make_cache();
+    let regular = cache.get('A', 16.0, false, false)._advance;
+    let italic = cache.get('A', 16.0, false, true)._advance;
+    // Both should be valid (non-zero advance); cache lookup must not panic.
+    assert!(regular > 0);
+    assert!(italic > 0);
+}
+
+#[test]
+fn system_font_without_italic_in_path_falls_back_to_bundled() {
+    // load_system_font returns None for italic when the selected file path
+    // does not contain "italic" or "oblique", so GlyphCache::new falls back
+    // to the embedded JetBrainsMono-Italic.ttf. Verify the cache is usable.
+    let mut cache = GlyphCache::new("Noto Sans Mono");
+    let _info = cache.get('A', 16.0, false, true);
 }

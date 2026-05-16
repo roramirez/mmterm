@@ -35,6 +35,7 @@ pub struct Cell {
     pub bg: Color,
     pub bold: bool,
     pub dim: bool,
+    pub italic: bool,
     pub underline: bool,
     pub strikethrough: bool,
     pub reverse: bool,
@@ -55,6 +56,7 @@ impl Default for Cell {
             bg: Color::BLACK,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
             reverse: false,
@@ -73,6 +75,7 @@ struct SavedCursor {
     bg: Color,
     bold: bool,
     dim: bool,
+    italic: bool,
     underline: bool,
     strikethrough: bool,
     reverse: bool,
@@ -90,6 +93,7 @@ struct SavedScreen {
     bg: Color,
     bold: bool,
     dim: bool,
+    italic: bool,
     underline: bool,
     strikethrough: bool,
     reverse: bool,
@@ -111,6 +115,7 @@ pub struct Grid {
     pub bg: Color,
     pub bold: bool,
     pub dim: bool,
+    pub italic: bool,
     pub underline: bool,
     pub strikethrough: bool,
     pub reverse: bool,
@@ -171,6 +176,7 @@ impl Grid {
             bg: default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
             reverse: false,
@@ -191,6 +197,7 @@ impl Grid {
             bg: default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
             reverse: false,
@@ -233,6 +240,7 @@ impl Grid {
             bg: self.bg,
             bold: self.bold,
             dim: self.dim,
+            italic: self.italic,
             underline: self.underline,
             strikethrough: self.strikethrough,
             reverse: self.reverse,
@@ -249,6 +257,7 @@ impl Grid {
         self.bg = self.default_bg;
         self.bold = false;
         self.dim = false;
+        self.italic = false;
         self.underline = false;
         self.strikethrough = false;
         self.reverse = false;
@@ -267,6 +276,7 @@ impl Grid {
             self.bg = saved.bg;
             self.bold = saved.bold;
             self.dim = saved.dim;
+            self.italic = saved.italic;
             self.underline = saved.underline;
             self.strikethrough = saved.strikethrough;
             self.reverse = saved.reverse;
@@ -323,6 +333,7 @@ impl Grid {
         };
         let bold = self.bold;
         let dim = self.dim;
+        let italic = self.italic;
         let underline = self.underline;
         let strikethrough = self.strikethrough;
         let reverse = self.reverse;
@@ -336,6 +347,7 @@ impl Grid {
         cell.bg = bg;
         cell.bold = bold;
         cell.dim = dim;
+        cell.italic = italic;
         cell.underline = underline;
         cell.strikethrough = strikethrough;
         cell.reverse = reverse;
@@ -478,6 +490,7 @@ impl Grid {
             bg: self.default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
             reverse: false,
@@ -498,6 +511,7 @@ impl Grid {
             bg: self.bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
             reverse: false,
@@ -553,6 +567,7 @@ impl Grid {
             bg: self.bg,
             bold: self.bold,
             dim: self.dim,
+            italic: self.italic,
             underline: self.underline,
             strikethrough: self.strikethrough,
             reverse: self.reverse,
@@ -568,6 +583,7 @@ impl Grid {
             self.bg = s.bg;
             self.bold = s.bold;
             self.dim = s.dim;
+            self.italic = s.italic;
             self.underline = s.underline;
             self.strikethrough = s.strikethrough;
             self.reverse = s.reverse;

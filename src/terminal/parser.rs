@@ -168,6 +168,7 @@ impl Perform for Performer<'_> {
                     self.grid.bg = self.grid.default_bg;
                     self.grid.bold = false;
                     self.grid.dim = false;
+                    self.grid.italic = false;
                     self.grid.underline = false;
                     self.grid.strikethrough = false;
                     self.grid.reverse = false;
@@ -182,6 +183,7 @@ impl Perform for Performer<'_> {
                             self.grid.bg = self.grid.default_bg;
                             self.grid.bold = false;
                             self.grid.dim = false;
+                            self.grid.italic = false;
                             self.grid.underline = false;
                             self.grid.strikethrough = false;
                             self.grid.reverse = false;
@@ -189,6 +191,7 @@ impl Perform for Performer<'_> {
                         }
                         1 => self.grid.bold = true,
                         2 => self.grid.dim = true,
+                        3 => self.grid.italic = true,
                         4 => self.grid.underline = true,
                         5 => self.grid.blink = true,
                         7 => self.grid.reverse = true,
@@ -197,6 +200,7 @@ impl Perform for Performer<'_> {
                             self.grid.bold = false;
                             self.grid.dim = false;
                         }
+                        23 => self.grid.italic = false,
                         24 => self.grid.underline = false,
                         25 => self.grid.blink = false,
                         27 => self.grid.reverse = false,
