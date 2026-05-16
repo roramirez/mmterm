@@ -1,5 +1,6 @@
 pub const STATUS_BAR_H: u32 = 22;
 pub const TAB_BAR_H: u32 = 22;
+pub const PANE_PADDING: u32 = 4;
 const SEP: u32 = 1;
 
 #[derive(Clone, Debug)]

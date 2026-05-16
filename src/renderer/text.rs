@@ -4,7 +4,7 @@ use crate::terminal::grid::Cell;
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
-use crate::ui::layout::TAB_BAR_H;
+use crate::ui::layout::{PANE_PADDING, TAB_BAR_H};
 
 const STATUS_BAR_H: u32 = 22;
 const BADGE_PAD_X: u32 = 8;
@@ -228,10 +228,12 @@ impl Renderer {
 
                 let cell_cols = if cell.wide { 2u32 } else { 1u32 };
                 let draw_w = cell_cols * m.cell_width;
-                let cell_x = rx + col as u32 * m.cell_width;
-                let cell_y = ry + row as u32 * m.cell_height;
+                let cell_x = rx + PANE_PADDING + col as u32 * m.cell_width;
+                let cell_y = ry + PANE_PADDING + row as u32 * m.cell_height;
 
-                if cell_x + draw_w > rx + rw || cell_y + m.cell_height > ry + rh {
+                if cell_x + draw_w > rx + rw.saturating_sub(PANE_PADDING)
+                    || cell_y + m.cell_height > ry + rh.saturating_sub(PANE_PADDING)
+                {
                     col += cell_cols as usize;
                     continue;
                 }
@@ -2306,5 +2308,88 @@ mod tests {
             hovered_url: None,
         };
         do_draw(&mut r, &m, &[pane], &mode);
+    }
+
+    // ── PANE_PADDING tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn pane_padding_leaves_top_left_corner_as_background() {
+        // The top-left PANE_PADDING×PANE_PADDING pixels must remain background
+        // color (no glyph pixels written there).
+        use crate::ui::layout::PANE_PADDING;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let pad2 = PANE_PADDING * 2;
+        let (cols, rows) =
+            m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
+        let mut grid = make_grid(cols, rows);
+        // Fill entire grid with 'X' so glyphs would bleed into the corner if
+        // padding were absent.
+        for _ in 0..cols * rows {
+            grid.write_char('X');
+        }
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 556],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: false,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        let bg = color_u32(grid.default_bg);
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[pane],
+            &[],
+            &InputMode::Insert,
+            &[("t".to_string(), true, false)],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+        // Every pixel in the top-left padding block must equal bg.
+        for dy in 0..PANE_PADDING {
+            for dx in 0..PANE_PADDING {
+                let idx = ((22 + dy) * 800 + dx) as usize;
+                assert_eq!(
+                    buf[idx], bg,
+                    "pixel ({dx},{dy}) inside padding should be bg"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pane_padding_grid_size_accounts_for_both_sides() {
+        // grid_size_for called with 2×PANE_PADDING subtracted must yield fewer
+        // cols/rows than the unpadded call.
+        use crate::ui::layout::PANE_PADDING;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let pad2 = PANE_PADDING * 2;
+        let (cols_padded, rows_padded) =
+            m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
+        let (cols_raw, rows_raw) = m.grid_size_for(800, 556);
+        assert!(
+            cols_padded <= cols_raw,
+            "padded cols {cols_padded} should be ≤ raw cols {cols_raw}"
+        );
+        assert!(
+            rows_padded <= rows_raw,
+            "padded rows {rows_padded} should be ≤ raw rows {rows_raw}"
+        );
     }
 }

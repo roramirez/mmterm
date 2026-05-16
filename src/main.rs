@@ -42,7 +42,7 @@ use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 use crate::input::keybindings::Action;
 use crate::terminal::grid::GridColors;
 use crate::theme::{ResolvedTheme, default_theme, install_bundled_themes, load_theme, themes_dir};
-use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
+use crate::ui::layout::{PANE_PADDING, STATUS_BAR_H, TAB_BAR_H};
 
 // ── Per-pane state ───────────────────────────────────────────────────────────
 
@@ -163,7 +163,10 @@ impl App {
         let id = self.next_pane_id;
         self.next_pane_id += 1;
         let [_, _, w, h] = rect;
-        let (cols, rows) = self.tabs[tab_idx].metrics.grid_size_for(w, h);
+        let pad2 = PANE_PADDING * 2;
+        let (cols, rows) = self.tabs[tab_idx]
+            .metrics
+            .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.theme;
         let pane = Pane::new_with_colors(
             cols,
@@ -391,7 +394,10 @@ impl App {
         for (id, rect) in rects {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
-                let (cols, rows) = tab.metrics.grid_size_for(w, h);
+                let pad2 = PANE_PADDING * 2;
+                let (cols, rows) = tab
+                    .metrics
+                    .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
                 if entry.pane.parser.grid.cols != cols || entry.pane.parser.grid.rows != rows {
                     entry.pane.resize(cols, rows, rect);
                     let _ = entry.pty.resize(cols as u16, rows as u16);
