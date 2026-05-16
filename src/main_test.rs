@@ -69,26 +69,26 @@ fn app_change_font_size_increase() {
     let Some(mut app) = make_app() else { return };
     // Simulate a tab with metrics so change_font_size has something to work with.
     // Without tabs, the method will panic on index — skip gracefully.
-    if app.tabs.is_empty() {
+    if app.state.tabs.is_empty() {
         return;
     }
-    let before = app.tabs[0].metrics.font_px;
+    let before = app.state.tabs[0].metrics.font_px;
     app.change_font_size(2.0);
-    let after = app.tabs[app.active_tab].metrics.font_px;
+    let after = app.state.tabs[app.state.active_tab].metrics.font_px;
     assert!(after > before || (after - before).abs() < 0.1);
 }
 
 #[test]
 fn app_initial_mode_is_insert() {
     let Some(app) = make_app() else { return };
-    assert!(matches!(app.mode, InputMode::Insert));
+    assert!(matches!(app.state.mode, InputMode::Insert));
 }
 
 #[test]
 fn app_search_matches_initially_empty() {
     let Some(app) = make_app() else { return };
-    assert!(app.search_matches.is_empty());
-    assert_eq!(app.search_current, 0);
+    assert!(app.state.search_matches.is_empty());
+    assert_eq!(app.state.search_current, 0);
 }
 
 #[test]
