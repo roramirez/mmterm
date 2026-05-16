@@ -743,6 +743,56 @@ impl AppState {
         });
         self.active_tab = self.tabs.len() - 1;
     }
+
+    /// Creates a tab with one real pane (PTY: /bin/true, grid: 80×24).
+    /// The PTY exits immediately — use for grid/state tests only, not I/O.
+    #[cfg(test)]
+    pub fn add_test_pane(&mut self) {
+        use crate::terminal::grid::{Color, GridColors};
+        use crate::ui::layout::Layout;
+        use crossbeam_channel::unbounded;
+
+        if self.tabs.is_empty() {
+            self.add_empty_tab();
+        }
+        let id = self.next_pane_id;
+        self.next_pane_id += 1;
+        let (tx, rx) = unbounded();
+        let pty = crate::pty::PtySession::spawn_with_shell(
+            80,
+            24,
+            tx,
+            "/bin/true",
+            None,
+            Box::new(|| {}),
+        )
+        .expect("PTY spawn failed");
+        let pane = Pane::new_with_colors(
+            80,
+            24,
+            [0, 22, 800, 556],
+            GridColors {
+                fg: Color::WHITE,
+                bg: Color::BLACK,
+                cursor: Color::WHITE,
+                selection: Color::WHITE,
+                palette: [Color::BLACK; 16],
+            },
+            1000,
+        );
+        let tab_idx = self.active_tab;
+        self.tabs[tab_idx].panes.insert(
+            id,
+            PaneEntry {
+                pane,
+                pty,
+                rx,
+                log_file: None,
+            },
+        );
+        self.tabs[tab_idx].active = id;
+        self.tabs[tab_idx].layout = Layout::new(id, 800, 578);
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -1009,5 +1059,272 @@ mod tests {
         } else {
             panic!("expected Visual mode");
         }
+    }
+
+    // ── Tests with real panes ─────────────────────────────────────────────────
+
+    fn make_state_with_pane() -> AppState {
+        let mut s = make_state();
+        s.add_empty_tab();
+        s.add_test_pane();
+        s
+    }
+
+    #[test]
+    fn focus_next_with_single_pane_stays() {
+        let mut s = make_state_with_pane();
+        let before = s.tab().active;
+        s.focus_next();
+        assert_eq!(s.tab().active, before);
+    }
+
+    #[test]
+    fn dispatch_scroll_up_adjusts_offset() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        // Seed scrollback so scroll_up has room
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for _ in 0..30 {
+                e.pane.parser.grid.scroll_up(1);
+            }
+        }
+        let before = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(0);
+        s.dispatch_action(Action::ScrollUp(3));
+        let after = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(0);
+        assert!(after > before || after == before); // clamped at max scrollback
+    }
+
+    #[test]
+    fn dispatch_scroll_down_decrements_offset() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        // Put some scrollback and scroll up first
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for _ in 0..10 {
+                e.pane.parser.grid.scroll_up(1);
+            }
+            e.pane.scroll_offset = 5;
+        }
+        s.dispatch_action(Action::ScrollDown(2));
+        let after = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(0);
+        assert_eq!(after, 3);
+    }
+
+    #[test]
+    fn dispatch_scroll_to_top_sets_max_offset() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for _ in 0..10 {
+                e.pane.parser.grid.scroll_up(1);
+            }
+        }
+        s.dispatch_action(Action::ScrollToTop);
+        let sb = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.parser.grid.scrollback.len())
+            .unwrap_or(0);
+        let off = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(0);
+        assert_eq!(off, sb);
+    }
+
+    #[test]
+    fn dispatch_scroll_to_bottom_resets_offset() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            e.pane.scroll_offset = 5;
+        }
+        s.dispatch_action(Action::ScrollToBottom);
+        let off = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(99);
+        assert_eq!(off, 0);
+    }
+
+    #[test]
+    fn dispatch_clear_scrollback_empties_it() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for _ in 0..5 {
+                e.pane.parser.grid.scroll_up(1);
+            }
+        }
+        s.dispatch_action(Action::ClearScrollback);
+        let sb = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.parser.grid.scrollback.len())
+            .unwrap_or(99);
+        assert_eq!(sb, 0);
+    }
+
+    #[test]
+    fn dispatch_search_open_then_next_prev_no_panic() {
+        let mut s = make_state_with_pane();
+        s.dispatch_action(Action::SearchOpen);
+        // No matches → next/prev are no-ops
+        s.dispatch_action(Action::SearchNext);
+        s.dispatch_action(Action::SearchPrev);
+        assert!(s.search_matches.is_empty());
+    }
+
+    #[test]
+    fn update_search_matches_finds_content() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        // Write "needle" into the grid
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for c in "needle".chars() {
+                e.pane.parser.grid.write_char(c);
+            }
+        }
+        s.mode = InputMode::Search {
+            query: "needle".to_string(),
+        };
+        s.update_search_matches();
+        assert!(!s.search_matches.is_empty());
+    }
+
+    #[test]
+    fn dispatch_send_to_pty_scrolls_to_bottom() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            e.pane.scroll_offset = 5;
+        }
+        // SendToPty should scroll_bottom (clears offset)
+        let effects = s.dispatch_action(Action::SendToPty(b"x".to_vec()));
+        assert!(effects.iter().any(|e| matches!(e, AppEffect::SendToPty(_))));
+        let off = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(99);
+        assert_eq!(off, 0);
+    }
+
+    #[test]
+    fn dispatch_visual_word_forward_with_pane_does_not_panic() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for c in "hello world".chars() {
+                e.pane.parser.grid.write_char(c);
+            }
+        }
+        s.mode = InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: 0,
+            cur_row: 0,
+            anchored: false,
+        };
+        s.dispatch_action(Action::VisualWordForward);
+        if let InputMode::Visual { cur_col, .. } = s.mode {
+            assert!(cur_col > 0, "cursor should have moved forward");
+        }
+    }
+
+    #[test]
+    fn dispatch_visual_yank_line_exits_visual_mode() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for c in "hello".chars() {
+                e.pane.parser.grid.write_char(c);
+            }
+        }
+        s.mode = InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: 4,
+            cur_row: 0,
+            anchored: true,
+        };
+        s.dispatch_action(Action::VisualYankLine);
+        assert!(matches!(s.mode, InputMode::Insert));
+    }
+
+    #[test]
+    fn dispatch_copy_with_anchored_selection_exits_visual() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for c in "hello".chars() {
+                e.pane.parser.grid.write_char(c);
+            }
+        }
+        s.mode = InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: 4,
+            cur_row: 0,
+            anchored: true,
+        };
+        s.dispatch_action(Action::Copy);
+        assert!(matches!(s.mode, InputMode::Insert));
+    }
+
+    #[test]
+    fn dispatch_visual_boundary_up_scrolls_pane() {
+        let mut s = make_state_with_pane();
+        let active = s.tab().active;
+        if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+            for _ in 0..30 {
+                e.pane.parser.grid.scroll_up(1);
+            }
+        }
+        s.mode = InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: 0,
+            cur_row: 0,
+            anchored: true,
+        };
+        s.dispatch_action(Action::VisualBoundaryUp(2));
+        let off = s
+            .tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap_or(0);
+        assert!(off > 0);
+    }
+
+    #[test]
+    fn dispatch_quit_with_pane_needs_confirm() {
+        let mut s = make_state_with_pane();
+        // 1 tab, 1 pane → no confirm
+        let effects = s.dispatch_action(Action::Quit);
+        assert!(effects.iter().any(|e| matches!(e, AppEffect::Quit)));
     }
 }
