@@ -5,8 +5,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Fixed
-- reverse video (`\e[7m`) was invisible: `write_char` pre-swapped fg/bg and the renderer swapped again, cancelling the effect; now only the renderer swaps based on `cell.reverse`
 
 ### Added
 - SGR overline (`\e[53m` / `\e[55m`): parse, store on cells, and render as a 1px line at the top of the cell
@@ -30,6 +28,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--debug` flag: writes `DEBUG`-level logs to `~/.mmterm/debug-<timestamp>.log`; panic hook prints the log path on crash
 
 ### Fixed
+- reverse video (`\e[7m`) was invisible: `write_char` pre-swapped fg/bg and the renderer swapped again, cancelling the effect; now only the renderer swaps based on `cell.reverse`
 - Shift+Tab now sends the correct backtab sequence (`\x1b[Z`) to the PTY instead of a plain tab byte
 - OSC 8 hyperlinks always show a dim blue underline; underline brightens on hover
 - config panel navigation and edits now redraw immediately instead of waiting for the cursor-blink timer
