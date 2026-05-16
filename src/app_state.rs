@@ -364,10 +364,12 @@ impl AppState {
                                 scroll_offset,
                             );
                             if !text.is_empty() {
-                                let cb = self.clipboard.get_or_insert_with(|| {
-                                    Clipboard::new().expect("clipboard unavailable")
-                                });
-                                let _ = cb.set_text(text);
+                                if self.clipboard.is_none() {
+                                    self.clipboard = Clipboard::new().ok();
+                                }
+                                if let Some(cb) = self.clipboard.as_mut() {
+                                    let _ = cb.set_text(text);
+                                }
                             }
                         }
                     }
@@ -510,10 +512,12 @@ impl AppState {
                                 entry.pane.scroll_offset,
                             );
                             if !text.is_empty() {
-                                let cb = self.clipboard.get_or_insert_with(|| {
-                                    Clipboard::new().expect("clipboard unavailable")
-                                });
-                                let _ = cb.set_text(text);
+                                if self.clipboard.is_none() {
+                                    self.clipboard = Clipboard::new().ok();
+                                }
+                                if let Some(cb) = self.clipboard.as_mut() {
+                                    let _ = cb.set_text(text);
+                                }
                             }
                         }
                     }

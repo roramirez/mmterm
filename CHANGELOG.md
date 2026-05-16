@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- clipboard `get_or_insert_with` panic in headless CI: replace `.expect()` with `.ok()` so Copy and VisualYankLine actions degrade gracefully when no display is available
+
 ### Added
 - `AppState` struct extracts all action-dispatch logic from `App` into a pure, winit-free type; `dispatch_action` returns `Vec<AppEffect>` allowing full unit-test coverage of every action without an event loop
 - 6 VT integration scenario tests covering bash prompt sequences, alternate screen, SGR attributes, scrollback search, mouse reporting, and OSC 8 hyperlinks
