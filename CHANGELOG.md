@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Alt+1`..`Alt+9` jump directly to a tab by position (1-indexed); intercepted globally so Insert mode does not forward the sequence to the PTY
 - active pane OSC title shown centered in the status bar; suppressed during search mode
 - `src/search.rs` and `src/geometry.rs` extract pure functions from `App` for testability; covered by 21 new unit tests
+- 23 additional tests across `renderer/glyph`, `renderer/text`, `input/keybindings`, and `tui_config` raising coverage from 63 % to ~65 %
 - `Ctrl+Enter` toggles borderless fullscreen (all modes); inspired by Ghostty's Linux/Windows shortcut
 - Dependabot configuration for automated Cargo and GitHub Actions dependency updates
 - `--debug` flag: writes `DEBUG`-level logs to `~/.mmterm/debug-<timestamp>.log`; panic hook prints the log path on crash

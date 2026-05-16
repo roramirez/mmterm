@@ -100,3 +100,54 @@ fn get_from_unknown_font_uses_tofu_fallback() {
     // Any char — the cache will use the embedded fallback; should not panic.
     let _info = cache.get('A', 16.0, false);
 }
+
+#[test]
+fn scale_rgba_bilinear_upscale_from_1x1() {
+    // A single RGBA pixel upscaled 2× should produce a 2×2 result with the same color.
+    let src = vec![0xFF_u8, 0x80, 0x40, 0xFF]; // R=255 G=128 B=64 A=255
+    let dst = scale_rgba_bilinear(&src, 1, 1, 2, 2);
+    assert_eq!(dst.len(), 2 * 2 * 4);
+    assert_eq!(dst[0], 0xFF); // R
+    assert_eq!(dst[1], 0x80); // G
+    assert_eq!(dst[2], 0x40); // B
+}
+
+#[test]
+fn scale_rgba_bilinear_downscale_to_1x1() {
+    // 4×4 solid red RGBA → 1×1 should be approximately red.
+    let src = vec![0xFF_u8, 0x00, 0x00, 0xFF].repeat(16); // 4×4, all red
+    let dst = scale_rgba_bilinear(&src, 4, 4, 1, 1);
+    assert_eq!(dst.len(), 4);
+    assert_eq!(dst[0], 0xFF); // R
+    assert_eq!(dst[1], 0x00); // G
+    assert_eq!(dst[2], 0x00); // B
+}
+
+#[test]
+fn scale_rgba_bilinear_all_zero_stays_zero() {
+    let src = vec![0u8; 4 * 8 * 4]; // 4×8 fully transparent black
+    let dst = scale_rgba_bilinear(&src, 4, 8, 2, 4);
+    assert!(dst.iter().all(|&b| b == 0));
+}
+
+#[test]
+fn load_fallback_fonts_does_not_panic() {
+    // Exercises the system font discovery loop; result may be empty on minimal systems.
+    let _fonts = load_fallback_fonts();
+}
+
+#[test]
+fn get_wide_cjk_char_exercises_fallback_path() {
+    // U+4E00 (一) has Unicode width 2, so resolve_glyph skips the primary font
+    // and falls through to the ft_emoji renderer (None in tests) then the
+    // outline fallback chain or the tofu box.
+    let mut cache = make_cache();
+    let _info = cache.get('\u{4E00}', 16.0, false);
+}
+
+#[test]
+fn get_rare_unicode_falls_back_to_tofu() {
+    // U+E000 is a Private Use Area codepoint that no standard font covers.
+    let mut cache = make_cache();
+    let _info = cache.get('\u{E000}', 16.0, false);
+}

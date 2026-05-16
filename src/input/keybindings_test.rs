@@ -1645,3 +1645,67 @@ fn ctrl_alt_1_does_not_go_to_tab() {
     let a = handle_key_inner(&char_key("1"), true, false, true, &insert(), 80, 24, false);
     assert!(!matches!(a, Action::GoToTab(_)));
 }
+
+// ── Ctrl+Enter / Alt+key in Insert mode ──────────────────────────────────────
+
+#[test]
+fn ctrl_enter_toggles_fullscreen() {
+    // Ctrl+Enter is intercepted globally before per-mode handling.
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        true,
+        false,
+        false,
+        &InputMode::Insert,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ToggleFullscreen));
+}
+
+#[test]
+fn alt_tab_is_consumed_silently() {
+    // Alt+Tab is swallowed so the WM focus-switch keystroke isn't forwarded to the PTY.
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        false,
+        true,
+        &InputMode::Insert,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn alt_enter_in_insert_sends_esc_cr() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        false,
+        false,
+        true,
+        &InputMode::Insert,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, b'\r']));
+}
+
+#[test]
+fn alt_backspace_in_insert_sends_esc_del() {
+    let a = handle_key_inner(
+        &named(NamedKey::Backspace),
+        false,
+        false,
+        true,
+        &InputMode::Insert,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, 0x7f]));
+}

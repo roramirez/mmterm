@@ -511,3 +511,16 @@ fn validate_select_kind_always_passes() {
     assert!(!panel.editing);
     assert_eq!(panel.fields[F_THEME_NAME].value, "other");
 }
+
+#[test]
+fn cycle_select_empty_options_returns_none() {
+    let mut panel = make_panel();
+    // Replace the Theme field's option list with an empty vec.
+    panel.selected = F_THEME_NAME;
+    if let FieldKind::Select(ref mut opts) = panel.fields[F_THEME_NAME].kind {
+        opts.clear();
+    }
+    // Both directions should return ConfigAction::None without panicking.
+    assert!(matches!(panel.handle_left(), ConfigAction::None));
+    assert!(matches!(panel.handle_right(), ConfigAction::None));
+}

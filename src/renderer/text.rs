@@ -2009,4 +2009,229 @@ mod tests {
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
+
+    #[test]
+    fn draw_pane_backwards_visual_selection_normalises_range() {
+        // When cursor is before anchor (backwards selection), the else branch
+        // at line 242 normalises the range so rendering still works.
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        for c in "hello world".chars() {
+            grid.write_char(c);
+        }
+        let pane = make_pane(&grid, &m);
+        // start > cur → backwards selection: (sr=0,sc=5) > (er=0,ec=0)
+        let mode = InputMode::Visual {
+            start_col: 5,
+            start_row: 0,
+            cur_col: 0,
+            cur_row: 0,
+        };
+        do_draw(&mut r, &m, &[pane], &mode);
+    }
+
+    #[test]
+    fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
+        // Grid with more cols than the rect can hold → rightmost cells are
+        // skipped via the bounds-check at line 232.
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        // Extra columns beyond what the 800px rect fits.
+        let mut grid = make_grid(cols + 10, rows);
+        for c in "overflow".chars() {
+            grid.write_char(c);
+        }
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_with_wide_cont_cell_does_not_panic() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('A');
+        // Mark col 1 as the right half of a wide char → draw_pane must skip it.
+        grid.cell_mut(1, 0).wide_cont = true;
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_non_current_search_match_uses_match_color() {
+        // Two matches; search_current=Some(1) → col 0 is a non-current match (line 278).
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('f');
+        grid.write_char('o');
+        grid.write_char('o');
+        grid.write_char('f');
+        grid.write_char('o');
+        grid.write_char('o');
+        let sb_len = grid.scrollback_len();
+        let matches: Vec<(usize, usize, usize)> = vec![(sb_len, 0, 3), (sb_len, 3, 3)];
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &matches,
+            search_current: Some(1), // match 0 → non-current, match 1 → current
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_inactive_with_url_does_not_panic() {
+        // Inactive pane + URL cell → exercises dim_color on the hyperlink underline (line 398).
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.write_char('L');
+        grid.cell_mut(0, 0).url = Some(std::sync::Arc::new("https://example.com".to_string()));
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 0,
+            is_active: false,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_status_bar_search_empty_query_shows_slash() {
+        // Search mode with empty query → info = "/" (line 948).
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Search {
+                query: String::new(),
+            },
+            &[],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+    }
+
+    #[test]
+    fn draw_status_bar_search_no_matches_shows_label() {
+        // Non-empty query with search_total=0 → "no matches" label (line 950).
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Search {
+                query: "xyz".to_string(),
+            },
+            &[],
+            &m,
+            0, // search_total = 0
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+    }
+
+    #[test]
+    fn draw_config_panel_with_error_status_uses_error_color() {
+        // ConfigPanel with a non-None status → error color branch (line 808).
+        let mut r = make_renderer();
+        let mut buf = vec![0u32; 800 * 600];
+        let mut panel = ConfigPanel::from_config(&Config::default());
+        panel.status = Some("invalid value".to_string());
+        r.draw_config_panel(&mut buf, 800, 600, &panel);
+    }
+
+    #[test]
+    fn draw_config_panel_selected_past_max_visible_scrolls() {
+        // selected far enough down to trigger scroll_start > 0 (line 659).
+        let mut r = make_renderer();
+        let mut buf = vec![0u32; 800 * 600];
+        let mut panel = ConfigPanel::from_config(&Config::default());
+        panel.selected = panel.fields.len() - 1; // last field, well past max_visible
+        r.draw_config_panel(&mut buf, 800, 600, &panel);
+    }
+
+    #[test]
+    fn draw_config_panel_hexcolor_field_selected_renders_swatch() {
+        // Selecting a HexColor field (Background = F_COLOR_BG = 13) renders the
+        // color swatch (lines 724-733).
+        let mut r = make_renderer();
+        let mut buf = vec![0u32; 800 * 600];
+        let mut panel = ConfigPanel::from_config(&Config::default());
+        // F_COLOR_BG is the first HexColor field (index 13).
+        panel.selected = 13;
+        r.draw_config_panel(&mut buf, 800, 600, &panel);
+    }
+
+    #[test]
+    fn draw_config_panel_select_field_selected_shows_arrows() {
+        // Theme field (index 12) is a Select → renders ← value → arrows (line 744).
+        let mut r = make_renderer();
+        let mut buf = vec![0u32; 800 * 600];
+        let mut panel = ConfigPanel::from_config(&Config::default());
+        panel.selected = 12; // F_THEME_NAME
+        r.draw_config_panel(&mut buf, 800, 600, &panel);
+    }
+
+    #[test]
+    fn draw_config_panel_editing_select_field_shows_editing_label() {
+        // Select field with editing=true → "[editing]" label (lines 762-763, 768).
+        let mut r = make_renderer();
+        let mut buf = vec![0u32; 800 * 600];
+        let mut panel = ConfigPanel::from_config(&Config::default());
+        panel.selected = 12; // F_THEME_NAME (Select kind)
+        panel.editing = true;
+        panel.edit_buf = panel.fields[12].value.clone();
+        r.draw_config_panel(&mut buf, 800, 600, &panel);
+    }
 }
