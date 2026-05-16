@@ -145,3 +145,46 @@ fn row_out_of_bounds_with_scroll_returns_none() {
     // scroll_offset=1 but no scrollback → sb_row falls past everything
     assert!(cell_url_at_scroll(&g, 1, 0, 999).is_none());
 }
+
+#[test]
+fn cell_url_found_in_scrollback_via_scroll_offset() {
+    // Build a 10×2 grid, push one row into scrollback, stamp a URL on it,
+    // then call cell_url_at_scroll with scroll_offset=1 → hits the
+    // sb_row < sb_len path (lines 52-54, 56).
+    let mut g = make_grid(10, 2);
+    // Write 10 chars to fill row 0, then 11 more to trigger a scroll_up
+    // that pushes row 0 into scrollback.
+    for c in "aaaaaaaaaa".chars() {
+        g.write_char(c);
+    }
+    for c in "bbbbbbbbbbb".chars() {
+        g.write_char(c);
+    }
+    assert!(!g.scrollback.is_empty());
+    // Stamp a URL on scrollback row 0, col 0.
+    g.scrollback[0][0].url = Some(Arc::new("https://sb.example.com".to_string()));
+    // scroll_offset=1: sb_start = sb_len-1, sb_row = sb_start + row(0) = sb_len-1 < sb_len
+    let sb_len = g.scrollback.len();
+    let url = cell_url_at_scroll(&g, sb_len, 0, 0);
+    assert!(url.is_some());
+    assert_eq!(url.unwrap().as_ref(), "https://sb.example.com");
+}
+
+#[test]
+fn cell_url_in_live_row_accessed_via_scroll() {
+    // scroll_offset points into the live grid area (sb_row >= sb_len) → line 61.
+    let mut g = make_grid(10, 3);
+    // Push one row into scrollback.
+    for c in "aaaaaaaaaa".chars() {
+        g.write_char(c);
+    }
+    for c in "bbbbbbbbbbb".chars() {
+        g.write_char(c);
+    }
+    // Stamp URL on live row 0.
+    g.cell_mut(0, 0).url = Some(Arc::new("https://live.example.com".to_string()));
+    let sb_len = g.scrollback.len();
+    // scroll_offset = sb_len, row = sb_len: sb_row = 0 + sb_len = sb_len → live path
+    let url = cell_url_at_scroll(&g, sb_len, 0, sb_len);
+    assert!(url.is_some());
+}
