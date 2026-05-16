@@ -211,7 +211,7 @@ pub(crate) fn handle_key_inner(
 
     // ── Per-mode handling ────────────────────────────────────────────────
     match mode {
-        InputMode::Insert => handle_insert(key, ctrl, alt, application_cursor_keys),
+        InputMode::Insert => handle_insert(key, ctrl, shift, alt, application_cursor_keys),
         InputMode::Normal => handle_normal(key, grid_rows),
         InputMode::Visual {
             start_col,
@@ -254,7 +254,13 @@ pub(crate) fn ctrl_w_action(key: &Key) -> Action {
     }
 }
 
-fn handle_insert(key: &Key, ctrl: bool, alt: bool, application_cursor_keys: bool) -> Action {
+fn handle_insert(
+    key: &Key,
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    application_cursor_keys: bool,
+) -> Action {
     // Escape is forwarded to PTY — vim / other TUI apps need it
     if ctrl {
         if let Key::Character(s) = key
@@ -294,6 +300,7 @@ fn handle_insert(key: &Key, ctrl: bool, alt: bool, application_cursor_keys: bool
         Key::Named(NamedKey::Space) => Action::SendToPty(vec![b' ']),
         Key::Named(NamedKey::Enter) => Action::SendToPty(vec![b'\r']),
         Key::Named(NamedKey::Backspace) => Action::SendToPty(vec![0x7f]),
+        Key::Named(NamedKey::Tab) if shift => Action::SendToPty(b"\x1b[Z".to_vec()),
         Key::Named(NamedKey::Tab) => Action::SendToPty(vec![b'\t']),
         Key::Named(NamedKey::ArrowUp) => Action::SendToPty(if application_cursor_keys {
             b"\x1bOA".to_vec()

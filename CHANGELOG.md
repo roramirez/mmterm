@@ -20,6 +20,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--debug` flag: writes `DEBUG`-level logs to `~/.mmterm/debug-<timestamp>.log`; panic hook prints the log path on crash
 
 ### Fixed
+- Shift+Tab now sends the correct backtab sequence (`\x1b[Z`) to the PTY instead of a plain tab byte
 - OSC 8 hyperlinks always show a dim blue underline; underline brightens on hover
 - config panel navigation and edits now redraw immediately instead of waiting for the cursor-blink timer
 

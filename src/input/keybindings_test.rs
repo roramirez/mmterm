@@ -484,6 +484,68 @@ fn insert_tab_sends_tab_byte() {
 }
 
 #[test]
+fn insert_shift_tab_sends_backtab_sequence() {
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[Z"));
+}
+
+#[test]
+fn normal_shift_tab_returns_none() {
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        true,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn visual_shift_tab_returns_none() {
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        false,
+        true,
+        false,
+        &visual(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn ctrl_shift_tab_sends_backtab_sequence() {
+    // ctrl block in handle_insert only intercepts Character keys, so
+    // Ctrl+Shift+Tab falls through to the `Tab if shift` arm → same as Shift+Tab.
+    let a = handle_key_inner(
+        &named(NamedKey::Tab),
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[Z"));
+}
+
+#[test]
 fn insert_space_sends_space() {
     let a = handle_key_inner(
         &named(NamedKey::Space),
