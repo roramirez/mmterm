@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `AppState` struct extracts all action-dispatch logic from `App` into a pure, winit-free type; `dispatch_action` returns `Vec<AppEffect>` allowing full unit-test coverage of every action without an event loop
+- 6 VT integration scenario tests covering bash prompt sequences, alternate screen, SGR attributes, scrollback search, mouse reporting, and OSC 8 hyperlinks
+- headless `App` constructor using `EventLoopBuilderExtX11::with_any_thread(true)` enabling `App`-level tests in CI without a display
+
 ### Changed
 - status bar `right` config option is now a format string (e.g. `"%pwd  %date{%H:%M}"`) instead of an array; spaces and literal text between tokens are preserved as-is
 
