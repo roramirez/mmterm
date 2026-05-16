@@ -417,24 +417,23 @@ impl AppState {
                     cur_row,
                     anchored,
                 } = self.mode.clone()
+                    && !self.tabs.is_empty()
                 {
-                    if !self.tabs.is_empty() {
-                        let active = self.tab().active;
-                        if let Some(entry) = self.tab().panes.get(&active) {
-                            let (nc, nr) = crate::motion::word_forward(
-                                &entry.pane.parser.grid,
-                                entry.pane.scroll_offset,
-                                cur_col,
-                                cur_row,
-                            );
-                            self.mode = InputMode::Visual {
-                                start_col,
-                                start_row,
-                                cur_col: nc,
-                                cur_row: nr,
-                                anchored,
-                            };
-                        }
+                    let active = self.tab().active;
+                    if let Some(entry) = self.tab().panes.get(&active) {
+                        let (nc, nr) = crate::motion::word_forward(
+                            &entry.pane.parser.grid,
+                            entry.pane.scroll_offset,
+                            cur_col,
+                            cur_row,
+                        );
+                        self.mode = InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col: nc,
+                            cur_row: nr,
+                            anchored,
+                        };
                     }
                 }
                 vec![AppEffect::Redraw]
@@ -447,24 +446,23 @@ impl AppState {
                     cur_row,
                     anchored,
                 } = self.mode.clone()
+                    && !self.tabs.is_empty()
                 {
-                    if !self.tabs.is_empty() {
-                        let active = self.tab().active;
-                        if let Some(entry) = self.tab().panes.get(&active) {
-                            let (nc, nr) = crate::motion::word_backward(
-                                &entry.pane.parser.grid,
-                                entry.pane.scroll_offset,
-                                cur_col,
-                                cur_row,
-                            );
-                            self.mode = InputMode::Visual {
-                                start_col,
-                                start_row,
-                                cur_col: nc,
-                                cur_row: nr,
-                                anchored,
-                            };
-                        }
+                    let active = self.tab().active;
+                    if let Some(entry) = self.tab().panes.get(&active) {
+                        let (nc, nr) = crate::motion::word_backward(
+                            &entry.pane.parser.grid,
+                            entry.pane.scroll_offset,
+                            cur_col,
+                            cur_row,
+                        );
+                        self.mode = InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col: nc,
+                            cur_row: nr,
+                            anchored,
+                        };
                     }
                 }
                 vec![AppEffect::Redraw]
@@ -477,24 +475,23 @@ impl AppState {
                     cur_row,
                     anchored,
                 } = self.mode.clone()
+                    && !self.tabs.is_empty()
                 {
-                    if !self.tabs.is_empty() {
-                        let active = self.tab().active;
-                        if let Some(entry) = self.tab().panes.get(&active) {
-                            let (nc, nr) = crate::motion::word_end(
-                                &entry.pane.parser.grid,
-                                entry.pane.scroll_offset,
-                                cur_col,
-                                cur_row,
-                            );
-                            self.mode = InputMode::Visual {
-                                start_col,
-                                start_row,
-                                cur_col: nc,
-                                cur_row: nr,
-                                anchored,
-                            };
-                        }
+                    let active = self.tab().active;
+                    if let Some(entry) = self.tab().panes.get(&active) {
+                        let (nc, nr) = crate::motion::word_end(
+                            &entry.pane.parser.grid,
+                            entry.pane.scroll_offset,
+                            cur_col,
+                            cur_row,
+                        );
+                        self.mode = InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col: nc,
+                            cur_row: nr,
+                            anchored,
+                        };
                     }
                 }
                 vec![AppEffect::Redraw]

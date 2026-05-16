@@ -25,16 +25,16 @@ mod tests;
 use arboard::Clipboard;
 use chrono::Local;
 use config::Config;
-use crossbeam_channel::{Receiver, unbounded};
+use crossbeam_channel::unbounded;
 use input::{InputMode, handle_ctrl_w, handle_key};
-use renderer::{FontMetrics, PaneView, Renderer};
+use renderer::{PaneView, Renderer};
 use std::collections::HashMap;
 use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use tui_config::{ConfigAction, ConfigPanel};
+use tui_config::ConfigAction;
 use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, Modifiers, MouseButton, MouseScrollDelta, WindowEvent};
@@ -44,7 +44,7 @@ use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 
 use crate::input::keybindings::Action;
 use crate::terminal::grid::GridColors;
-use crate::theme::{ResolvedTheme, default_theme, install_bundled_themes, load_theme, themes_dir};
+use crate::theme::{default_theme, install_bundled_themes, load_theme, themes_dir};
 use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -210,30 +210,6 @@ impl App {
         self.state.active_tab = tab_idx;
     }
 
-    fn next_tab(&mut self) {
-        self.state.active_tab = tabs::next_tab_index(self.state.active_tab, self.state.tabs.len());
-    }
-
-    fn prev_tab(&mut self) {
-        self.state.active_tab = tabs::prev_tab_index(self.state.active_tab, self.state.tabs.len());
-    }
-
-    fn move_tab_left(&mut self) {
-        let new = tabs::move_tab_index(self.state.active_tab, self.state.tabs.len(), true);
-        if new != self.state.active_tab {
-            self.state.tabs.swap(self.state.active_tab, new);
-            self.state.active_tab = new;
-        }
-    }
-
-    fn move_tab_right(&mut self) {
-        let new = tabs::move_tab_index(self.state.active_tab, self.state.tabs.len(), false);
-        if new != self.state.active_tab {
-            self.state.tabs.swap(self.state.active_tab, new);
-            self.state.active_tab = new;
-        }
-    }
-
     fn close_tab(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.tabs.len() == 1 {
             event_loop.exit();
@@ -393,19 +369,6 @@ impl App {
         tab.active = new_focus.unwrap_or_else(|| *tab.panes.keys().next().unwrap());
         let idx = self.state.active_tab;
         Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
-    }
-
-    fn focus_dir(&mut self, dx: i32, dy: i32) {
-        let active = self.tab().active;
-        if let Some(id) = self.tab().layout.focus_dir(active, dx, dy) {
-            self.tab_mut().active = id;
-        }
-    }
-
-    fn focus_next(&mut self) {
-        let active = self.tab().active;
-        let leaves = self.tab().layout.leaves();
-        self.tab_mut().active = tabs::next_pane_in_layout(&leaves, active);
     }
 
     // ── Mouse reporting ──────────────────────────────────────────────────────
@@ -762,10 +725,6 @@ impl App {
         if let Some(entry) = self.state.tabs[tab_idx].panes.get_mut(&active) {
             entry.pane.scroll_offset = new_offset;
         }
-    }
-
-    fn open_config_panel(&mut self) {
-        self.state.config_panel = Some(ConfigPanel::from_config(&self.state.config));
     }
 
     fn apply_config(&mut self, new_cfg: Config, window: &Window) {
