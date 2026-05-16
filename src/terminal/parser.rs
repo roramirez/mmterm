@@ -403,6 +403,10 @@ fn parse_osc7_uri(uri: &str) -> Option<String> {
 #[path = "parser_test.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "scenario_test.rs"]
+mod scenarios;
+
 fn color256(n: u8, palette: &[Color; 16]) -> Color {
     if n < 16 {
         return palette[n as usize];
