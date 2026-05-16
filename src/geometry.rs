@@ -33,6 +33,40 @@ pub fn pixel_to_cell(
     ))
 }
 
+/// Returns the OSC 8 URL of the cell at grid position `(col, row)` accounting
+/// for scroll offset. Returns `None` when the coordinates are out of bounds or
+/// the cell carries no URL.
+pub fn cell_url_at_scroll(
+    grid: &crate::terminal::grid::Grid,
+    scroll_offset: usize,
+    col: usize,
+    row: usize,
+) -> Option<std::sync::Arc<String>> {
+    let cell = if scroll_offset == 0 {
+        grid.cell(col, row)
+    } else {
+        let sb_len = grid.scrollback.len();
+        let sb_start = sb_len.saturating_sub(scroll_offset);
+        let sb_row = sb_start + row;
+        if sb_row < sb_len {
+            let line = &grid.scrollback[sb_row];
+            if col < line.len() {
+                &line[col]
+            } else {
+                return None;
+            }
+        } else {
+            let live_row = sb_row.saturating_sub(sb_len);
+            if live_row < grid.rows {
+                grid.cell(col, live_row)
+            } else {
+                return None;
+            }
+        }
+    };
+    cell.url.clone()
+}
+
 #[cfg(test)]
 #[path = "geometry_test.rs"]
 mod tests;

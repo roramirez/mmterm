@@ -89,3 +89,59 @@ fn pixel_to_cell_offset_rect() {
     let result = pixel_to_cell([100, 50, 200, 120], 10, 12, 20, 10, 110.0, 62.0);
     assert_eq!(result, Some((1, 1)));
 }
+
+// ── cell_url_at_scroll ────────────────────────────────────────────────────────
+
+use crate::terminal::grid::{Color, Grid, GridColors};
+use std::sync::Arc;
+
+fn make_grid(cols: usize, rows: usize) -> Grid {
+    Grid::with_colors(
+        cols,
+        rows,
+        GridColors {
+            fg: Color::WHITE,
+            bg: Color::BLACK,
+            cursor: Color::CURSOR,
+            selection: Color::SELECTION,
+            palette: [Color::BLACK; 16],
+        },
+        1000,
+    )
+}
+
+#[test]
+fn cell_url_live_grid_no_scroll() {
+    let mut g = make_grid(10, 3);
+    g.write_char('L');
+    g.cell_mut(0, 0).url = Some(Arc::new("https://example.com".to_string()));
+    let url = cell_url_at_scroll(&g, 0, 0, 0).unwrap();
+    assert_eq!(url.as_ref(), "https://example.com");
+}
+
+#[test]
+fn cell_without_url_returns_none() {
+    let mut g = make_grid(10, 3);
+    g.write_char('X');
+    assert!(cell_url_at_scroll(&g, 0, 0, 0).is_none());
+}
+
+#[test]
+fn col_out_of_bounds_in_scrollback_returns_none() {
+    let mut g = make_grid(5, 2);
+    // push a short line into scrollback
+    for _ in 0..10 {
+        g.write_char(' ');
+    }
+    if !g.scrollback.is_empty() {
+        // col well beyond scrollback line length
+        assert!(cell_url_at_scroll(&g, 1, 999, 0).is_none());
+    }
+}
+
+#[test]
+fn row_out_of_bounds_with_scroll_returns_none() {
+    let g = make_grid(10, 3);
+    // scroll_offset=1 but no scrollback → sb_row falls past everything
+    assert!(cell_url_at_scroll(&g, 1, 0, 999).is_none());
+}
