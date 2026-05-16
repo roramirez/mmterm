@@ -441,6 +441,29 @@ punctuation or whitespace.
 - Do not `unwrap()` on paths reachable at runtime; use `?`, `if let`, or a
   logged fallback.
 
+### Performance Guidelines
+
+**Benchmarks** — run `cargo bench` before and after any change to the hot paths (`terminal/grid.rs`, `terminal/parser.rs`, `renderer/text.rs`, `pty/session.rs`). Save a baseline first:
+
+```sh
+cargo bench -- --save-baseline before
+# make change
+cargo bench -- --baseline before
+```
+
+End-to-end benchmarks (vtebench, termbench, I/O timing) require a running mmterm session — see `bench/run_inside_mmterm.sh`.
+
+**Known hot paths and their constraints:**
+
+| Path | Constraint |
+|---|---|
+| `Grid::scroll_up` | Called on every line feed; uses `rotate_left` — avoid anything that forces per-cell heap operations |
+| `TerminalParser::process` | Called on every PTY read; byte-by-byte `vte::advance` — avoid extra allocations inside the parse loop |
+| `Renderer::draw_pane` | Runs every frame; pixel writes must stay O(visible cells) — no scrollback scans |
+| `Grid::scan_urls` | O(visible rows × cols); only call when rows are dirty — never unconditionally on every PTY chunk |
+
+**Don't measure performance in debug builds.** `opt-level=0` makes tight loops 5–10× slower than release; always use `cargo build --release` or `cargo bench` for performance evaluation.
+
 ### Code Conventions
 
 - Modules are flat files; sub-directories only when a module has ≥ 2 files.

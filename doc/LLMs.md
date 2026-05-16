@@ -296,6 +296,44 @@ add it to `ThemeFile` (optional), provide a palette-derived default in
 - Run `cargo test` before reporting a task as complete.
 - For keybinding changes: test modifier combinations beyond the happy path — e.g. if adding Shift+X, also test Ctrl+Shift+X, Alt+Shift+X, and the same key in every `InputMode`. Modifier interactions often produce surprising fall-through behavior that only a combined test will catch.
 
+## Benchmarking
+
+Criterion micro-benchmarks live in `benches/` and measure the hot paths in isolation — no GUI required.
+
+```sh
+cargo bench                                  # run all benchmarks
+cargo bench parser_throughput                # parser only
+cargo bench scroll_throughput                # scroll_up/scroll_down only
+cargo bench -- --save-baseline before        # snapshot before an optimization
+cargo bench -- --baseline before             # compare against snapshot
+```
+
+| Benchmark group | What it measures | Key bottleneck |
+|---|---|---|
+| `parser/realistic_256kb` | bytes/s through VTE parser on typical ANSI output | byte-by-byte `advance` loop |
+| `parser/ascii_256kb` | bytes/s on pure printable ASCII | same — no SIMD fast-path yet |
+| `parser/dense_sgr_64kb` | bytes/s on escape-sequence-heavy output | CSI dispatch overhead |
+| `scroll_up/220x50` | µs per `scroll_up(1)` call on a standard grid | `Cell` clone cost |
+| `seq_simulation/seq_1_100000` | end-to-end parse time for `seq 1 100000` (588 KB, ~100 K scrolls) | combined parser + scroll |
+
+**Baseline numbers (as of 2026-05-16, after `rotate_left` fix):**
+
+| Benchmark | Throughput / time |
+|---|---|
+| `parser/realistic_256kb` | ~885 KiB/s |
+| `parser/ascii_256kb` | ~848 KiB/s |
+| `scroll_up/220x50` | 15 µs / call (~22 GiB/s) |
+| `seq_simulation/seq_1_100000` | ~1.4 s |
+
+End-to-end benchmarks (must be run **inside a running mmterm session**):
+
+```sh
+bash bench/run_inside_mmterm.sh   # runs vtebench + termbench + plain I/O + memory
+# results written to /tmp/mmterm_bench_results.txt
+```
+
+**When to run benchmarks:** before and after any change to `terminal/grid.rs`, `terminal/parser.rs`, `renderer/text.rs`, or `pty/session.rs`. Save a baseline before the change; compare after.
+
 ## Logging
 
 `log::info!` / `log::warn!` — activated with `RUST_LOG=info mmterm`.
