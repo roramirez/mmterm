@@ -19,7 +19,7 @@ softbuffer = "0.4"
 fontdue = "0.9"
 
 # ANSI/VT escape code parser
-vte = "0.13"
+vte = "0.15"
 
 # PTY backend (Linux/macOS: forkpty/posix_openpt)
 portable-pty = "0.8"
