@@ -21,8 +21,26 @@ Full spec: `doc/SPEC.md`. This file is the dense implementation reference.
 | `src/theme.rs` | `ResolvedTheme`, `load_theme()`, `install_bundled_themes()` |
 | `src/themes/*.toml` | 9 bundled theme files embedded via `include_str!` |
 | `src/tui_config.rs` | `ConfigPanel`, `Field` — in-process config editor |
+| `src/motion.rs` | `word_forward`, `word_backward`, `word_end` — Visual mode `w`/`b`/`e` |
 
 Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
+
+## Visual Mode Selection (implemented)
+
+- `InputMode::Visual { start_col, start_row, cur_col, cur_row, anchored: bool }`
+- `anchored: false` — cursor navigates freely, no selection highlight shown
+- `anchored: true` — selection highlighted from `(start_col, start_row)` to `(cur_col, cur_row)`
+- `v` in Visual mode → `Action::VisualAnchor` → sets `start = cur, anchored = true`
+- `o` → `Action::VisualSwapAnchor` → swaps start ↔ cur
+- `w`/`b`/`e` → `Action::VisualWordForward/Backward/End` → handled in `main.rs` via `motion::word_*`
+- `y` → `Action::Copy`; `Y` → `Action::VisualYankLine` (copies `cur_row`, exits to Insert)
+- `k`/↑ at row 0 → `Action::VisualBoundaryUp(1)` → scrolls viewport, cursor stays at row 0, anchor shifts +1
+- `j`/↓ at last row → `Action::VisualBoundaryDown(1)` → scrolls viewport, cursor stays at last row, anchor shifts -1
+- `ScrollUp`/`ScrollDown` in Visual mode adjust both `start_row` and `cur_row` to track content
+- Entering Visual from Normal while `scroll_offset > 0` starts cursor at `(0, 0)` of viewport
+- Renderer `is_cursor`: in Visual mode uses `cur_col/cur_row` with `blink_visible` (not PTY cursor)
+- Renderer `selection_range`: only `Some(...)` when `anchored == true`
+- Coordinates are viewport-relative (0..grid.rows); `selected_text` uses `scroll_offset` to read scrollback
 
 ## Scrollback Search (implemented)
 
@@ -120,6 +138,10 @@ pub enum Action {
     NewTab, NextTab, PrevTab, CloseTab, RenameTab,
     IncreaseFontSize, DecreaseFontSize, ResetFontSize,
     SearchOpen, SearchNext, SearchPrev,
+    VisualAnchor, VisualSwapAnchor,
+    VisualWordForward, VisualWordBackward, VisualWordEnd,
+    VisualYankLine,
+    VisualBoundaryUp(usize), VisualBoundaryDown(usize),
     ZoomPane,
     Quit, None,
 }

@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- visual mode: vim-style scrollback selection — navigate freely with `hjkl`/arrows (scrolls at boundaries), press `v` to set the anchor, extend with `w`/`b`/`e` word motions, then `y`/`Ctrl+C` to copy; `Y` yanks the current line, `o` swaps anchor and cursor
 - configurable status bar right segments via `[status_bar] right` in config; supports `%pwd` (OSC 7 cwd) and `%date{fmt}` (strftime) tokens
 - `Ctrl+Q` shows a confirmation overlay when multiple tabs or panes are open; single-pane sessions exit immediately
 - `Alt+1`..`Alt+9` jump directly to a tab by position (1-indexed); intercepted globally so Insert mode does not forward the sequence to the PTY

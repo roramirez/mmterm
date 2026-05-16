@@ -3,6 +3,7 @@ mod font;
 mod geometry;
 mod input;
 mod logging;
+mod motion;
 mod mouse;
 mod pty;
 mod renderer;
@@ -530,6 +531,7 @@ impl App {
                     start_row: row,
                     cur_col: col,
                     cur_row: row,
+                    anchored: true,
                 };
                 self.mouse_selecting = true;
                 if let Some(w) = &self.window {
@@ -553,6 +555,7 @@ impl App {
                     start_row,
                     cur_col: col,
                     cur_row: row,
+                    anchored: true,
                 };
             }
         }
@@ -564,6 +567,7 @@ impl App {
             start_row,
             cur_col,
             cur_row,
+            ..
         } = self.mode.clone()
         {
             self.mode = InputMode::Insert;
@@ -1205,15 +1209,23 @@ impl ApplicationHandler for App {
                             if matches!(self.mode, InputMode::Visual { .. }) {
                                 new_mode
                             } else {
+                                // When entering Visual from a non-Visual mode, anchor and
+                                // cursor start at the PTY cursor position. If the pane is
+                                // scrolled up, the PTY cursor is off-screen, so we start
+                                // at (0, 0) of the visible viewport instead.
                                 let (col, row) = {
                                     let tab = self.tab();
                                     tab.panes
                                         .get(&tab.active)
                                         .map(|e| {
-                                            (
-                                                e.pane.parser.grid.cursor_col,
-                                                e.pane.parser.grid.cursor_row,
-                                            )
+                                            if e.pane.scroll_offset > 0 {
+                                                (0, 0)
+                                            } else {
+                                                (
+                                                    e.pane.parser.grid.cursor_col,
+                                                    e.pane.parser.grid.cursor_row,
+                                                )
+                                            }
                                         })
                                         .unwrap_or((0, 0))
                                 };
@@ -1222,24 +1234,68 @@ impl ApplicationHandler for App {
                                     start_row: row,
                                     cur_col: col,
                                     cur_row: row,
+                                    anchored: false,
                                 }
                             }
                         } else {
                             new_mode
                         };
                         self.mode = mode;
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
                     }
 
                     Action::ScrollUp(n) => {
                         let active = self.tab().active;
+                        let grid_rows = self
+                            .tab()
+                            .panes
+                            .get(&active)
+                            .map(|e| e.pane.parser.grid.rows)
+                            .unwrap_or(1);
                         if let Some(e) = self.tab_mut().panes.get_mut(&active) {
                             e.pane.scroll_up(n);
+                        }
+                        // Keep selection anchored to the same content while scrolling.
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col,
+                                start_row: (start_row + n).min(grid_rows.saturating_sub(1)),
+                                cur_col,
+                                cur_row: (cur_row + n).min(grid_rows.saturating_sub(1)),
+                                anchored,
+                            };
                         }
                     }
                     Action::ScrollDown(n) => {
                         let active = self.tab().active;
                         if let Some(e) = self.tab_mut().panes.get_mut(&active) {
                             e.pane.scroll_down(n);
+                        }
+                        // Keep selection anchored to the same content while scrolling.
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col,
+                                start_row: start_row.saturating_sub(n),
+                                cur_col,
+                                cur_row: cur_row.saturating_sub(n),
+                                anchored,
+                            };
                         }
                     }
                     Action::ScrollToTop => {
@@ -1300,6 +1356,7 @@ impl ApplicationHandler for App {
                             start_row,
                             cur_col,
                             cur_row,
+                            anchored: true,
                         } = self.mode.clone()
                         {
                             let active = self.tab().active;
@@ -1323,6 +1380,240 @@ impl ApplicationHandler for App {
                                 }
                             }
                             self.mode = InputMode::Insert;
+                        }
+                    }
+
+                    Action::VisualSwapAnchor => {
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col: cur_col,
+                                start_row: cur_row,
+                                cur_col: start_col,
+                                cur_row: start_row,
+                                anchored,
+                            };
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualAnchor => {
+                        if let InputMode::Visual {
+                            cur_col, cur_row, ..
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col: cur_col,
+                                start_row: cur_row,
+                                cur_col,
+                                cur_row,
+                                anchored: true,
+                            };
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualWordForward => {
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab().panes.get(&active) {
+                                let (nc, nr) = motion::word_forward(
+                                    &entry.pane.parser.grid,
+                                    entry.pane.scroll_offset,
+                                    cur_col,
+                                    cur_row,
+                                );
+                                self.mode = InputMode::Visual {
+                                    start_col,
+                                    start_row,
+                                    cur_col: nc,
+                                    cur_row: nr,
+                                    anchored,
+                                };
+                            }
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualWordBackward => {
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab().panes.get(&active) {
+                                let (nc, nr) = motion::word_backward(
+                                    &entry.pane.parser.grid,
+                                    entry.pane.scroll_offset,
+                                    cur_col,
+                                    cur_row,
+                                );
+                                self.mode = InputMode::Visual {
+                                    start_col,
+                                    start_row,
+                                    cur_col: nc,
+                                    cur_row: nr,
+                                    anchored,
+                                };
+                            }
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualWordEnd => {
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            cur_row,
+                            anchored,
+                        } = self.mode.clone()
+                        {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab().panes.get(&active) {
+                                let (nc, nr) = motion::word_end(
+                                    &entry.pane.parser.grid,
+                                    entry.pane.scroll_offset,
+                                    cur_col,
+                                    cur_row,
+                                );
+                                self.mode = InputMode::Visual {
+                                    start_col,
+                                    start_row,
+                                    cur_col: nc,
+                                    cur_row: nr,
+                                    anchored,
+                                };
+                            }
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualYankLine => {
+                        if let InputMode::Visual {
+                            cur_col: _,
+                            cur_row,
+                            ..
+                        } = self.mode.clone()
+                        {
+                            let active = self.tab().active;
+                            if let Some(entry) = self.tab().panes.get(&active) {
+                                let cols = entry.pane.parser.grid.cols.saturating_sub(1);
+                                let scroll_offset = entry.pane.scroll_offset;
+                                let text = entry.pane.parser.grid.selected_text(
+                                    0,
+                                    cur_row,
+                                    cols,
+                                    cur_row,
+                                    scroll_offset,
+                                );
+                                if !text.is_empty() {
+                                    let cb = self.clipboard.get_or_insert_with(|| {
+                                        Clipboard::new().expect("clipboard unavailable")
+                                    });
+                                    match cb.set_text(text) {
+                                        Ok(()) => log::info!("Yanked line to clipboard"),
+                                        Err(e) => log::warn!("Clipboard write failed: {e}"),
+                                    }
+                                }
+                            }
+                            self.mode = InputMode::Insert;
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
+                        }
+                    }
+
+                    Action::VisualBoundaryUp(n) => {
+                        let active = self.tab().active;
+                        let grid_rows = self
+                            .tab()
+                            .panes
+                            .get(&active)
+                            .map(|e| e.pane.parser.grid.rows)
+                            .unwrap_or(1);
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_up(n);
+                        }
+                        // Anchor tracks content (shift down in viewport); cursor stays at row 0.
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            anchored,
+                            ..
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col,
+                                start_row: (start_row + n).min(grid_rows.saturating_sub(1)),
+                                cur_col,
+                                cur_row: 0,
+                                anchored,
+                            };
+                        }
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+
+                    Action::VisualBoundaryDown(n) => {
+                        let active = self.tab().active;
+                        let grid_rows = self
+                            .tab()
+                            .panes
+                            .get(&active)
+                            .map(|e| e.pane.parser.grid.rows)
+                            .unwrap_or(1);
+                        if let Some(e) = self.tab_mut().panes.get_mut(&active) {
+                            e.pane.scroll_down(n);
+                        }
+                        // Anchor tracks content (shift up in viewport); cursor stays at last row.
+                        if let InputMode::Visual {
+                            start_col,
+                            start_row,
+                            cur_col,
+                            anchored,
+                            ..
+                        } = self.mode.clone()
+                        {
+                            self.mode = InputMode::Visual {
+                                start_col,
+                                start_row: start_row.saturating_sub(n),
+                                cur_col,
+                                cur_row: grid_rows.saturating_sub(1),
+                                anchored,
+                            };
+                        }
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
                         }
                     }
 

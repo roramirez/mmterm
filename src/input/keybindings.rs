@@ -38,6 +38,14 @@ pub enum Action {
     SearchOpen,
     SearchNext,
     SearchPrev,
+    VisualSwapAnchor,
+    VisualAnchor,
+    VisualBoundaryUp(usize),
+    VisualBoundaryDown(usize),
+    VisualWordForward,
+    VisualWordBackward,
+    VisualWordEnd,
+    VisualYankLine,
     ClearScrollback,
     ToggleLog,
     Quit,
@@ -109,6 +117,7 @@ pub(crate) fn handle_key_inner(
                     start_row: 0,
                     cur_col: 0,
                     cur_row: 0,
+                    anchored: false,
                 },
                 InputMode::Visual { .. }
                 | InputMode::RenameTab { .. }
@@ -209,8 +218,14 @@ pub(crate) fn handle_key_inner(
             start_row,
             cur_col,
             cur_row,
+            anchored,
         } => handle_visual(
-            key, *start_col, *start_row, *cur_col, *cur_row, grid_cols, grid_rows,
+            key,
+            (*start_col, *start_row),
+            (*cur_col, *cur_row),
+            *anchored,
+            grid_cols,
+            grid_rows,
         ),
         InputMode::RenameTab { .. } => Action::None,
         InputMode::Search { .. } => Action::None,
@@ -342,6 +357,7 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
                 start_row: 0,
                 cur_col: 0,
                 cur_row: 0,
+                anchored: false,
             }),
             "q" => Action::ClosePane,
             "/" => Action::SearchOpen,
@@ -357,10 +373,9 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
 
 fn handle_visual(
     key: &Key,
-    start_col: usize,
-    start_row: usize,
-    cur_col: usize,
-    cur_row: usize,
+    (start_col, start_row): (usize, usize),
+    (cur_col, cur_row): (usize, usize),
+    anchored: bool,
     cols: usize,
     rows: usize,
 ) -> Action {
@@ -373,6 +388,7 @@ fn handle_visual(
             start_row,
             cur_col: nc.min(cols),
             cur_row: nr.min(rows),
+            anchored,
         })
     };
 
@@ -380,20 +396,52 @@ fn handle_visual(
         Key::Named(NamedKey::Escape) => Action::SetMode(InputMode::Insert),
         Key::Named(NamedKey::ArrowLeft) => move_to(cur_col.saturating_sub(1), cur_row),
         Key::Named(NamedKey::ArrowRight) => move_to((cur_col + 1).min(cols), cur_row),
-        Key::Named(NamedKey::ArrowUp) => move_to(cur_col, cur_row.saturating_sub(1)),
-        Key::Named(NamedKey::ArrowDown) => move_to(cur_col, (cur_row + 1).min(rows)),
+        Key::Named(NamedKey::ArrowUp) => {
+            if cur_row == 0 {
+                Action::VisualBoundaryUp(1)
+            } else {
+                move_to(cur_col, cur_row - 1)
+            }
+        }
+        Key::Named(NamedKey::ArrowDown) => {
+            if cur_row == rows {
+                Action::VisualBoundaryDown(1)
+            } else {
+                move_to(cur_col, cur_row + 1)
+            }
+        }
         Key::Named(NamedKey::Home) => move_to(0, cur_row),
         Key::Named(NamedKey::End) => move_to(cols, cur_row),
         Key::Character(s) => match s.as_str() {
             "h" => move_to(cur_col.saturating_sub(1), cur_row),
             "l" => move_to((cur_col + 1).min(cols), cur_row),
-            "k" => move_to(cur_col, cur_row.saturating_sub(1)),
-            "j" => move_to(cur_col, (cur_row + 1).min(rows)),
+            "k" => {
+                if cur_row == 0 {
+                    Action::VisualBoundaryUp(1)
+                } else {
+                    move_to(cur_col, cur_row - 1)
+                }
+            }
+            "j" => {
+                if cur_row == rows {
+                    Action::VisualBoundaryDown(1)
+                } else {
+                    move_to(cur_col, cur_row + 1)
+                }
+            }
             "0" => move_to(0, cur_row),
             "$" => move_to(cols, cur_row),
             "g" => move_to(cur_col, 0),
             "G" => move_to(cur_col, rows),
-            "v" | "q" => Action::SetMode(InputMode::Insert),
+            "w" => Action::VisualWordForward,
+            "b" => Action::VisualWordBackward,
+            "e" => Action::VisualWordEnd,
+            "y" => Action::Copy,
+            "Y" => Action::VisualYankLine,
+            "o" => Action::VisualSwapAnchor,
+            // set anchor at current cursor position (start marking from here)
+            "v" => Action::VisualAnchor,
+            "q" => Action::SetMode(InputMode::Insert),
             _ => Action::None,
         },
         _ => Action::None,

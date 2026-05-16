@@ -122,6 +122,7 @@ fn visual() -> InputMode {
         start_row: 0,
         cur_col: 0,
         cur_row: 0,
+        anchored: false,
     }
 }
 
@@ -950,6 +951,7 @@ fn visual_at(sc: usize, sr: usize, cc: usize, cr: usize) -> InputMode {
         start_row: sr,
         cur_col: cc,
         cur_row: cr,
+        anchored: false,
     }
 }
 
@@ -1111,10 +1113,11 @@ fn visual_capital_g_jumps_to_last_row() {
 }
 
 #[test]
-fn visual_v_enters_insert() {
+fn visual_v_sets_anchor() {
+    // 'v' in Visual mode sets the anchor at the current cursor position.
     let mode = visual_at(0, 0, 5, 5);
     let a = handle_key_inner(&char_key("v"), false, false, false, &mode, 80, 24, false);
-    assert!(matches!(a, Action::SetMode(InputMode::Insert)));
+    assert!(matches!(a, Action::VisualAnchor));
 }
 
 #[test]
@@ -1205,19 +1208,11 @@ fn visual_h_at_col_zero_clamps() {
 }
 
 #[test]
-fn visual_k_at_row_zero_clamps() {
+fn visual_k_at_row_zero_scrolls_up() {
+    // At row 0, 'k' triggers boundary scroll instead of clamping.
     let mode = visual_at(0, 0, 5, 0);
-    let (_, row) = vis_col_row(handle_key_inner(
-        &char_key("k"),
-        false,
-        false,
-        false,
-        &mode,
-        80,
-        24,
-        false,
-    ));
-    assert_eq!(row, 0);
+    let a = handle_key_inner(&char_key("k"), false, false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualBoundaryUp(1)));
 }
 
 #[test]
@@ -1708,4 +1703,60 @@ fn alt_backspace_in_insert_sends_esc_del() {
         false,
     );
     assert!(matches!(a, Action::SendToPty(ref v) if v == &[0x1b, 0x7f]));
+}
+
+// ── Visual swap anchor ───────────────────────────────────────────────────────
+
+#[test]
+fn visual_o_swaps_anchor() {
+    let mode = visual_at(2, 3, 7, 9);
+    let a = handle_key_inner(&char_key("o"), false, false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualSwapAnchor));
+}
+
+#[test]
+fn visual_o_with_zero_anchor_swaps_anchor() {
+    let mode = visual_at(0, 0, 10, 5);
+    let a = handle_key_inner(&char_key("o"), false, false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualSwapAnchor));
+}
+
+#[test]
+fn visual_j_at_last_row_scrolls_down() {
+    // At the last row, 'j' triggers boundary scroll instead of clamping.
+    let mode = visual_at(0, 0, 5, 23); // rows-1 = 23 (grid has 24 rows → rows arg = 23)
+    let a = handle_key_inner(&char_key("j"), false, false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualBoundaryDown(1)));
+}
+
+#[test]
+fn visual_arrow_up_at_row_zero_scrolls_up() {
+    let mode = visual_at(0, 0, 5, 0);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryUp(1)));
+}
+
+#[test]
+fn visual_arrow_down_at_last_row_scrolls_down() {
+    let mode = visual_at(0, 0, 5, 23);
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryDown(1)));
 }

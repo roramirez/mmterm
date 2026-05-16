@@ -143,6 +143,32 @@ You can also edit settings live with `Ctrl+,`.
 | `n` / `N` | Next / previous match (Normal mode) |
 | `Escape` | Exit search |
 
+### Normal Mode
+
+| Binding | Action |
+|---|---|
+| `v` | Enter Visual mode |
+| `i` / `Escape` | Return to Insert mode |
+| `j` / `k` | Scroll down / up |
+| `/` | Open search |
+| `n` / `N` | Next / previous search match |
+
+### Visual Mode
+
+Navigate freely to position the cursor, press `v` to set the selection anchor, then move to the end and copy.
+
+| Binding | Action |
+|---|---|
+| `h/j/k/l` or arrows | Move cursor (scrolls viewport at boundaries) |
+| `w` / `b` / `e` | Forward word / backward word / end of word |
+| `0` / `$` | Start / end of line |
+| `g` / `G` | Top / bottom of viewport |
+| `v` | Set selection anchor at cursor (starts highlighting) |
+| `o` | Swap anchor and cursor |
+| `y` / `Ctrl+C` | Copy selection and exit |
+| `Y` | Yank (copy) the entire line at cursor |
+| `q` / `Escape` | Exit to Insert mode |
+
 ### Clipboard
 
 | Binding | Action |

@@ -305,12 +305,27 @@ theme files.
 
 ### Visual Mode
 
+Visual mode uses a two-phase model: first navigate freely to position the cursor
+(no selection is highlighted), then press `v` to place the anchor and extend the
+selection by moving the cursor. `k`/↑ at the top row and `j`/↓ at the bottom
+row scroll the viewport, making the entire scrollback buffer reachable. Scroll
+actions shift the anchor coordinates so the selected content stays stable.
+
 | Key | Action |
 |---|---|
-| `h/j/k/l` or arrows | Move selection cursor |
+| `h/j/k/l` or arrows | Move cursor (scrolls viewport when at boundary) |
+| `w` / `b` / `e` | Start of next word / start of prev word / end of word |
 | `0` / `$` | Start / end of line |
-| `g` / `G` | Top / bottom of screen |
-| `v` / `q` / `Escape` | Exit to Insert mode |
+| `g` / `G` | Top / bottom of viewport |
+| `v` | Set selection anchor at cursor (activates highlight) |
+| `o` | Swap anchor and cursor (extend from either end) |
+| `y` / `Ctrl+C` | Copy selection to clipboard, return to Insert mode |
+| `Y` | Yank (copy) the entire line at the cursor, return to Insert mode |
+| `q` / `Escape` | Exit to Insert mode |
+
+Word boundary detection (`w`/`b`/`e`) is implemented in `src/motion.rs`.
+A character is a word char if it is alphanumeric or `_`; everything else is
+punctuation or whitespace.
 
 ---
 

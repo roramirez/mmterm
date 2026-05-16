@@ -2,12 +2,14 @@
 pub enum InputMode {
     Normal,
     Insert,
-    /// Visual mode: selection from (start_col, start_row) to (cur_col, cur_row)
+    /// Visual mode: cursor navigates freely; selection only active when `anchored` is true.
     Visual {
         start_col: usize,
         start_row: usize,
         cur_col: usize,
         cur_row: usize,
+        /// False while navigating (no highlight); true after the user presses `v` to set the anchor.
+        anchored: bool,
     },
     /// Inline tab-rename: buf holds the name being typed
     RenameTab {
