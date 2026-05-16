@@ -1,9 +1,13 @@
 mod config;
+mod font;
 mod geometry;
 mod input;
+mod mouse;
 mod pty;
 mod renderer;
 mod search;
+mod statusbar;
+mod tabs;
 mod terminal;
 mod theme;
 mod tui_config;
@@ -260,31 +264,26 @@ impl App {
     }
 
     fn next_tab(&mut self) {
-        if self.tabs.len() > 1 {
-            self.active_tab = (self.active_tab + 1) % self.tabs.len();
-        }
+        self.active_tab = tabs::next_tab_index(self.active_tab, self.tabs.len());
     }
 
     fn prev_tab(&mut self) {
-        if self.tabs.len() > 1 {
-            self.active_tab = self
-                .active_tab
-                .checked_sub(1)
-                .unwrap_or(self.tabs.len() - 1);
-        }
+        self.active_tab = tabs::prev_tab_index(self.active_tab, self.tabs.len());
     }
 
     fn move_tab_left(&mut self) {
-        if self.tabs.len() > 1 && self.active_tab > 0 {
-            self.tabs.swap(self.active_tab, self.active_tab - 1);
-            self.active_tab -= 1;
+        let new = tabs::move_tab_index(self.active_tab, self.tabs.len(), true);
+        if new != self.active_tab {
+            self.tabs.swap(self.active_tab, new);
+            self.active_tab = new;
         }
     }
 
     fn move_tab_right(&mut self) {
-        if self.tabs.len() > 1 && self.active_tab + 1 < self.tabs.len() {
-            self.tabs.swap(self.active_tab, self.active_tab + 1);
-            self.active_tab += 1;
+        let new = tabs::move_tab_index(self.active_tab, self.tabs.len(), false);
+        if new != self.active_tab {
+            self.tabs.swap(self.active_tab, new);
+            self.active_tab = new;
         }
     }
 
@@ -293,10 +292,10 @@ impl App {
             event_loop.exit();
             return;
         }
-        self.tabs.remove(self.active_tab);
-        if self.active_tab >= self.tabs.len() {
-            self.active_tab = self.tabs.len() - 1;
-        }
+        let old_active = self.active_tab;
+        let old_count = self.tabs.len();
+        self.tabs.remove(old_active);
+        self.active_tab = tabs::close_tab_index(old_active, old_count);
     }
 
     // ── Drain PTY output ─────────────────────────────────────────────────────
@@ -481,16 +480,7 @@ impl App {
     /// `release` is only meaningful for non-SGR encoding.
     fn send_mouse_event(&mut self, btn: u8, col: usize, row: usize, release: bool, sgr: bool) {
         let active = self.tab().active;
-        let data = if sgr {
-            let suffix = if release { 'm' } else { 'M' };
-            format!("\x1b[<{};{};{}{}", btn, col + 1, row + 1, suffix).into_bytes()
-        } else {
-            // X10/normal encoding: clamped to 223 to fit in a byte
-            let b = btn + 32;
-            let c = (col + 1 + 32) as u8;
-            let r = (row + 1 + 32) as u8;
-            vec![0x1b, b'[', b'M', b, c, r]
-        };
+        let data = mouse::encode_mouse_event(btn, col, row, release, sgr);
         if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
             let _ = entry.pty.write_input(&data);
         }
@@ -523,31 +513,13 @@ impl App {
         let (col, row) = self.pixel_to_cell(pane_id, px, py)?;
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let grid = &entry.pane.parser.grid;
-        let scroll_offset = entry.pane.scroll_offset;
-        let cell = if scroll_offset == 0 {
-            grid.cell(col, row)
-        } else {
-            let sb_len = grid.scrollback.len();
-            let sb_start = sb_len.saturating_sub(scroll_offset);
-            let sb_row = sb_start + row;
-            if sb_row < sb_len {
-                let line = &grid.scrollback[sb_row];
-                if col < line.len() {
-                    &line[col]
-                } else {
-                    return None;
-                }
-            } else {
-                let live_row = sb_row.saturating_sub(sb_len);
-                if live_row < grid.rows {
-                    grid.cell(col, live_row)
-                } else {
-                    return None;
-                }
-            }
-        };
-        cell.url.as_ref().map(|u| u.as_ref().clone())
+        let url = geometry::cell_url_at_scroll(
+            &entry.pane.parser.grid,
+            entry.pane.scroll_offset,
+            col,
+            row,
+        )?;
+        Some(url.as_ref().clone())
     }
 
     fn start_mouse_selection(&mut self, px: f64, py: f64) {
@@ -635,11 +607,9 @@ impl App {
 
     fn change_font_size(&mut self, delta: f32) {
         let current = self.tabs[self.active_tab].metrics.font_px;
-        let new_size = (current + delta).clamp(6.0, 72.0);
-        if (new_size - current).abs() < 0.1 {
+        let Some(new_size) = font::apply_delta(current, delta) else {
             return;
-        }
-        // Only update active tab's metrics — config is not touched
+        };
         let new_metrics = self.renderer.make_metrics(new_size);
         let idx = self.active_tab;
         self.tabs[idx].metrics = new_metrics;
@@ -695,21 +665,7 @@ impl App {
             return;
         };
         let grid = &entry.pane.parser.grid;
-        let sb_len = grid.scrollback.len();
-        let text: String = if abs_row < sb_len {
-            grid.scrollback[abs_row]
-                .iter()
-                .skip(col)
-                .take(len)
-                .map(|c| c.c)
-                .collect()
-        } else {
-            let row = abs_row - sb_len;
-            (col..col + len)
-                .filter(|&c| c < grid.cols)
-                .map(|c| grid.cell(c, row).c)
-                .collect()
-        };
+        let text = search::extract_match_text(grid, abs_row, col, len);
         if !text.is_empty() {
             let cb = self
                 .clipboard
@@ -1032,8 +988,11 @@ impl App {
                     p.to_string()
                 }
             });
-        let right_text =
-            resolve_status_bar_right(&self.config.status_bar.right, cwd_owned.as_deref());
+        let right_text = statusbar::resolve(
+            &self.config.status_bar.right,
+            cwd_owned.as_deref(),
+            &Local::now(),
+        );
         let bell_flash = self.tabs[self.active_tab]
             .bell_flash_until
             .is_some_and(|t| t > Instant::now());
@@ -1817,28 +1776,4 @@ fn main() {
     let proxy = event_loop.create_proxy();
     let mut app = App::new(config, proxy);
     event_loop.run_app(&mut app).unwrap();
-}
-
-fn resolve_status_bar_right(segments: &[String], cwd: Option<&str>) -> Option<String> {
-    if segments.is_empty() {
-        return None;
-    }
-    let now = Local::now();
-    let mut parts: Vec<String> = Vec::new();
-    for seg in segments {
-        if let Some(fmt) = seg.strip_prefix("%date{").and_then(|s| s.strip_suffix('}')) {
-            parts.push(now.format(fmt).to_string());
-        } else if seg == "%pwd" {
-            if let Some(p) = cwd {
-                parts.push(p.to_string());
-            }
-        } else {
-            parts.push(seg.clone());
-        }
-    }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join("  "))
-    }
 }

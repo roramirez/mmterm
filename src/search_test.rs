@@ -120,3 +120,53 @@ fn scroll_offset_exact_boundary() {
     // abs_row == sb_len → live row → 0
     assert_eq!(compute_scroll_offset(50, 50, 24), 0);
 }
+
+// ── extract_match_text ────────────────────────────────────────────────────────
+
+#[test]
+fn extract_from_live_grid() {
+    let mut g = make_grid(10, 3);
+    for c in "hello".chars() {
+        g.write_char(c);
+    }
+    let sb_len = g.scrollback.len();
+    // abs_row = sb_len → live row 0; col=0, len=5
+    assert_eq!(extract_match_text(&g, sb_len, 0, 5), "hello");
+}
+
+#[test]
+fn extract_from_scrollback() {
+    let mut g = make_grid(10, 2);
+    for c in "hello     ".chars() {
+        g.write_char(c);
+    }
+    // push hello into scrollback
+    for c in "           ".chars() {
+        g.write_char(c);
+    }
+    assert!(!g.scrollback.is_empty());
+    let text = extract_match_text(&g, 0, 0, 5);
+    assert_eq!(text, "hello");
+}
+
+#[test]
+fn extract_partial_match() {
+    let mut g = make_grid(10, 3);
+    for c in "foobar".chars() {
+        g.write_char(c);
+    }
+    let sb_len = g.scrollback.len();
+    assert_eq!(extract_match_text(&g, sb_len, 3, 3), "bar");
+}
+
+#[test]
+fn extract_clamps_to_grid_cols() {
+    let mut g = make_grid(5, 3);
+    for c in "abcde".chars() {
+        g.write_char(c);
+    }
+    let sb_len = g.scrollback.len();
+    // len goes beyond cols — should clamp
+    let text = extract_match_text(&g, sb_len, 3, 10);
+    assert_eq!(text.len(), 2); // cols 3 and 4
+}

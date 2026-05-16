@@ -48,6 +48,26 @@ pub fn compute_scroll_offset(abs_row: usize, sb_len: usize, grid_rows: usize) ->
     }
 }
 
+/// Extracts the matched text from a grid at `(abs_row, col, len)`.
+/// `abs_row < sb_len` means the match is in scrollback; otherwise it is in the live grid.
+pub fn extract_match_text(grid: &Grid, abs_row: usize, col: usize, len: usize) -> String {
+    let sb_len = grid.scrollback.len();
+    if abs_row < sb_len {
+        grid.scrollback[abs_row]
+            .iter()
+            .skip(col)
+            .take(len)
+            .map(|c| c.c)
+            .collect()
+    } else {
+        let row = abs_row - sb_len;
+        (col..col + len)
+            .filter(|&c| c < grid.cols)
+            .map(|c| grid.cell(c, row).c)
+            .collect()
+    }
+}
+
 #[cfg(test)]
 #[path = "search_test.rs"]
 mod tests;
