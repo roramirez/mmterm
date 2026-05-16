@@ -345,7 +345,7 @@ impl Perform for Performer<'_> {
             // 5 = blinking beam, 6 = steady beam
             'q' if intermediates == b" " => {
                 self.grid.cursor_shape = match p0 {
-                    0 | 1 | 2 => CursorShape::Block,
+                    0..=2 => CursorShape::Block,
                     3 | 4 => CursorShape::Underline,
                     5 | 6 => CursorShape::Beam,
                     _ => CursorShape::Block,
@@ -402,10 +402,10 @@ impl Perform for Performer<'_> {
         if let [b"52", _sel, data] = params {
             if *data == b"?" {
                 self.grid.pending_clipboard_read = true;
-            } else if let Ok(decoded) = BASE64.decode(data) {
-                if let Ok(text) = std::str::from_utf8(&decoded) {
-                    self.grid.pending_clipboard_write = Some(text.to_string());
-                }
+            } else if let Ok(decoded) = BASE64.decode(data)
+                && let Ok(text) = std::str::from_utf8(&decoded)
+            {
+                self.grid.pending_clipboard_write = Some(text.to_string());
             }
         }
     }

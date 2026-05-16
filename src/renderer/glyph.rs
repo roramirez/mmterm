@@ -271,12 +271,10 @@ fn load_system_font(family: &str, bold: bool, italic: bool) -> Option<Font> {
     // font_kit returns the closest match even when the exact style is unavailable.
     // Verify the selected file is actually italic by inspecting its path; if not,
     // return None so the caller falls back to the bundled italic font.
-    if italic {
-        if let Handle::Path { ref path, .. } = handle {
-            let name = path.to_string_lossy().to_lowercase();
-            if !name.contains("italic") && !name.contains("oblique") {
-                return None;
-            }
+    if italic && let Handle::Path { ref path, .. } = handle {
+        let name = path.to_string_lossy().to_lowercase();
+        if !name.contains("italic") && !name.contains("oblique") {
+            return None;
         }
     }
 

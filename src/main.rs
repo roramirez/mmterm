@@ -338,10 +338,9 @@ impl App {
                             }
                             if let Some(text) =
                                 entry.pane.parser.grid.pending_clipboard_write.take()
+                                && let Some(cb) = self.clipboard.as_mut()
                             {
-                                if let Some(cb) = self.clipboard.as_mut() {
-                                    let _ = cb.set_text(text);
-                                }
+                                let _ = cb.set_text(text);
                             }
                             if std::mem::take(&mut entry.pane.parser.grid.pending_clipboard_read) {
                                 let text = self
