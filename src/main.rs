@@ -889,9 +889,12 @@ impl App {
                 // and sometimes do not restore it, leaving the cursor permanently
                 // hidden. In mmterm's Insert mode the user always needs to see
                 // the cursor, so we honour only our own modal state here.
-                let show_cursor = matches!(self.mode, InputMode::Insert)
-                    && self.cursor_blink
-                    && entry.pane.scroll_offset == 0;
+                let show_cursor = tabs::should_show_cursor(
+                    true,
+                    matches!(self.mode, InputMode::Insert),
+                    self.cursor_blink,
+                    entry.pane.scroll_offset,
+                );
                 let (sm, sc) = if has_search {
                     (search_matches.as_slice(), Some(search_current_val))
                 } else {
@@ -917,10 +920,12 @@ impl App {
                 .filter_map(|(id, rect)| {
                     let entry = tab.panes.get(id)?;
                     let is_active = *id == active_id;
-                    let show_cursor = is_active
-                        && matches!(self.mode, InputMode::Insert)
-                        && self.cursor_blink
-                        && entry.pane.scroll_offset == 0;
+                    let show_cursor = tabs::should_show_cursor(
+                        is_active,
+                        matches!(self.mode, InputMode::Insert),
+                        self.cursor_blink,
+                        entry.pane.scroll_offset,
+                    );
                     let (sm, sc) = if is_active && has_search {
                         (search_matches.as_slice(), Some(search_current_val))
                     } else {
@@ -952,23 +957,17 @@ impl App {
                     .get(&tab.active)
                     .and_then(|e| e.pane.parser.grid.osc_title.as_deref())
                     .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
-                let label = if is_active {
+                let rename_buf = if is_active {
                     if let InputMode::RenameTab { buf } = &self.mode {
-                        format!(" {}| ", buf)
+                        Some(buf.as_str())
                     } else {
-                        tab.name
-                            .as_deref()
-                            .or(osc_title)
-                            .map(|n| format!(" {} ", n))
-                            .unwrap_or_else(|| format!(" {} ", i + 1))
+                        None
                     }
                 } else {
-                    tab.name
-                        .as_deref()
-                        .or(osc_title)
-                        .map(|n| format!(" {} ", n))
-                        .unwrap_or_else(|| format!(" {} ", i + 1))
+                    None
                 };
+                let label =
+                    tabs::tab_label(i, tab.name.as_deref(), osc_title, is_active, rename_buf);
                 (label, is_active, tab.has_activity)
             })
             .collect();
@@ -980,13 +979,7 @@ impl App {
             .panes
             .get(&active_id)
             .and_then(|e| e.pane.parser.grid.cwd.as_deref())
-            .map(|p| {
-                if !home.is_empty() && p.starts_with(&home) {
-                    format!("~{}", &p[home.len()..])
-                } else {
-                    p.to_string()
-                }
-            });
+            .map(|p| statusbar::shorten_home(p, &home));
         let right_text = statusbar::resolve(
             &self.config.status_bar.right,
             cwd_owned.as_deref(),
@@ -1004,8 +997,8 @@ impl App {
             .get(&active_id)
             .and_then(|e| e.pane.parser.grid.osc_title.as_deref());
         let pwd_in_right = self.config.status_bar.right.iter().any(|s| s == "%pwd");
-        let pane_title = pane_title_raw
-            .filter(|t| !(pwd_in_right && cwd_owned.as_deref().is_some_and(|cwd| *t == cwd)));
+        let pane_title =
+            statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_owned.as_deref());
         self.renderer.draw(
             pixels,
             w,

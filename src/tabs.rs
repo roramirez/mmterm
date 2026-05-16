@@ -67,6 +67,41 @@ pub fn needs_quit_confirm(tab_count: usize, total_pane_count: usize) -> bool {
     tab_count > 1 || total_pane_count > 1
 }
 
+/// Builds the display label for a tab entry in the tab bar.
+///
+/// `rename_buf` — `Some(buf)` when the tab is being renamed (overrides all other names).
+/// `osc_title`  — OSC 0/2 title set by the running process (pre-filtered: no `/` or `~` prefix).
+/// `name`       — user-assigned tab name.
+/// Falls back to `" {index+1} "` when no name is available.
+pub fn tab_label(
+    index: usize,
+    name: Option<&str>,
+    osc_title: Option<&str>,
+    is_active: bool,
+    rename_buf: Option<&str>,
+) -> String {
+    if is_active {
+        if let Some(buf) = rename_buf {
+            return format!(" {}| ", buf);
+        }
+    }
+    name.or(osc_title)
+        .map(|n| format!(" {} ", n))
+        .unwrap_or_else(|| format!(" {} ", index + 1))
+}
+
+/// Returns `true` when the cursor should be drawn in this pane.
+/// The cursor is only visible in Insert mode, on the live view (not scrolled),
+/// during the blink-on phase.
+pub fn should_show_cursor(
+    is_active: bool,
+    in_insert_mode: bool,
+    blink_visible: bool,
+    scroll_offset: usize,
+) -> bool {
+    is_active && in_insert_mode && blink_visible && scroll_offset == 0
+}
+
 #[cfg(test)]
 #[path = "tabs_test.rs"]
 mod tests;

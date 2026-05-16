@@ -137,3 +137,67 @@ fn single_tab_multiple_panes_needs_confirm() {
 fn multiple_tabs_multiple_panes_needs_confirm() {
     assert!(needs_quit_confirm(3, 3));
 }
+
+// ── tab_label ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn tab_label_defaults_to_1_indexed_number() {
+    assert_eq!(tab_label(0, None, None, false, None), " 1 ");
+    assert_eq!(tab_label(2, None, None, false, None), " 3 ");
+}
+
+#[test]
+fn tab_label_uses_user_name() {
+    assert_eq!(tab_label(0, Some("shell"), None, false, None), " shell ");
+}
+
+#[test]
+fn tab_label_uses_osc_title_when_no_user_name() {
+    assert_eq!(tab_label(0, None, Some("vim"), false, None), " vim ");
+}
+
+#[test]
+fn tab_label_user_name_takes_priority_over_osc() {
+    assert_eq!(
+        tab_label(0, Some("myshell"), Some("vim"), false, None),
+        " myshell "
+    );
+}
+
+#[test]
+fn tab_label_rename_buf_shown_when_active() {
+    assert_eq!(tab_label(0, None, None, true, Some("new")), " new| ");
+}
+
+#[test]
+fn tab_label_rename_buf_ignored_when_not_active() {
+    // rename_buf only applies to the active tab
+    assert_eq!(tab_label(0, None, None, false, Some("new")), " 1 ");
+}
+
+// ── should_show_cursor ────────────────────────────────────────────────────────
+
+#[test]
+fn cursor_shown_when_active_insert_blink_no_scroll() {
+    assert!(should_show_cursor(true, true, true, 0));
+}
+
+#[test]
+fn cursor_hidden_when_not_active() {
+    assert!(!should_show_cursor(false, true, true, 0));
+}
+
+#[test]
+fn cursor_hidden_when_not_insert_mode() {
+    assert!(!should_show_cursor(true, false, true, 0));
+}
+
+#[test]
+fn cursor_hidden_when_blink_off() {
+    assert!(!should_show_cursor(true, true, false, 0));
+}
+
+#[test]
+fn cursor_hidden_when_scrolled() {
+    assert!(!should_show_cursor(true, true, true, 5));
+}

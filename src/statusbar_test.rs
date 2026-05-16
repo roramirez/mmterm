@@ -78,3 +78,61 @@ fn all_segments_resolve_to_nothing_returns_none() {
     let segs = vec!["%pwd".to_string()];
     assert!(resolve(&segs, None, &fixed_now()).is_none());
 }
+
+// ── shorten_home ─────────────────────────────────────────────────────────────
+
+#[test]
+fn shorten_home_replaces_prefix() {
+    assert_eq!(shorten_home("/home/user/src", "/home/user"), "~/src");
+}
+
+#[test]
+fn shorten_home_exact_match() {
+    assert_eq!(shorten_home("/home/user", "/home/user"), "~");
+}
+
+#[test]
+fn shorten_home_no_match_returns_unchanged() {
+    assert_eq!(shorten_home("/tmp/foo", "/home/user"), "/tmp/foo");
+}
+
+#[test]
+fn shorten_home_empty_home_returns_unchanged() {
+    assert_eq!(shorten_home("/home/user/src", ""), "/home/user/src");
+}
+
+// ── pane_title_for_display ───────────────────────────────────────────────────
+
+#[test]
+fn pane_title_shown_when_pwd_not_in_right() {
+    assert_eq!(
+        pane_title_for_display(Some("vim"), false, Some("/src")),
+        Some("vim")
+    );
+}
+
+#[test]
+fn pane_title_shown_when_title_differs_from_cwd() {
+    assert_eq!(
+        pane_title_for_display(Some("vim"), true, Some("/src")),
+        Some("vim")
+    );
+}
+
+#[test]
+fn pane_title_suppressed_when_matches_cwd_and_pwd_in_right() {
+    assert_eq!(
+        pane_title_for_display(Some("/src"), true, Some("/src")),
+        None
+    );
+}
+
+#[test]
+fn pane_title_shown_when_no_cwd() {
+    assert_eq!(pane_title_for_display(Some("vim"), true, None), Some("vim"));
+}
+
+#[test]
+fn pane_title_none_input_returns_none() {
+    assert_eq!(pane_title_for_display(None, true, Some("/src")), None);
+}
