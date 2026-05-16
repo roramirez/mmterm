@@ -8,6 +8,18 @@ description = "A cross-platform terminal emulator with modal input (vim-style), 
 name = "mmterm"
 path = "src/main.rs"
 
+[lib]
+name = "mmterm"
+path = "src/lib.rs"
+
+[[bench]]
+name = "parser_throughput"
+harness = false
+
+[[bench]]
+name = "scroll_throughput"
+harness = false
+
 [dependencies]
 # Windowing (cross-platform: X11/Wayland on Linux, Cocoa on macOS)
 winit = "0.30"
@@ -62,6 +74,7 @@ base64 = "0.22.1"
 
 [dev-dependencies]
 tempfile = "3"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [profile.release]
 opt-level = 3
