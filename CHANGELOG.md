@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- DECSCUSR (`CSI Ps SP q`): cursor shape control — block (0–2), underline (3–4), beam (5–6); shape resets to block on alternate screen entry; fish, zsh vi-mode, and Neovim now change the cursor shape automatically
 - 4 px inner padding on all pane edges so text no longer touches the border
 - DSR (`CSI 6 n`) and DA (`CSI c`) query-response: terminal now replies with cursor position and VT100 device attributes, fixing hangs and layout errors in vim, less, and other TUI apps that probe the terminal on startup
 - DECSC/DECRC (`ESC 7` / `ESC 8`) now save and restore SGR attributes (colors, bold, dim, underline, reverse, blink, strikethrough) in addition to cursor position

@@ -863,3 +863,50 @@ fn write_char_no_italic_by_default() {
     p.process(b"A");
     assert!(!p.grid.cell(0, 0).italic);
 }
+
+#[test]
+fn decscusr_block_variants_set_block_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [0u16, 1, 2] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Block,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_underline_variants_set_underline_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [3u16, 4] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Underline,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_beam_variants_set_beam_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [5u16, 6] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Beam,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_resets_to_block_on_alternate_screen() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[5 q"); // beam
+    p.process(b"\x1b[?1049h"); // enter alt screen (resets shape)
+    assert_eq!(p.grid.cursor_shape, super::super::grid::CursorShape::Block);
+}

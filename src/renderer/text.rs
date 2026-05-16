@@ -1,6 +1,6 @@
 use super::glyph::GlyphCache;
 use crate::input::InputMode;
-use crate::terminal::grid::Cell;
+use crate::terminal::grid::{Cell, CursorShape};
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
@@ -26,6 +26,8 @@ pub struct PaneView<'a> {
     pub search_current: Option<usize>,
     /// URL currently hovered by the mouse; only cells with this URL get an underline.
     pub hovered_url: Option<&'a str>,
+    /// Cursor shape requested by the running program via DECSCUSR.
+    pub cursor_shape: CursorShape,
 }
 
 /// Cell layout metrics derived from a specific font size.
@@ -281,7 +283,8 @@ impl Renderer {
                     (cell.fg, cell.bg)
                 };
 
-                let bg = if is_cursor {
+                let block_cursor = is_cursor && pane.cursor_shape == CursorShape::Block;
+                let bg = if block_cursor {
                     grid.cursor_color
                 } else if is_current_match {
                     theme.search_current
@@ -292,7 +295,7 @@ impl Renderer {
                 } else {
                     cell_bg
                 };
-                let fg = if is_cursor {
+                let fg = if block_cursor {
                     Color::BLACK
                 } else if in_match {
                     SEARCH_MATCH_FG
@@ -441,6 +444,46 @@ impl Renderer {
                                 buf[idx] = st_color;
                             }
                         }
+                    }
+                }
+
+                // Non-block cursor overlay (beam or underline).
+                if is_cursor && pane.cursor_shape != CursorShape::Block {
+                    let cur32 = color_u32(grid.cursor_color);
+                    match pane.cursor_shape {
+                        CursorShape::Beam => {
+                            // 1px vertical bar on the left edge of the cell
+                            for dy in 0..m.cell_height {
+                                let sy = cell_y + dy;
+                                if sy >= ry + rh {
+                                    break;
+                                }
+                                let idx = (sy * buf_width + cell_x) as usize;
+                                if idx < buf.len() {
+                                    buf[idx] = cur32;
+                                }
+                            }
+                        }
+                        CursorShape::Underline => {
+                            // 2px horizontal bar at the bottom of the cell
+                            for dy in 0..2u32 {
+                                let sy = cell_y + m.cell_height.saturating_sub(2) + dy;
+                                if sy >= ry + rh {
+                                    break;
+                                }
+                                for dx in 0..draw_w {
+                                    let sx = cell_x + dx;
+                                    if sx >= rx + rw {
+                                        break;
+                                    }
+                                    let idx = (sy * buf_width + sx) as usize;
+                                    if idx < buf.len() {
+                                        buf[idx] = cur32;
+                                    }
+                                }
+                            }
+                        }
+                        CursorShape::Block => unreachable!(),
                     }
                 }
 
@@ -1215,7 +1258,7 @@ mod tests {
     use crate::InputMode;
     use crate::config::Config;
     use crate::terminal::Grid;
-    use crate::terminal::grid::{Color, GridColors};
+    use crate::terminal::grid::{Color, CursorShape, GridColors};
     use crate::theme::default_theme;
     use crate::tui_config::ConfigPanel;
 
@@ -1388,6 +1431,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         let mut buf = vec![0u32; 800 * 600];
         let theme = default_theme();
@@ -1726,6 +1770,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         }
     }
 
@@ -1789,6 +1834,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -1812,6 +1858,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         let mode = InputMode::Visual {
             start_col: 0,
@@ -1845,6 +1892,7 @@ mod tests {
             search_matches: &matches,
             search_current: Some(0),
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -1998,6 +2046,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2018,6 +2067,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2067,6 +2117,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2109,6 +2160,7 @@ mod tests {
             search_matches: &matches,
             search_current: Some(1), // match 0 → non-current, match 1 → current
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2132,6 +2184,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2278,6 +2331,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         // Must not panic — actual pixel inspection is left to integration testing.
         do_draw(&mut r, &m, &[pane], &mode);
@@ -2307,6 +2361,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &mode);
     }
@@ -2339,6 +2394,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         let mut buf = vec![0u32; 800 * 600];
         let theme = default_theme();

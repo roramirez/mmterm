@@ -925,6 +925,7 @@ impl App {
                     search_matches: sm,
                     search_current: sc,
                     hovered_url: self.hovered_url.as_deref(),
+                    cursor_shape: entry.pane.parser.grid.cursor_shape,
                 }]
             } else {
                 vec![]
@@ -956,6 +957,7 @@ impl App {
                         search_matches: sm,
                         search_current: sc,
                         hovered_url: self.hovered_url.as_deref(),
+                        cursor_shape: entry.pane.parser.grid.cursor_shape,
                     })
                 })
                 .collect()

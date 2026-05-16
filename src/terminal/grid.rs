@@ -1,6 +1,16 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+/// DECSCUSR cursor shape (CSI Ps SP q).
+/// Blinking variants use the existing blink_visible flag in PaneView.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum CursorShape {
+    #[default]
+    Block,
+    Underline,
+    Beam,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
@@ -134,6 +144,8 @@ pub struct Grid {
     pub application_cursor_keys: bool,
     // DECTCEM: cursor visibility
     pub cursor_visible: bool,
+    // DECSCUSR: cursor shape set by the running program
+    pub cursor_shape: CursorShape,
     // Bracketed paste mode (?2004)
     pub bracketed_paste: bool,
     // Mouse reporting mode: 0=off, 1000=click, 1002=button-motion, 1003=any-motion
@@ -211,6 +223,7 @@ impl Grid {
             palette,
             application_cursor_keys: false,
             cursor_visible: true,
+            cursor_shape: CursorShape::Block,
             bracketed_paste: false,
             mouse_mode: 0,
             mouse_sgr: false,
@@ -251,6 +264,7 @@ impl Grid {
         self.cursor_col = 0;
         self.cursor_row = 0;
         self.cursor_visible = true;
+        self.cursor_shape = CursorShape::Block;
         self.scroll_top = 0;
         self.scroll_bottom = self.rows - 1;
         self.fg = self.default_fg;

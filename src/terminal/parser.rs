@@ -1,4 +1,4 @@
-use super::grid::{Color, Grid, GridColors};
+use super::grid::{Color, CursorShape, Grid, GridColors};
 use vte::{Params, Parser, Perform};
 
 pub struct TerminalParser {
@@ -333,6 +333,18 @@ impl Perform for Performer<'_> {
             // CSI c  or  CSI 0 c  →  CSI ? 1 ; 0 c
             'c' if p0 == 0 => {
                 self.grid.pending_responses.extend_from_slice(b"\x1b[?1;0c");
+            }
+            // DECSCUSR: set cursor shape (CSI Ps SP q, intermediate = space)
+            // 0/1 = blinking block, 2 = steady block,
+            // 3 = blinking underline, 4 = steady underline,
+            // 5 = blinking beam, 6 = steady beam
+            'q' if intermediates == b" " => {
+                self.grid.cursor_shape = match p0 {
+                    0 | 1 | 2 => CursorShape::Block,
+                    3 | 4 => CursorShape::Underline,
+                    5 | 6 => CursorShape::Beam,
+                    _ => CursorShape::Block,
+                };
             }
             // Set scroll region
             'r' => {
