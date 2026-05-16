@@ -1,33 +1,51 @@
 use chrono::{DateTime, Local};
 
-/// Builds the right-side status bar text from a list of segment tokens.
+/// Builds the right-side status bar text from a format string.
 ///
-/// Supported tokens:
+/// Supported tokens (substituted in place):
 /// - `%date{fmt}` — current time formatted with strftime-style `fmt`
-/// - `%pwd`       — replaced with `cwd` when present
-/// - anything else — rendered verbatim
+/// - `%pwd`       — replaced with `cwd` when present, or removed (with surrounding space) when absent
 ///
-/// Returns `None` when `segments` is empty or all segments resolve to nothing.
-pub fn resolve(segments: &[String], cwd: Option<&str>, now: &DateTime<Local>) -> Option<String> {
-    if segments.is_empty() {
+/// Literal text and spaces between tokens are preserved as-is.
+/// Returns `None` when `template` is empty or resolves to an empty string.
+pub fn resolve(template: &str, cwd: Option<&str>, now: &DateTime<Local>) -> Option<String> {
+    if template.is_empty() {
         return None;
     }
-    let mut parts: Vec<String> = Vec::new();
-    for seg in segments {
-        if let Some(fmt) = seg.strip_prefix("%date{").and_then(|s| s.strip_suffix('}')) {
-            parts.push(now.format(fmt).to_string());
-        } else if seg == "%pwd" {
-            if let Some(p) = cwd {
-                parts.push(p.to_string());
+    let mut result = String::with_capacity(template.len());
+    let mut rest = template;
+    while !rest.is_empty() {
+        if let Some(after) = rest.strip_prefix("%pwd") {
+            match cwd {
+                Some(p) => result.push_str(p),
+                None => {
+                    // remove a trailing space that would be left behind
+                    if result.ends_with(' ') {
+                        result.pop();
+                    }
+                }
+            }
+            rest = after;
+        } else if let Some(inner) = rest.strip_prefix("%date{") {
+            if let Some(close) = inner.find('}') {
+                let fmt = &inner[..close];
+                result.push_str(&now.format(fmt).to_string());
+                rest = &inner[close + 1..];
+            } else {
+                result.push_str("%date{");
+                rest = inner;
             }
         } else {
-            parts.push(seg.clone());
+            let next = rest.find('%').unwrap_or(rest.len());
+            result.push_str(&rest[..next]);
+            rest = &rest[next..];
         }
     }
-    if parts.is_empty() {
+    let trimmed = result.trim();
+    if trimmed.is_empty() {
         None
     } else {
-        Some(parts.join("  "))
+        Some(trimmed.to_string())
     }
 }
 

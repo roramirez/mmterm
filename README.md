@@ -89,7 +89,7 @@ auto_log = false          # start logging automatically for every new pane
 log_dir  = ""             # destination directory (empty = ~/.mmterm)
 
 [status_bar]
-right = "%pwd  %date{%H:%M}"  # right-side segments (%pwd = OSC 7 cwd, %date{fmt} = strftime)
+right = "%pwd  %date{%H:%M}"  # format string (%pwd = OSC 7 cwd, %date{fmt} = strftime)
 
 [theme]
 name = "default"          # see ~/.config/mmterm/themes/ for available themes

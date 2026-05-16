@@ -1031,7 +1031,7 @@ impl App {
             .panes
             .get(&active_id)
             .and_then(|e| e.pane.parser.grid.osc_title.as_deref());
-        let pwd_in_right = self.config.status_bar.right.iter().any(|s| s == "%pwd");
+        let pwd_in_right = self.config.status_bar.right.contains("%pwd");
         let pane_title =
             statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_owned.as_deref());
         self.renderer.draw(

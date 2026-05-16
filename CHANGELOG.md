@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- status bar `right` config option is now a format string (e.g. `"%pwd  %date{%H:%M}"`) instead of an array; spaces and literal text between tokens are preserved as-is
+
 ## [0.3.0] - 2026-05-16
 
 ### Added

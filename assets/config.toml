@@ -25,9 +25,9 @@ auto_log = false
 log_dir  = ""
 
 [status_bar]
-# Right-side segments. Supported tokens: %pwd (OSC 7 cwd), %date{fmt} (strftime format).
-# Example: right = ["%pwd", "%date{%H:%M}"]
-right = ["%pwd"]
+# Right-side format string. Supported tokens: %pwd (OSC 7 cwd), %date{fmt} (strftime format).
+# Example: right = "%pwd  %date{%H:%M}"
+right = "%pwd"
 
 [colors]
 background = "#121212"

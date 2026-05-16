@@ -8,75 +8,74 @@ fn fixed_now() -> chrono::DateTime<chrono::Local> {
 }
 
 #[test]
-fn empty_segments_returns_none() {
-    assert!(resolve(&[], None, &fixed_now()).is_none());
+fn empty_template_returns_none() {
+    assert!(resolve("", None, &fixed_now()).is_none());
 }
 
 #[test]
-fn literal_segment_rendered_verbatim() {
-    let segs = vec!["hello".to_string()];
+fn literal_text_rendered_verbatim() {
     assert_eq!(
-        resolve(&segs, None, &fixed_now()),
+        resolve("hello", None, &fixed_now()),
         Some("hello".to_string())
     );
 }
 
 #[test]
-fn pwd_segment_with_cwd_present() {
-    let segs = vec!["%pwd".to_string()];
+fn pwd_token_with_cwd_present() {
     assert_eq!(
-        resolve(&segs, Some("/home/user"), &fixed_now()),
+        resolve("%pwd", Some("/home/user"), &fixed_now()),
         Some("/home/user".to_string())
     );
 }
 
 #[test]
-fn pwd_segment_without_cwd_produces_nothing() {
-    let segs = vec!["%pwd".to_string()];
-    assert!(resolve(&segs, None, &fixed_now()).is_none());
+fn pwd_token_without_cwd_returns_none() {
+    assert!(resolve("%pwd", None, &fixed_now()).is_none());
 }
 
 #[test]
-fn date_segment_formats_correctly() {
-    let segs = vec!["%date{%Y-%m-%d}".to_string()];
+fn date_token_formats_date() {
     assert_eq!(
-        resolve(&segs, None, &fixed_now()),
+        resolve("%date{%Y-%m-%d}", None, &fixed_now()),
         Some("2026-01-15".to_string())
     );
 }
 
 #[test]
-fn date_time_segment_formats_time() {
-    let segs = vec!["%date{%H:%M}".to_string()];
+fn date_token_formats_time() {
     assert_eq!(
-        resolve(&segs, None, &fixed_now()),
+        resolve("%date{%H:%M}", None, &fixed_now()),
         Some("12:30".to_string())
     );
 }
 
 #[test]
-fn multiple_segments_joined_with_double_space() {
-    let segs = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+fn template_preserves_literal_spaces_between_tokens() {
     assert_eq!(
-        resolve(&segs, None, &fixed_now()),
-        Some("a  b  c".to_string())
+        resolve("%pwd  |  %date{%H:%M}", Some("/src"), &fixed_now()),
+        Some("/src  |  12:30".to_string())
+    );
+}
+
+#[test]
+fn pwd_token_removed_strips_trailing_space() {
+    assert_eq!(
+        resolve("%pwd %date{%H:%M}", None, &fixed_now()),
+        Some("12:30".to_string())
     );
 }
 
 #[test]
 fn pwd_and_literal_combined() {
-    let segs = vec!["%pwd".to_string(), "branch".to_string()];
     assert_eq!(
-        resolve(&segs, Some("/src"), &fixed_now()),
+        resolve("%pwd  branch", Some("/src"), &fixed_now()),
         Some("/src  branch".to_string())
     );
 }
 
 #[test]
-fn all_segments_resolve_to_nothing_returns_none() {
-    // Only %pwd with no cwd → nothing
-    let segs = vec!["%pwd".to_string()];
-    assert!(resolve(&segs, None, &fixed_now()).is_none());
+fn only_pwd_no_cwd_returns_none() {
+    assert!(resolve("%pwd", None, &fixed_now()).is_none());
 }
 
 // ── shorten_home ─────────────────────────────────────────────────────────────

@@ -252,12 +252,25 @@ fn terminal_config_default_scrollback_is_ten_thousand() {
 
 #[test]
 fn default_status_bar_right_returns_pwd_token() {
-    let v = default_status_bar_right();
-    assert_eq!(v, vec!["%pwd".to_string()]);
+    assert_eq!(default_status_bar_right(), "%pwd");
 }
 
 #[test]
 fn status_bar_config_default_has_pwd_token() {
     let cfg = StatusBarConfig::default();
-    assert_eq!(cfg.right, vec!["%pwd".to_string()]);
+    assert_eq!(cfg.right, "%pwd");
+}
+
+#[test]
+fn status_bar_right_parses_string() {
+    let toml = r#"right = "%pwd  %date{%H:%M}""#;
+    let cfg: StatusBarConfig = toml::from_str(toml).unwrap();
+    assert_eq!(cfg.right, "%pwd  %date{%H:%M}");
+}
+
+#[test]
+fn status_bar_right_preserves_spaces() {
+    let toml = r#"right = "%pwd  |  %date{%H:%M}""#;
+    let cfg: StatusBarConfig = toml::from_str(toml).unwrap();
+    assert_eq!(cfg.right, "%pwd  |  %date{%H:%M}");
 }

@@ -36,14 +36,14 @@ pub struct Config {
     pub status_bar: StatusBarConfig,
 }
 
-fn default_status_bar_right() -> Vec<String> {
-    vec!["%pwd".to_string()]
+fn default_status_bar_right() -> String {
+    "%pwd".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusBarConfig {
     #[serde(default = "default_status_bar_right")]
-    pub right: Vec<String>,
+    pub right: String,
 }
 
 impl Default for StatusBarConfig {

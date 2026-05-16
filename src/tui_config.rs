@@ -231,8 +231,8 @@ impl ConfigPanel {
         // ── Status Bar ──────────────────────────────────────────────────────
         fields.push(Field {
             label: "Status Bar Right",
-            hint: "comma-separated segments: %pwd, %date{%H:%M:%S}",
-            value: cfg.status_bar.right.join(", "),
+            hint: "format string: %pwd  %date{%H:%M:%S}",
+            value: cfg.status_bar.right.clone(),
             kind: FieldKind::OptText,
             section: Some("Status Bar"),
         });
@@ -463,11 +463,7 @@ impl ConfigPanel {
 
         let palette: Vec<String> = (0..16).map(|i| get(F_PALETTE + i)).collect();
 
-        let status_bar_right: Vec<String> = get(F_STATUS_BAR_RIGHT)
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
+        let status_bar_right = get(F_STATUS_BAR_RIGHT);
 
         Ok(Config {
             font: FontConfig { family, size },
