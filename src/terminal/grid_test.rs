@@ -372,6 +372,87 @@ fn scroll_down_multiple_lines_shifts_content() {
     assert_eq!(g.cell(0, 2).c, 'A');
 }
 
+#[test]
+fn scroll_up_moves_all_rows_to_correct_position() {
+    // 4 cols × 4 rows: write a distinct char in col 0 of each row, scroll up.
+    // After scroll: row 0 = old row 1, row 1 = old row 2, row 2 = old row 3, row 3 = blank.
+    let mut g = make_grid(4, 4);
+    for (row, c) in "ABCD".chars().enumerate() {
+        g.cursor_col = 0;
+        g.cursor_row = row;
+        g.write_char(c);
+    }
+    g.scroll_up(1);
+    assert_eq!(g.cell(0, 0).c, 'B');
+    assert_eq!(g.cell(0, 1).c, 'C');
+    assert_eq!(g.cell(0, 2).c, 'D');
+    assert_eq!(g.cell(0, 3).c, ' ');
+    // Old row 0 ('A') must be in scrollback.
+    assert_eq!(g.scrollback[0][0].c, 'A');
+}
+
+#[test]
+fn scroll_down_moves_all_rows_to_correct_position() {
+    // 4 cols × 4 rows: write a distinct char in col 0 of each row, scroll down.
+    // After scroll: row 0 = blank, row 1 = old row 0, row 2 = old row 1, row 3 = old row 2.
+    let mut g = make_grid(4, 4);
+    for (row, c) in "ABCD".chars().enumerate() {
+        g.cursor_col = 0;
+        g.cursor_row = row;
+        g.write_char(c);
+    }
+    g.scroll_down(1);
+    assert_eq!(g.cell(0, 0).c, ' ');
+    assert_eq!(g.cell(0, 1).c, 'A');
+    assert_eq!(g.cell(0, 2).c, 'B');
+    assert_eq!(g.cell(0, 3).c, 'C');
+}
+
+#[test]
+fn scroll_up_within_region_moves_content_correctly() {
+    // 5 cols × 5 rows, scroll region rows 2‥4 (scroll_top=2, scroll_bottom=4).
+    // Row 0 and row 1 must stay untouched; rows 2‥4 shift up by one.
+    let mut g = make_grid(5, 5);
+    g.scroll_top = 2;
+    g.scroll_bottom = 4;
+    for (row, c) in "ABCDE".chars().enumerate() {
+        g.cursor_col = 0;
+        g.cursor_row = row;
+        g.write_char(c);
+    }
+    g.scroll_up(1);
+    // Outside the scroll region — unchanged.
+    assert_eq!(g.cell(0, 0).c, 'A');
+    assert_eq!(g.cell(0, 1).c, 'B');
+    // Inside the region — shifted up by one.
+    assert_eq!(g.cell(0, 2).c, 'D'); // old row 3
+    assert_eq!(g.cell(0, 3).c, 'E'); // old row 4
+    assert_eq!(g.cell(0, 4).c, ' '); // new blank bottom row
+    // scroll_top != 0 → no scrollback.
+    assert_eq!(g.scrollback_len(), 0);
+}
+
+#[test]
+fn scroll_down_within_region_moves_content_correctly() {
+    // 5 cols × 5 rows, scroll region rows 1‥3.
+    let mut g = make_grid(5, 5);
+    g.scroll_top = 1;
+    g.scroll_bottom = 3;
+    for (row, c) in "ABCDE".chars().enumerate() {
+        g.cursor_col = 0;
+        g.cursor_row = row;
+        g.write_char(c);
+    }
+    g.scroll_down(1);
+    // Outside the region — unchanged.
+    assert_eq!(g.cell(0, 0).c, 'A');
+    assert_eq!(g.cell(0, 4).c, 'E');
+    // Inside the region — shifted down.
+    assert_eq!(g.cell(0, 1).c, ' '); // new blank top row
+    assert_eq!(g.cell(0, 2).c, 'B'); // old row 1
+    assert_eq!(g.cell(0, 3).c, 'C'); // old row 2
+}
+
 fn write_str(g: &mut Grid, s: &str) {
     for c in s.chars() {
         g.write_char(c);

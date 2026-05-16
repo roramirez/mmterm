@@ -60,6 +60,9 @@ struct App {
     proxy: EventLoopProxy<()>,
     surface_size: (u32, u32),
     wakeup_pending: Arc<AtomicBool>,
+    /// Timestamp of the last frame where PTY data was actually consumed.
+    /// Used to drive a vsync-style render loop while output is flowing.
+    last_pty_data: Option<Instant>,
 }
 
 impl App {
@@ -82,6 +85,7 @@ impl App {
             proxy,
             surface_size: (0, 0),
             wakeup_pending,
+            last_pty_data: None,
         }
     }
 
@@ -299,6 +303,12 @@ impl App {
                     tab.bell_flash_until = Some(Instant::now() + Duration::from_millis(100));
                 }
             }
+        }
+        if has_more {
+            self.last_pty_data = Some(Instant::now());
+        } else {
+            // No more pending data — stop the vsync loop.
+            self.last_pty_data = None;
         }
         (exited, has_more)
     }
@@ -1375,6 +1385,18 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        const FRAME_16MS: Duration = Duration::from_millis(16);
+
+        // While PTY data is flowing, keep rendering at ~60fps so output
+        // appears progressively instead of in large batches.
+        if self.last_pty_data.is_some() {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+            event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + FRAME_16MS));
+            return;
+        }
+
         let blink_dur = Duration::from_millis(self.state.config.window.cursor_blink_ms as u64);
         let elapsed = self.state.blink_last.elapsed();
         if elapsed >= blink_dur {

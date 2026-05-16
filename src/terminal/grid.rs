@@ -410,22 +410,21 @@ impl Grid {
         let cols = self.cols;
         let blank = self.erase_cell();
         for _ in 0..n {
+            // Save the top row to scrollback before it is overwritten.
             if top == 0 {
-                let line: Vec<Cell> = (0..cols)
-                    .map(|c| self.cells[top * cols + c].clone())
-                    .collect();
+                let line = self.cells[..cols].to_vec();
                 self.scrollback.push_back(line);
                 if self.scrollback.len() > self.scrollback_max {
                     self.scrollback.pop_front();
                 }
             }
-            for r in top..bot {
-                for c in 0..cols {
-                    self.cells[r * cols + c] = self.cells[(r + 1) * cols + c].clone();
-                }
-            }
-            for c in 0..cols {
-                self.cells[bot * cols + c] = blank.clone();
+            // Shift rows top..bot upward by one using a rotation. rotate_left
+            // moves elements without cloning (ptr::copy internally), so the
+            // only Clone calls are the 'cols' blank fills below.
+            self.cells[top * cols..(bot + 1) * cols].rotate_left(cols);
+            // Clear the bottom row (now holds stale content after rotation).
+            for cell in &mut self.cells[bot * cols..(bot + 1) * cols] {
+                *cell = blank.clone();
             }
         }
     }
@@ -436,13 +435,11 @@ impl Grid {
         let cols = self.cols;
         let blank = self.erase_cell();
         for _ in 0..n {
-            for r in (top..bot).rev() {
-                for c in 0..cols {
-                    self.cells[(r + 1) * cols + c] = self.cells[r * cols + c].clone();
-                }
-            }
-            for c in 0..cols {
-                self.cells[top * cols + c] = blank.clone();
+            // Shift rows top..bot downward by one using a rotation.
+            self.cells[top * cols..(bot + 1) * cols].rotate_right(cols);
+            // Clear the top row (now holds stale content after rotation).
+            for cell in &mut self.cells[top * cols..(top + 1) * cols] {
+                *cell = blank.clone();
             }
         }
     }
