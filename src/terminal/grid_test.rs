@@ -305,14 +305,16 @@ fn write_char_stamps_strikethrough_attribute() {
 }
 
 #[test]
-fn write_char_reverse_swaps_fg_and_bg() {
+fn write_char_reverse_stores_original_colors_and_sets_flag() {
+    // Colors are stored as-is; the renderer does the swap based on cell.reverse.
     let mut g = make_grid(10, 5);
     let original_fg = g.fg;
     let original_bg = g.bg;
     g.reverse = true;
     g.write_char('X');
-    assert_eq!(g.cell(0, 0).fg, original_bg);
-    assert_eq!(g.cell(0, 0).bg, original_fg);
+    assert_eq!(g.cell(0, 0).fg, original_fg);
+    assert_eq!(g.cell(0, 0).bg, original_bg);
+    assert!(g.cell(0, 0).reverse);
 }
 
 #[test]

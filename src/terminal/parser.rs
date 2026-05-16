@@ -1,4 +1,6 @@
-use super::grid::{Color, Grid, GridColors};
+use super::grid::{Color, CursorShape, Grid, GridColors};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use vte::{Params, Parser, Perform};
 
 pub struct TerminalParser {
@@ -168,8 +170,10 @@ impl Perform for Performer<'_> {
                     self.grid.bg = self.grid.default_bg;
                     self.grid.bold = false;
                     self.grid.dim = false;
+                    self.grid.italic = false;
                     self.grid.underline = false;
                     self.grid.strikethrough = false;
+                    self.grid.overline = false;
                     self.grid.reverse = false;
                     self.grid.blink = false;
                     return;
@@ -182,6 +186,7 @@ impl Perform for Performer<'_> {
                             self.grid.bg = self.grid.default_bg;
                             self.grid.bold = false;
                             self.grid.dim = false;
+                            self.grid.italic = false;
                             self.grid.underline = false;
                             self.grid.strikethrough = false;
                             self.grid.reverse = false;
@@ -189,18 +194,22 @@ impl Perform for Performer<'_> {
                         }
                         1 => self.grid.bold = true,
                         2 => self.grid.dim = true,
+                        3 => self.grid.italic = true,
                         4 => self.grid.underline = true,
                         5 => self.grid.blink = true,
                         7 => self.grid.reverse = true,
                         9 => self.grid.strikethrough = true,
+                        53 => self.grid.overline = true,
                         22 => {
                             self.grid.bold = false;
                             self.grid.dim = false;
                         }
+                        23 => self.grid.italic = false,
                         24 => self.grid.underline = false,
                         25 => self.grid.blink = false,
                         27 => self.grid.reverse = false,
                         29 => self.grid.strikethrough = false,
+                        55 => self.grid.overline = false,
                         // Standard foreground colors 30-37
                         n @ 30..=37 => self.grid.fg = self.grid.palette[(n - 30) as usize],
                         39 => self.grid.fg = self.grid.default_fg,
@@ -315,6 +324,33 @@ impl Perform for Performer<'_> {
                 let row = p0.saturating_sub(1) as usize;
                 self.grid.cursor_row = row.min(self.grid.rows - 1);
             }
+            // DSR: Device Status Report — respond with active cursor position
+            // CSI 6 n  →  CSI row ; col R  (1-indexed)
+            'n' if p0 == 6 => {
+                let row = self.grid.cursor_row + 1;
+                let col = self.grid.cursor_col + 1;
+                let resp = format!("\x1b[{row};{col}R");
+                self.grid
+                    .pending_responses
+                    .extend_from_slice(resp.as_bytes());
+            }
+            // DA: Device Attributes — report as VT100 with no options
+            // CSI c  or  CSI 0 c  →  CSI ? 1 ; 0 c
+            'c' if p0 == 0 => {
+                self.grid.pending_responses.extend_from_slice(b"\x1b[?1;0c");
+            }
+            // DECSCUSR: set cursor shape (CSI Ps SP q, intermediate = space)
+            // 0/1 = blinking block, 2 = steady block,
+            // 3 = blinking underline, 4 = steady underline,
+            // 5 = blinking beam, 6 = steady beam
+            'q' if intermediates == b" " => {
+                self.grid.cursor_shape = match p0 {
+                    0..=2 => CursorShape::Block,
+                    3 | 4 => CursorShape::Underline,
+                    5 | 6 => CursorShape::Beam,
+                    _ => CursorShape::Block,
+                };
+            }
             // Set scroll region
             'r' => {
                 let top = p0.saturating_sub(1) as usize;
@@ -361,6 +397,16 @@ impl Perform for Performer<'_> {
                 self.grid.current_url = Some(std::sync::Arc::new(s.to_string()));
             }
         }
+        // OSC 52: clipboard access — OSC 52 ; <sel> ; <base64|?> ST
+        // Write: data is base64-encoded text; Read: data is "?"
+        if let [b"52", _sel, data] = params {
+            if *data == b"?" {
+                self.grid.pending_clipboard_read = true;
+            } else if let Ok(decoded) = BASE64.decode(data)
+                && let Ok(text) = std::str::from_utf8(&decoded) {
+                    self.grid.pending_clipboard_write = Some(text.to_string());
+                }
+        }
     }
     fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {}
     fn put(&mut self, _byte: u8) {}
@@ -376,14 +422,12 @@ impl Perform for Performer<'_> {
                 }
             }
             ([], b'7') => {
-                // DECSC: save cursor position
-                self.grid.saved_cursor_col = self.grid.cursor_col;
-                self.grid.saved_cursor_row = self.grid.cursor_row;
+                // DECSC: save cursor position and SGR attributes
+                self.grid.save_cursor();
             }
             ([], b'8') => {
-                // DECRC: restore cursor position
-                self.grid.cursor_col = self.grid.saved_cursor_col.min(self.grid.cols - 1);
-                self.grid.cursor_row = self.grid.saved_cursor_row.min(self.grid.rows - 1);
+                // DECRC: restore cursor position and SGR attributes
+                self.grid.restore_cursor();
             }
             _ => {}
         }

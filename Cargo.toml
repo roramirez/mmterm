@@ -58,6 +58,7 @@ log = "0.4"
 env_logger = "0.11"
 fern = "0.7"
 chrono = "0.4"
+base64 = "0.22.1"
 
 [dev-dependencies]
 tempfile = "3"

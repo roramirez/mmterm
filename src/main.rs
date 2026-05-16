@@ -23,6 +23,7 @@ pub use app_state::{AppEffect, AppState, PaneEntry, TabState};
 mod tests;
 
 use arboard::Clipboard;
+use base64::Engine as _;
 use chrono::Local;
 use config::Config;
 use crossbeam_channel::unbounded;
@@ -45,7 +46,7 @@ use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 use crate::input::keybindings::Action;
 use crate::terminal::grid::GridColors;
 use crate::theme::{default_theme, install_bundled_themes, load_theme, themes_dir};
-use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
+use crate::ui::layout::{PANE_PADDING, STATUS_BAR_H, TAB_BAR_H};
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
@@ -105,7 +106,10 @@ impl App {
         let id = self.state.next_pane_id;
         self.state.next_pane_id += 1;
         let [_, _, w, h] = rect;
-        let (cols, rows) = self.state.tabs[tab_idx].metrics.grid_size_for(w, h);
+        let pad2 = PANE_PADDING * 2;
+        let (cols, rows) = self.state.tabs[tab_idx]
+            .metrics
+            .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.state.theme;
         let pane = Pane::new_with_colors(
             cols,
@@ -248,6 +252,28 @@ impl App {
                                 let _ = f.write_all(&bytes);
                             }
                             entry.pane.process(&bytes);
+                            let responses =
+                                std::mem::take(&mut entry.pane.parser.grid.pending_responses);
+                            if !responses.is_empty() {
+                                let _ = entry.pty.write_input(&responses);
+                            }
+                            if let Some(text) =
+                                entry.pane.parser.grid.pending_clipboard_write.take()
+                                && let Some(cb) = self.state.clipboard.as_mut() {
+                                    let _ = cb.set_text(text);
+                                }
+                            if std::mem::take(&mut entry.pane.parser.grid.pending_clipboard_read) {
+                                let text = self
+                                    .state
+                                    .clipboard
+                                    .as_mut()
+                                    .and_then(|cb| cb.get_text().ok())
+                                    .unwrap_or_default();
+                                let encoded = base64::engine::general_purpose::STANDARD
+                                    .encode(text.as_bytes());
+                                let resp = format!("\x1b]52;c;{encoded}\x1b\\");
+                                let _ = entry.pty.write_input(resp.as_bytes());
+                            }
                             got_data = true;
                             if bytes_this_frame >= BYTES_PER_FRAME {
                                 has_more = true;
@@ -307,7 +333,10 @@ impl App {
         for (id, rect) in rects {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
-                let (cols, rows) = tab.metrics.grid_size_for(w, h);
+                let pad2 = PANE_PADDING * 2;
+                let (cols, rows) = tab
+                    .metrics
+                    .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
                 if entry.pane.parser.grid.cols != cols || entry.pane.parser.grid.rows != rows {
                     entry.pane.resize(cols, rows, rect);
                     let _ = entry.pty.resize(cols as u16, rows as u16);
@@ -914,6 +943,7 @@ impl App {
                     search_matches: sm,
                     search_current: sc,
                     hovered_url: self.state.hovered_url.as_deref(),
+                    cursor_shape: entry.pane.parser.grid.cursor_shape,
                 }]
             } else {
                 vec![]
@@ -945,6 +975,7 @@ impl App {
                         search_matches: sm,
                         search_current: sc,
                         hovered_url: self.state.hovered_url.as_deref(),
+                        cursor_shape: entry.pane.parser.grid.cursor_shape,
                     })
                 })
                 .collect()

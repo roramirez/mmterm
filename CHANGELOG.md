@@ -5,7 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- reverse video (`\e[7m`) was invisible: `write_char` pre-swapped fg/bg and the renderer swapped again, cancelling the effect; now only the renderer swaps based on `cell.reverse`
+
 ### Added
+- SGR overline (`\e[53m` / `\e[55m`): parse, store on cells, and render as a 1px line at the top of the cell
+- OSC 52 clipboard sync: write (`OSC 52;c;<base64> ST`) copies decoded text to the host clipboard; read (`OSC 52;c;? ST`) replies with current clipboard content encoded as base64 — enables copy/paste from remote SSH sessions
+- DECSCUSR (`CSI Ps SP q`): cursor shape control — block (0–2), underline (3–4), beam (5–6); shape resets to block on alternate screen entry; fish, zsh vi-mode, and Neovim now change the cursor shape automatically
+- 4 px inner padding on all pane edges so text no longer touches the border
+- DSR (`CSI 6 n`) and DA (`CSI c`) query-response: terminal now replies with cursor position and VT100 device attributes, fixing hangs and layout errors in vim, less, and other TUI apps that probe the terminal on startup
+- DECSC/DECRC (`ESC 7` / `ESC 8`) now save and restore SGR attributes (colors, bold, dim, underline, reverse, blink, strikethrough) in addition to cursor position
+- SGR italic (`\e[3m` / `\e[23m`): parse, store on cells, and render using italic font variant; bundles JetBrainsMono Italic and Bold Italic as fallback when the system font has no italic
 - visual mode: vim-style scrollback selection — navigate freely with `hjkl`/arrows (scrolls at boundaries), press `v` to set the anchor, extend with `w`/`b`/`e` word motions, then `y`/`Ctrl+C` to copy; `Y` yanks the current line, `o` swaps anchor and cursor
 - configurable status bar right segments via `[status_bar] right` in config; supports `%pwd` (OSC 7 cwd) and `%date{fmt}` (strftime) tokens
 - `Ctrl+Q` shows a confirmation overlay when multiple tabs or panes are open; single-pane sessions exit immediately
@@ -20,6 +30,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--debug` flag: writes `DEBUG`-level logs to `~/.mmterm/debug-<timestamp>.log`; panic hook prints the log path on crash
 
 ### Fixed
+- Shift+Tab now sends the correct backtab sequence (`\x1b[Z`) to the PTY instead of a plain tab byte
 - OSC 8 hyperlinks always show a dim blue underline; underline brightens on hover
 - config panel navigation and edits now redraw immediately instead of waiting for the cursor-blink timer
 

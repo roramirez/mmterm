@@ -728,3 +728,246 @@ fn osc_title_empty_string_clears_title() {
     p.process(b"\x1b]2;\x07");
     assert!(p.grid.osc_title.is_none());
 }
+
+#[test]
+fn dsr_reports_cursor_position() {
+    let mut p = make_parser(80, 24);
+    // Move cursor to row 3, col 5 (0-indexed), then send DSR
+    p.process(b"\x1b[4;6H"); // CSI 4;6 H → row=3, col=5 (1-indexed input)
+    p.process(b"\x1b[6n"); // CSI 6 n → DSR request
+    assert_eq!(p.grid.pending_responses, b"\x1b[4;6R");
+}
+
+#[test]
+fn dsr_reports_origin_when_at_home() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[6n");
+    assert_eq!(p.grid.pending_responses, b"\x1b[1;1R");
+}
+
+#[test]
+fn da_responds_with_vt100_attributes() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[c"); // CSI c → DA request (p0 defaults to 0)
+    assert_eq!(p.grid.pending_responses, b"\x1b[?1;0c");
+}
+
+#[test]
+fn da_explicit_zero_responds_with_vt100_attributes() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[0c"); // CSI 0 c → DA request
+    assert_eq!(p.grid.pending_responses, b"\x1b[?1;0c");
+}
+
+#[test]
+fn dsr_accumulates_with_other_responses() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[6n\x1b[c"); // DSR followed immediately by DA
+    assert_eq!(p.grid.pending_responses, b"\x1b[1;1R\x1b[?1;0c");
+}
+
+#[test]
+fn decsc_saves_and_decrc_restores_cursor_position() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[5;10H"); // move to row 4, col 9
+    p.process(b"\x1b7"); // DECSC
+    p.process(b"\x1b[1;1H"); // move away
+    p.process(b"\x1b8"); // DECRC
+    assert_eq!(p.grid.cursor_row, 4);
+    assert_eq!(p.grid.cursor_col, 9);
+}
+
+#[test]
+fn decsc_saves_and_decrc_restores_sgr_attributes() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[1;4;7m"); // bold + underline + reverse
+    p.process(b"\x1b7"); // DECSC
+    p.process(b"\x1b[0m"); // reset SGR
+    assert!(!p.grid.bold);
+    assert!(!p.grid.underline);
+    assert!(!p.grid.reverse);
+    p.process(b"\x1b8"); // DECRC
+    assert!(p.grid.bold);
+    assert!(p.grid.underline);
+    assert!(p.grid.reverse);
+}
+
+#[test]
+fn decsc_saves_and_decrc_restores_colors() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[31m"); // red foreground
+    p.process(b"\x1b[42m"); // green background
+    let saved_fg = p.grid.fg;
+    let saved_bg = p.grid.bg;
+    p.process(b"\x1b7"); // DECSC
+    p.process(b"\x1b[0m"); // reset
+    p.process(b"\x1b8"); // DECRC
+    assert_eq!(p.grid.fg, saved_fg);
+    assert_eq!(p.grid.bg, saved_bg);
+}
+
+#[test]
+fn decrc_without_decsc_is_noop() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[5;10H");
+    p.process(b"\x1b8"); // DECRC with no prior DECSC — should do nothing
+    assert_eq!(p.grid.cursor_row, 4);
+    assert_eq!(p.grid.cursor_col, 9);
+}
+
+#[test]
+fn decsc_decrc_clamps_cursor_to_resized_grid() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[20;70H"); // row 19, col 69
+    p.process(b"\x1b7"); // DECSC
+    p.grid.resize(40, 10); // shrink grid
+    p.process(b"\x1b8"); // DECRC — must clamp
+    assert!(p.grid.cursor_row <= 9);
+    assert!(p.grid.cursor_col <= 39);
+}
+
+#[test]
+fn sgr_italic_on_sets_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    assert!(p.grid.italic);
+}
+
+#[test]
+fn sgr_italic_off_clears_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"\x1b[23m");
+    assert!(!p.grid.italic);
+}
+
+#[test]
+fn sgr_reset_clears_italic() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"\x1b[0m");
+    assert!(!p.grid.italic);
+}
+
+#[test]
+fn write_char_stamps_italic_on_cell() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[3m");
+    p.process(b"A");
+    assert!(p.grid.cell(0, 0).italic);
+}
+
+#[test]
+fn write_char_no_italic_by_default() {
+    let mut p = make_parser(80, 24);
+    p.process(b"A");
+    assert!(!p.grid.cell(0, 0).italic);
+}
+
+#[test]
+fn decscusr_block_variants_set_block_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [0u16, 1, 2] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Block,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_underline_variants_set_underline_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [3u16, 4] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Underline,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_beam_variants_set_beam_shape() {
+    let mut p = make_parser(80, 24);
+    for code in [5u16, 6] {
+        p.process(format!("\x1b[{} q", code).as_bytes());
+        assert_eq!(
+            p.grid.cursor_shape,
+            super::super::grid::CursorShape::Beam,
+            "code {code}"
+        );
+    }
+}
+
+#[test]
+fn decscusr_resets_to_block_on_alternate_screen() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[5 q"); // beam
+    p.process(b"\x1b[?1049h"); // enter alt screen (resets shape)
+    assert_eq!(p.grid.cursor_shape, super::super::grid::CursorShape::Block);
+}
+
+#[test]
+fn sgr_overline_on_sets_overline() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[53m");
+    assert!(p.grid.overline);
+}
+
+#[test]
+fn sgr_overline_off_clears_overline() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[53m");
+    p.process(b"\x1b[55m");
+    assert!(!p.grid.overline);
+}
+
+#[test]
+fn sgr_reset_clears_overline() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[53m");
+    p.process(b"\x1b[0m");
+    assert!(!p.grid.overline);
+}
+
+#[test]
+fn write_char_stamps_overline_on_cell() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[53m");
+    p.process(b"A");
+    assert!(p.grid.cell(0, 0).overline);
+}
+
+#[test]
+fn osc52_write_decodes_base64_to_pending_clipboard_write() {
+    let mut p = make_parser(80, 24);
+    // "hello" in base64 is "aGVsbG8="
+    p.process(b"\x1b]52;c;aGVsbG8=\x07");
+    assert_eq!(p.grid.pending_clipboard_write.as_deref(), Some("hello"));
+}
+
+#[test]
+fn osc52_read_request_sets_pending_clipboard_read() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]52;c;?\x07");
+    assert!(p.grid.pending_clipboard_read);
+}
+
+#[test]
+fn osc52_invalid_base64_does_not_set_pending_write() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]52;c;not!valid!base64!!!\x07");
+    assert!(p.grid.pending_clipboard_write.is_none());
+}
+
+#[test]
+fn osc52_write_with_st_terminator() {
+    let mut p = make_parser(80, 24);
+    // Same as write test but using ST (ESC \) instead of BEL
+    p.process(b"\x1b]52;c;aGVsbG8=\x1b\\");
+    assert_eq!(p.grid.pending_clipboard_write.as_deref(), Some("hello"));
+}

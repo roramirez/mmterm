@@ -1,6 +1,16 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+/// DECSCUSR cursor shape (CSI Ps SP q).
+/// Blinking variants use the existing blink_visible flag in PaneView.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum CursorShape {
+    #[default]
+    Block,
+    Underline,
+    Beam,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
@@ -35,8 +45,10 @@ pub struct Cell {
     pub bg: Color,
     pub bold: bool,
     pub dim: bool,
+    pub italic: bool,
     pub underline: bool,
     pub strikethrough: bool,
+    pub overline: bool,
     pub reverse: bool,
     pub blink: bool,
     /// True when this is the left half of a 2-column wide character.
@@ -55,8 +67,10 @@ impl Default for Cell {
             bg: Color::BLACK,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
+            overline: false,
             reverse: false,
             blink: false,
             wide: false,
@@ -64,6 +78,21 @@ impl Default for Cell {
             url: None,
         }
     }
+}
+
+struct SavedCursor {
+    col: usize,
+    row: usize,
+    fg: Color,
+    bg: Color,
+    bold: bool,
+    dim: bool,
+    italic: bool,
+    underline: bool,
+    strikethrough: bool,
+    overline: bool,
+    reverse: bool,
+    blink: bool,
 }
 
 struct SavedScreen {
@@ -77,8 +106,10 @@ struct SavedScreen {
     bg: Color,
     bold: bool,
     dim: bool,
+    italic: bool,
     underline: bool,
     strikethrough: bool,
+    overline: bool,
     reverse: bool,
     blink: bool,
     scrollback: VecDeque<Vec<Cell>>,
@@ -98,13 +129,14 @@ pub struct Grid {
     pub bg: Color,
     pub bold: bool,
     pub dim: bool,
+    pub italic: bool,
     pub underline: bool,
     pub strikethrough: bool,
+    pub overline: bool,
     pub reverse: bool,
     pub blink: bool,
-    // DECSC/DECRC saved cursor
-    pub saved_cursor_col: usize,
-    pub saved_cursor_row: usize,
+    // DECSC/DECRC saved cursor (ESC 7 / ESC 8)
+    decsc: Option<SavedCursor>,
     // Scrollback: lines that have scrolled off the top (oldest first)
     pub scrollback: VecDeque<Vec<Cell>>,
     // Theme colors
@@ -117,6 +149,8 @@ pub struct Grid {
     pub application_cursor_keys: bool,
     // DECTCEM: cursor visibility
     pub cursor_visible: bool,
+    // DECSCUSR: cursor shape set by the running program
+    pub cursor_shape: CursorShape,
     // Bracketed paste mode (?2004)
     pub bracketed_paste: bool,
     // Mouse reporting mode: 0=off, 1000=click, 1002=button-motion, 1003=any-motion
@@ -135,6 +169,11 @@ pub struct Grid {
     pub bell_pending: bool,
     // Maximum number of scrollback lines
     pub scrollback_max: usize,
+    // Response bytes to be written back to the PTY (DSR, DA replies)
+    pub pending_responses: Vec<u8>,
+    // OSC 52 clipboard operations: text to write, or true = read request
+    pub pending_clipboard_write: Option<String>,
+    pub pending_clipboard_read: bool,
 }
 
 impl Grid {
@@ -157,8 +196,10 @@ impl Grid {
             bg: default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
+            overline: false,
             reverse: false,
             blink: false,
             wide: false,
@@ -177,12 +218,13 @@ impl Grid {
             bg: default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
+            overline: false,
             reverse: false,
             blink: false,
-            saved_cursor_col: 0,
-            saved_cursor_row: 0,
+            decsc: None,
             scrollback: VecDeque::new(),
             default_fg,
             default_bg,
@@ -191,6 +233,7 @@ impl Grid {
             palette,
             application_cursor_keys: false,
             cursor_visible: true,
+            cursor_shape: CursorShape::Block,
             bracketed_paste: false,
             mouse_mode: 0,
             mouse_sgr: false,
@@ -200,6 +243,9 @@ impl Grid {
             osc_title: None,
             bell_pending: false,
             scrollback_max,
+            pending_responses: Vec::new(),
+            pending_clipboard_write: None,
+            pending_clipboard_read: false,
         }
     }
 
@@ -219,8 +265,10 @@ impl Grid {
             bg: self.bg,
             bold: self.bold,
             dim: self.dim,
+            italic: self.italic,
             underline: self.underline,
             strikethrough: self.strikethrough,
+            overline: self.overline,
             reverse: self.reverse,
             blink: self.blink,
             scrollback: std::mem::take(&mut self.scrollback),
@@ -229,14 +277,17 @@ impl Grid {
         self.cursor_col = 0;
         self.cursor_row = 0;
         self.cursor_visible = true;
+        self.cursor_shape = CursorShape::Block;
         self.scroll_top = 0;
         self.scroll_bottom = self.rows - 1;
         self.fg = self.default_fg;
         self.bg = self.default_bg;
         self.bold = false;
         self.dim = false;
+        self.italic = false;
         self.underline = false;
         self.strikethrough = false;
+        self.overline = false;
         self.reverse = false;
         self.blink = false;
     }
@@ -253,8 +304,10 @@ impl Grid {
             self.bg = saved.bg;
             self.bold = saved.bold;
             self.dim = saved.dim;
+            self.italic = saved.italic;
             self.underline = saved.underline;
             self.strikethrough = saved.strikethrough;
+            self.overline = saved.overline;
             self.reverse = saved.reverse;
             self.blink = saved.blink;
             self.scrollback = saved.scrollback;
@@ -302,15 +355,14 @@ impl Grid {
             self.advance_row();
         }
 
-        let (fg, bg) = if self.reverse {
-            (self.bg, self.fg)
-        } else {
-            (self.fg, self.bg)
-        };
+        let fg = self.fg;
+        let bg = self.bg;
         let bold = self.bold;
         let dim = self.dim;
+        let italic = self.italic;
         let underline = self.underline;
         let strikethrough = self.strikethrough;
+        let overline = self.overline;
         let reverse = self.reverse;
         let blink = self.blink;
         let wide = char_cols == 2;
@@ -322,8 +374,10 @@ impl Grid {
         cell.bg = bg;
         cell.bold = bold;
         cell.dim = dim;
+        cell.italic = italic;
         cell.underline = underline;
         cell.strikethrough = strikethrough;
+        cell.overline = overline;
         cell.reverse = reverse;
         cell.blink = blink;
         cell.wide = wide;
@@ -464,8 +518,10 @@ impl Grid {
             bg: self.default_bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
+            overline: false,
             reverse: false,
             blink: false,
             wide: false,
@@ -484,8 +540,10 @@ impl Grid {
             bg: self.bg,
             bold: false,
             dim: false,
+            italic: false,
             underline: false,
             strikethrough: false,
+            overline: false,
             reverse: false,
             blink: false,
             wide: false,
@@ -528,6 +586,40 @@ impl Grid {
                     col += 1;
                 }
             }
+        }
+    }
+
+    pub fn save_cursor(&mut self) {
+        self.decsc = Some(SavedCursor {
+            col: self.cursor_col,
+            row: self.cursor_row,
+            fg: self.fg,
+            bg: self.bg,
+            bold: self.bold,
+            dim: self.dim,
+            italic: self.italic,
+            underline: self.underline,
+            strikethrough: self.strikethrough,
+            overline: self.overline,
+            reverse: self.reverse,
+            blink: self.blink,
+        });
+    }
+
+    pub fn restore_cursor(&mut self) {
+        if let Some(s) = &self.decsc {
+            self.cursor_col = s.col.min(self.cols - 1);
+            self.cursor_row = s.row.min(self.rows - 1);
+            self.fg = s.fg;
+            self.bg = s.bg;
+            self.bold = s.bold;
+            self.dim = s.dim;
+            self.italic = s.italic;
+            self.underline = s.underline;
+            self.strikethrough = s.strikethrough;
+            self.overline = s.overline;
+            self.reverse = s.reverse;
+            self.blink = s.blink;
         }
     }
 }

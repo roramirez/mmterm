@@ -1,10 +1,10 @@
 use super::glyph::GlyphCache;
 use crate::input::InputMode;
-use crate::terminal::grid::Cell;
+use crate::terminal::grid::{Cell, CursorShape};
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
-use crate::ui::layout::TAB_BAR_H;
+use crate::ui::layout::{PANE_PADDING, TAB_BAR_H};
 
 const STATUS_BAR_H: u32 = 22;
 const BADGE_PAD_X: u32 = 8;
@@ -26,6 +26,8 @@ pub struct PaneView<'a> {
     pub search_current: Option<usize>,
     /// URL currently hovered by the mouse; only cells with this URL get an underline.
     pub hovered_url: Option<&'a str>,
+    /// Cursor shape requested by the running program via DECSCUSR.
+    pub cursor_shape: CursorShape,
 }
 
 /// Cell layout metrics derived from a specific font size.
@@ -228,10 +230,12 @@ impl Renderer {
 
                 let cell_cols = if cell.wide { 2u32 } else { 1u32 };
                 let draw_w = cell_cols * m.cell_width;
-                let cell_x = rx + col as u32 * m.cell_width;
-                let cell_y = ry + row as u32 * m.cell_height;
+                let cell_x = rx + PANE_PADDING + col as u32 * m.cell_width;
+                let cell_y = ry + PANE_PADDING + row as u32 * m.cell_height;
 
-                if cell_x + draw_w > rx + rw || cell_y + m.cell_height > ry + rh {
+                if cell_x + draw_w > rx + rw.saturating_sub(PANE_PADDING)
+                    || cell_y + m.cell_height > ry + rh.saturating_sub(PANE_PADDING)
+                {
                     col += cell_cols as usize;
                     continue;
                 }
@@ -279,7 +283,8 @@ impl Renderer {
                     (cell.fg, cell.bg)
                 };
 
-                let bg = if is_cursor {
+                let block_cursor = is_cursor && pane.cursor_shape == CursorShape::Block;
+                let bg = if block_cursor {
                     grid.cursor_color
                 } else if is_current_match {
                     theme.search_current
@@ -290,7 +295,7 @@ impl Renderer {
                 } else {
                     cell_bg
                 };
-                let fg = if is_cursor {
+                let fg = if block_cursor {
                     Color::BLACK
                 } else if in_match {
                     SEARCH_MATCH_FG
@@ -319,7 +324,7 @@ impl Renderer {
                 }
 
                 if cell.c != ' ' && (!cell.blink || pane.blink_visible) {
-                    let info = self.glyphs.get(cell.c, m.font_px, cell.bold);
+                    let info = self.glyphs.get(cell.c, m.font_px, cell.bold, cell.italic);
                     let (gw, gh) = (info.width, info.height);
                     let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
                     let y_offset = glyph_top.max(0) as u32;
@@ -424,6 +429,23 @@ impl Renderer {
                     }
                 }
 
+                // Overline (1px at top of cell): SGR 53
+                if cell.overline {
+                    let ol_color = color_u32(fg);
+                    if cell_y < ry + rh {
+                        for dx in 0..draw_w {
+                            let sx = cell_x + dx;
+                            if sx >= rx + rw {
+                                break;
+                            }
+                            let idx = (cell_y * buf_width + sx) as usize;
+                            if idx < buf.len() {
+                                buf[idx] = ol_color;
+                            }
+                        }
+                    }
+                }
+
                 // Strikethrough (1px at mid-ascender)
                 if cell.strikethrough {
                     let st_y = cell_y + m.baseline / 2;
@@ -439,6 +461,46 @@ impl Renderer {
                                 buf[idx] = st_color;
                             }
                         }
+                    }
+                }
+
+                // Non-block cursor overlay (beam or underline).
+                if is_cursor && pane.cursor_shape != CursorShape::Block {
+                    let cur32 = color_u32(grid.cursor_color);
+                    match pane.cursor_shape {
+                        CursorShape::Beam => {
+                            // 1px vertical bar on the left edge of the cell
+                            for dy in 0..m.cell_height {
+                                let sy = cell_y + dy;
+                                if sy >= ry + rh {
+                                    break;
+                                }
+                                let idx = (sy * buf_width + cell_x) as usize;
+                                if idx < buf.len() {
+                                    buf[idx] = cur32;
+                                }
+                            }
+                        }
+                        CursorShape::Underline => {
+                            // 2px horizontal bar at the bottom of the cell
+                            for dy in 0..2u32 {
+                                let sy = cell_y + m.cell_height.saturating_sub(2) + dy;
+                                if sy >= ry + rh {
+                                    break;
+                                }
+                                for dx in 0..draw_w {
+                                    let sx = cell_x + dx;
+                                    if sx >= rx + rw {
+                                        break;
+                                    }
+                                    let idx = (sy * buf_width + sx) as usize;
+                                    if idx < buf.len() {
+                                        buf[idx] = cur32;
+                                    }
+                                }
+                            }
+                        }
+                        CursorShape::Block => unreachable!(),
                     }
                 }
 
@@ -849,7 +911,7 @@ impl Renderer {
         let ascender = m_metrics.height as u32;
         let baseline = ascender;
         for c in s.chars() {
-            let info = self.glyphs.get(c, px, bold);
+            let info = self.glyphs.get(c, px, bold, false);
             let (gw, gh) = (info.width, info.height);
             let glyph_top = baseline as i32 - (gh as i32 + info.ymin);
             let cy = (y as i32 + glyph_top).max(0) as u32;
@@ -1152,8 +1214,10 @@ static BLANK_CELL: Cell = Cell {
     bg: Color::rgb(0x12, 0x12, 0x12),
     bold: false,
     dim: false,
+    italic: false,
     underline: false,
     strikethrough: false,
+    overline: false,
     reverse: false,
     blink: false,
     wide: false,
@@ -1212,7 +1276,7 @@ mod tests {
     use crate::InputMode;
     use crate::config::Config;
     use crate::terminal::Grid;
-    use crate::terminal::grid::{Color, GridColors};
+    use crate::terminal::grid::{Color, CursorShape, GridColors};
     use crate::theme::default_theme;
     use crate::tui_config::ConfigPanel;
 
@@ -1385,6 +1449,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         let mut buf = vec![0u32; 800 * 600];
         let theme = default_theme();
@@ -1723,6 +1788,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         }
     }
 
@@ -1786,6 +1852,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -1809,6 +1876,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         let mode = InputMode::Visual {
             start_col: 0,
@@ -1842,6 +1910,7 @@ mod tests {
             search_matches: &matches,
             search_current: Some(0),
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -1960,6 +2029,63 @@ mod tests {
     }
 
     #[test]
+    fn draw_pane_reverse_video_swaps_background_to_fg_color() {
+        // A space cell with reverse=true should render fg as background.
+        // grid fg=WHITE (#ffffff), bg=BLACK (#000000). With reverse the cell
+        // background must be WHITE (the fg), not BLACK (the original bg).
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = Grid::with_colors(
+            cols,
+            rows,
+            GridColors {
+                fg: Color::WHITE,
+                bg: Color::BLACK,
+                cursor: Color::CURSOR,
+                selection: Color::SELECTION,
+                palette: [Color::BLACK; 16],
+            },
+            10_000,
+        );
+        grid.reverse = true;
+        grid.write_char(' '); // space: only background fill, no glyph
+        let pane = make_pane(&grid, &m);
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[pane],
+            &[],
+            &InputMode::Insert,
+            &[("t".to_string(), true, false)],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+        // Cell (0,0) background pixel: x = 4 (PANE_PADDING), y = 22+4 (TAB_BAR_H+PANE_PADDING)
+        let px = 4usize;
+        let py = 26usize;
+        let pixel = buf[py * 800 + px];
+        let r_ch = (pixel >> 16) & 0xFF;
+        let g_ch = (pixel >> 8) & 0xFF;
+        let b_ch = pixel & 0xFF;
+        // Color::WHITE = rgb(0xd8, 0xd8, 0xd8). Reverse video: background must equal
+        // the original fg (WHITE), not the original bg (BLACK = rgb(0x1e, 0x1e, 0x2e)).
+        assert_eq!(r_ch, 0xd8, "reverse bg should be fg red channel");
+        assert_eq!(g_ch, 0xd8, "reverse bg should be fg green channel");
+        assert_eq!(b_ch, 0xd8, "reverse bg should be fg blue channel");
+    }
+
+    #[test]
     fn draw_pane_with_scrollback_shows_scrollbar() {
         let mut r = make_renderer();
         let m = r.make_metrics(16.0);
@@ -1995,6 +2121,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2015,6 +2142,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2064,6 +2192,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2106,6 +2235,7 @@ mod tests {
             search_matches: &matches,
             search_current: Some(1), // match 0 → non-current, match 1 → current
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2129,6 +2259,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
@@ -2275,6 +2406,7 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         // Must not panic — actual pixel inspection is left to integration testing.
         do_draw(&mut r, &m, &[pane], &mode);
@@ -2304,7 +2436,92 @@ mod tests {
             search_matches: &[],
             search_current: None,
             hovered_url: None,
+            cursor_shape: CursorShape::Block,
         };
         do_draw(&mut r, &m, &[pane], &mode);
+    }
+
+    // ── PANE_PADDING tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn pane_padding_leaves_top_left_corner_as_background() {
+        // The top-left PANE_PADDING×PANE_PADDING pixels must remain background
+        // color (no glyph pixels written there).
+        use crate::ui::layout::PANE_PADDING;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let pad2 = PANE_PADDING * 2;
+        let (cols, rows) =
+            m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
+        let mut grid = make_grid(cols, rows);
+        // Fill entire grid with 'X' so glyphs would bleed into the corner if
+        // padding were absent.
+        for _ in 0..cols * rows {
+            grid.write_char('X');
+        }
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 556],
+            scroll_offset: 0,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: false,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+            cursor_shape: CursorShape::Block,
+        };
+        let mut buf = vec![0u32; 800 * 600];
+        let theme = default_theme();
+        let bg = color_u32(grid.default_bg);
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[pane],
+            &[],
+            &InputMode::Insert,
+            &[("t".to_string(), true, false)],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+        // Every pixel in the top-left padding block must equal bg.
+        for dy in 0..PANE_PADDING {
+            for dx in 0..PANE_PADDING {
+                let idx = ((22 + dy) * 800 + dx) as usize;
+                assert_eq!(
+                    buf[idx], bg,
+                    "pixel ({dx},{dy}) inside padding should be bg"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pane_padding_grid_size_accounts_for_both_sides() {
+        // grid_size_for called with 2×PANE_PADDING subtracted must yield fewer
+        // cols/rows than the unpadded call.
+        use crate::ui::layout::PANE_PADDING;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let pad2 = PANE_PADDING * 2;
+        let (cols_padded, rows_padded) =
+            m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
+        let (cols_raw, rows_raw) = m.grid_size_for(800, 556);
+        assert!(
+            cols_padded <= cols_raw,
+            "padded cols {cols_padded} should be ≤ raw cols {cols_raw}"
+        );
+        assert!(
+            rows_padded <= rows_raw,
+            "padded rows {rows_padded} should be ≤ raw rows {rows_raw}"
+        );
     }
 }
