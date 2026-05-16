@@ -93,14 +93,20 @@ You can also edit settings live with `Ctrl+,`.
 
 | Binding | Action |
 |---|---|
-| `Ctrl+Q` | Quit |
+| `Ctrl+Q` | Quit (confirmation overlay when multiple tabs/panes are open) |
+| `Ctrl+Enter` | Toggle borderless fullscreen |
 | `Ctrl+,` | Open config panel |
 | `Ctrl+T` | New tab |
 | `Ctrl+PageUp` / `Ctrl+PageDown` | Previous / next tab |
+| `Ctrl+Shift+PageUp` / `Ctrl+Shift+PageDown` | Move tab left / right |
 | `Ctrl+Shift+W` | Close tab |
+| `Ctrl+Shift+R` | Rename tab |
+| `Alt+1`..`Alt+9` | Jump to tab by position |
 | `Ctrl++` / `Ctrl+=` | Increase font size (current tab) |
 | `Ctrl+-` | Decrease font size (current tab) |
 | `Ctrl+0` | Reset font size |
+| `Ctrl+Shift+K` | Clear scrollback |
+| `Ctrl+Shift+L` | Toggle session logging for active pane |
 
 ### Modes
 
@@ -119,7 +125,6 @@ You can also edit settings live with `Ctrl+,`.
 | `Ctrl+W w` | Cycle focus |
 | `Ctrl+W q` | Close pane |
 | `Ctrl+W z` | Toggle pane zoom |
-| `Ctrl+Shift+L` | Toggle session logging for active pane |
 
 ### Scrollback
 
