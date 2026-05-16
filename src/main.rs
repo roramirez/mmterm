@@ -2,6 +2,7 @@ mod config;
 mod font;
 mod geometry;
 mod input;
+mod logging;
 mod mouse;
 mod pty;
 mod renderer;
@@ -458,9 +459,7 @@ impl App {
     fn focus_next(&mut self) {
         let active = self.tab().active;
         let leaves = self.tab().layout.leaves();
-        if let Some(pos) = leaves.iter().position(|&id| id == active) {
-            self.tab_mut().active = leaves[(pos + 1) % leaves.len()];
-        }
+        self.tab_mut().active = tabs::next_pane_in_layout(&leaves, active);
     }
 
     // ── Mouse reporting ──────────────────────────────────────────────────────
@@ -1449,9 +1448,8 @@ impl ApplicationHandler for App {
                     }
                     Action::OpenConfig => self.open_config_panel(),
                     Action::Quit => {
-                        let needs_confirm = self.tabs.len() > 1
-                            || self.tabs.first().is_some_and(|t| t.panes.len() > 1);
-                        if needs_confirm {
+                        let total_panes = self.tabs.iter().map(|t| t.panes.len()).sum::<usize>();
+                        if tabs::needs_quit_confirm(self.tabs.len(), total_panes) {
                             self.quit_pending = true;
                             if let Some(w) = &self.window {
                                 w.request_redraw();
@@ -1651,12 +1649,7 @@ impl ApplicationHandler for App {
 }
 
 fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::File> {
-    let dir = if log_dir.is_empty() {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        format!("{home}/.mmterm")
-    } else {
-        log_dir.to_string()
-    };
+    let dir = logging::resolve_log_dir(log_dir);
     if let Err(e) = std::fs::create_dir_all(&dir) {
         log::warn!("Failed to create log directory {dir}: {e}");
         return None;
@@ -1665,7 +1658,7 @@ fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::File> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let path = format!("{dir}/mmterm-{ts}-pane{pane_id}.log");
+    let path = logging::log_file_path(&dir, ts, pane_id);
     match std::fs::File::create(&path) {
         Ok(f) => {
             log::info!("Logging started: {path}");

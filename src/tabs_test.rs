@@ -90,3 +90,50 @@ fn move_with_single_tab_stays() {
     assert_eq!(move_tab_index(0, 1, true), 0);
     assert_eq!(move_tab_index(0, 1, false), 0);
 }
+
+// ── next_pane_in_layout ───────────────────────────────────────────────────────
+
+#[test]
+fn next_pane_advances_to_next_leaf() {
+    assert_eq!(next_pane_in_layout(&[10, 20, 30], 10), 20);
+    assert_eq!(next_pane_in_layout(&[10, 20, 30], 20), 30);
+}
+
+#[test]
+fn next_pane_wraps_from_last_to_first() {
+    assert_eq!(next_pane_in_layout(&[10, 20, 30], 30), 10);
+}
+
+#[test]
+fn next_pane_single_pane_returns_same() {
+    assert_eq!(next_pane_in_layout(&[5], 5), 5);
+}
+
+#[test]
+fn next_pane_active_not_in_leaves_returns_active() {
+    assert_eq!(next_pane_in_layout(&[1, 2, 3], 99), 99);
+}
+
+// ── needs_quit_confirm ────────────────────────────────────────────────────────
+
+#[test]
+fn single_tab_single_pane_no_confirm() {
+    assert!(!needs_quit_confirm(1, 1));
+}
+
+#[test]
+fn multiple_tabs_needs_confirm() {
+    assert!(needs_quit_confirm(2, 1));
+    assert!(needs_quit_confirm(5, 1));
+}
+
+#[test]
+fn single_tab_multiple_panes_needs_confirm() {
+    assert!(needs_quit_confirm(1, 2));
+    assert!(needs_quit_confirm(1, 4));
+}
+
+#[test]
+fn multiple_tabs_multiple_panes_needs_confirm() {
+    assert!(needs_quit_confirm(3, 3));
+}

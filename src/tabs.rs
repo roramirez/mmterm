@@ -51,6 +51,22 @@ pub fn move_tab_index(active: usize, count: usize, move_left: bool) -> usize {
     }
 }
 
+/// Returns the next active pane id by cycling through `leaves` after `active`.
+/// Returns `active` unchanged when `active` is not in `leaves`.
+pub fn next_pane_in_layout(leaves: &[usize], active: usize) -> usize {
+    if let Some(pos) = leaves.iter().position(|&id| id == active) {
+        leaves[(pos + 1) % leaves.len()]
+    } else {
+        active
+    }
+}
+
+/// Returns `true` when quitting requires user confirmation.
+/// Confirmation is needed whenever more than one tab or pane is open.
+pub fn needs_quit_confirm(tab_count: usize, total_pane_count: usize) -> bool {
+    tab_count > 1 || total_pane_count > 1
+}
+
 #[cfg(test)]
 #[path = "tabs_test.rs"]
 mod tests;
