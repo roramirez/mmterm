@@ -315,6 +315,21 @@ impl Perform for Performer<'_> {
                 let row = p0.saturating_sub(1) as usize;
                 self.grid.cursor_row = row.min(self.grid.rows - 1);
             }
+            // DSR: Device Status Report — respond with active cursor position
+            // CSI 6 n  →  CSI row ; col R  (1-indexed)
+            'n' if p0 == 6 => {
+                let row = self.grid.cursor_row + 1;
+                let col = self.grid.cursor_col + 1;
+                let resp = format!("\x1b[{row};{col}R");
+                self.grid
+                    .pending_responses
+                    .extend_from_slice(resp.as_bytes());
+            }
+            // DA: Device Attributes — report as VT100 with no options
+            // CSI c  or  CSI 0 c  →  CSI ? 1 ; 0 c
+            'c' if p0 == 0 => {
+                self.grid.pending_responses.extend_from_slice(b"\x1b[?1;0c");
+            }
             // Set scroll region
             'r' => {
                 let top = p0.saturating_sub(1) as usize;

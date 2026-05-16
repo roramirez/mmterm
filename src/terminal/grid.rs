@@ -135,6 +135,8 @@ pub struct Grid {
     pub bell_pending: bool,
     // Maximum number of scrollback lines
     pub scrollback_max: usize,
+    // Response bytes to be written back to the PTY (DSR, DA replies)
+    pub pending_responses: Vec<u8>,
 }
 
 impl Grid {
@@ -200,6 +202,7 @@ impl Grid {
             osc_title: None,
             bell_pending: false,
             scrollback_max,
+            pending_responses: Vec::new(),
         }
     }
 

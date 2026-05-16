@@ -728,3 +728,40 @@ fn osc_title_empty_string_clears_title() {
     p.process(b"\x1b]2;\x07");
     assert!(p.grid.osc_title.is_none());
 }
+
+#[test]
+fn dsr_reports_cursor_position() {
+    let mut p = make_parser(80, 24);
+    // Move cursor to row 3, col 5 (0-indexed), then send DSR
+    p.process(b"\x1b[4;6H"); // CSI 4;6 H → row=3, col=5 (1-indexed input)
+    p.process(b"\x1b[6n"); // CSI 6 n → DSR request
+    assert_eq!(p.grid.pending_responses, b"\x1b[4;6R");
+}
+
+#[test]
+fn dsr_reports_origin_when_at_home() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[6n");
+    assert_eq!(p.grid.pending_responses, b"\x1b[1;1R");
+}
+
+#[test]
+fn da_responds_with_vt100_attributes() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[c"); // CSI c → DA request (p0 defaults to 0)
+    assert_eq!(p.grid.pending_responses, b"\x1b[?1;0c");
+}
+
+#[test]
+fn da_explicit_zero_responds_with_vt100_attributes() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[0c"); // CSI 0 c → DA request
+    assert_eq!(p.grid.pending_responses, b"\x1b[?1;0c");
+}
+
+#[test]
+fn dsr_accumulates_with_other_responses() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[6n\x1b[c"); // DSR followed immediately by DA
+    assert_eq!(p.grid.pending_responses, b"\x1b[1;1R\x1b[?1;0c");
+}

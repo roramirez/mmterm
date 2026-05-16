@@ -327,6 +327,11 @@ impl App {
                                 let _ = f.write_all(&bytes);
                             }
                             entry.pane.process(&bytes);
+                            let responses =
+                                std::mem::take(&mut entry.pane.parser.grid.pending_responses);
+                            if !responses.is_empty() {
+                                let _ = entry.pty.write_input(&responses);
+                            }
                             got_data = true;
                             if bytes_this_frame >= BYTES_PER_FRAME {
                                 has_more = true;
