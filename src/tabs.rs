@@ -80,10 +80,8 @@ pub fn tab_label(
     is_active: bool,
     rename_buf: Option<&str>,
 ) -> String {
-    if is_active {
-        if let Some(buf) = rename_buf {
-            return format!(" {}| ", buf);
-        }
+    if is_active && let Some(buf) = rename_buf {
+        return format!(" {}| ", buf);
     }
     name.or(osc_title)
         .map(|n| format!(" {} ", n))
