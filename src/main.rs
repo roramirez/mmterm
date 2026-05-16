@@ -1036,6 +1036,10 @@ impl App {
             .panes
             .get(&active_id)
             .is_some_and(|e| e.log_file.is_some());
+        let pane_title = self.tabs[self.active_tab]
+            .panes
+            .get(&active_id)
+            .and_then(|e| e.pane.parser.grid.osc_title.as_deref());
         self.renderer.draw(
             pixels,
             w,
@@ -1048,6 +1052,7 @@ impl App {
             self.search_matches.len(),
             self.search_current,
             cwd_owned.as_deref(),
+            pane_title,
             self.config.window.inactive_dim,
             bell_flash,
             is_logging,

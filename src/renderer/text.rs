@@ -105,6 +105,7 @@ impl Renderer {
         search_total: usize,
         search_current: usize,
         cwd: Option<&str>,
+        pane_title: Option<&str>,
         inactive_dim: f32,
         bell_flash: bool,
         is_logging: bool,
@@ -156,6 +157,7 @@ impl Renderer {
             search_total,
             search_current,
             cwd,
+            pane_title,
             is_logging,
             theme,
         );
@@ -875,6 +877,7 @@ impl Renderer {
         search_total: usize,
         search_current: usize,
         cwd: Option<&str>,
+        pane_title: Option<&str>,
         is_logging: bool,
         theme: &ResolvedTheme,
     ) {
@@ -1001,6 +1004,27 @@ impl Renderer {
                     }
                 }
                 tx += char_w;
+            }
+        }
+
+        // Show pane OSC title centered in the status bar (suppressed during search).
+        if !matches!(mode, InputMode::Search { .. }) {
+            if let Some(title) = pane_title {
+                let title_w = title.len() as u32 * char_w;
+                if title_w < width {
+                    let title_x = (width - title_w) / 2;
+                    self.draw_str(
+                        buf,
+                        width,
+                        height,
+                        title_x,
+                        badge_y + 2,
+                        title,
+                        px,
+                        false,
+                        color_u32(theme.palette[8]),
+                    );
+                }
             }
         }
 
@@ -1263,6 +1287,7 @@ mod tests {
             0,
             0,
             None,
+            None,
             0.55,
             false,
             false,
@@ -1301,6 +1326,7 @@ mod tests {
             0,
             0,
             None,
+            None,
             0.55,
             false,
             false,
@@ -1330,6 +1356,7 @@ mod tests {
             0,
             0,
             None,
+            None,
             0.55,
             false,
             false,
@@ -1357,10 +1384,121 @@ mod tests {
             3,
             1,
             Some("/home/user"),
+            None,
             0.55,
             false,
             true,
             &theme,
+        );
+    }
+
+    #[test]
+    fn draw_status_bar_pane_title_centered() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let theme = default_theme();
+
+        // With title: pixels should differ from without title.
+        let mut buf_with = vec![0u32; 800 * 600];
+        r.draw(
+            &mut buf_with,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Normal,
+            &[],
+            &m,
+            0,
+            0,
+            None,
+            Some("nvim src/main.rs"),
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+
+        let mut buf_without = vec![0u32; 800 * 600];
+        r.draw(
+            &mut buf_without,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Normal,
+            &[],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+
+        assert!(
+            buf_with != buf_without,
+            "status bar with pane title must differ from one without"
+        );
+    }
+
+    #[test]
+    fn draw_status_bar_pane_title_suppressed_in_search() {
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let theme = default_theme();
+
+        // In Search mode the title should not be drawn — buffers must match.
+        let mut buf_with = vec![0u32; 800 * 600];
+        r.draw(
+            &mut buf_with,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Search {
+                query: String::new(),
+            },
+            &[],
+            &m,
+            0,
+            0,
+            None,
+            Some("nvim src/main.rs"),
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+
+        let mut buf_without = vec![0u32; 800 * 600];
+        r.draw(
+            &mut buf_without,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Search {
+                query: String::new(),
+            },
+            &[],
+            &m,
+            0,
+            0,
+            None,
+            None,
+            0.55,
+            false,
+            false,
+            &theme,
+        );
+
+        assert_eq!(
+            buf_with, buf_without,
+            "pane title must be suppressed in Search mode"
         );
     }
 
@@ -1390,6 +1528,7 @@ mod tests {
             0,
             0,
             None,
+            None,
             0.55,
             true,
             false,
@@ -1415,6 +1554,7 @@ mod tests {
             &m,
             0,
             0,
+            None,
             None,
             0.55,
             false,
@@ -1512,6 +1652,7 @@ mod tests {
             m,
             0,
             0,
+            None,
             None,
             0.55,
             false,
@@ -1670,6 +1811,7 @@ mod tests {
             &m,
             0,
             0,
+            None,
             None,
             0.55,
             false,
