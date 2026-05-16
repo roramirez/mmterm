@@ -17,6 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - OSC 8 hyperlinks always show a dim blue underline; underline brightens on hover
+- config panel navigation and edits now redraw immediately instead of waiting for the cursor-blink timer
 
 ## [0.2.0] - 2026-05-14
 

@@ -1174,6 +1174,9 @@ impl ApplicationHandler for App {
 
                 if self.config_panel.is_some() {
                     self.handle_config_key(&event);
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
                     return;
                 }
 
