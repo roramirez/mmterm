@@ -249,3 +249,15 @@ fn terminal_config_default_scrollback_is_ten_thousand() {
     let tc = TerminalConfig::default();
     assert_eq!(tc.scrollback_lines, 10_000);
 }
+
+#[test]
+fn default_status_bar_right_returns_pwd_token() {
+    let v = default_status_bar_right();
+    assert_eq!(v, vec!["%pwd".to_string()]);
+}
+
+#[test]
+fn status_bar_config_default_has_pwd_token() {
+    let cfg = StatusBarConfig::default();
+    assert_eq!(cfg.right, vec!["%pwd".to_string()]);
+}

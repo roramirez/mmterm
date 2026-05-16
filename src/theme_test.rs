@@ -136,3 +136,43 @@ fn list_themes_dir_with_non_toml_files_skips_them() {
     let names = list_themes(dir.path());
     assert!(names.is_empty());
 }
+
+#[test]
+fn load_theme_malformed_toml_returns_error() {
+    // Covers the parse-error map_err branch in load_theme.
+    let dir = tempdir().unwrap();
+    fs::write(dir.path().join("broken.toml"), "not valid toml ][[[").unwrap();
+    let result = load_theme("broken", dir.path());
+    assert!(result.is_err());
+    let msg = result.unwrap_err();
+    assert!(msg.contains("broken"), "error should name theme: {msg}");
+}
+
+#[cfg(unix)]
+#[test]
+fn install_bundled_themes_write_failure_is_silent() {
+    // Make the themes dir read-only so writes fail → covers the
+    // log::warn inside the write-error branch (line 129).
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempdir().unwrap();
+    let mut perms = fs::metadata(dir.path()).unwrap().permissions();
+    perms.set_mode(0o555); // r-xr-xr-x — no write
+    fs::set_permissions(dir.path(), perms.clone()).unwrap();
+    // Should not panic even though all writes will fail.
+    install_bundled_themes(dir.path());
+    // Restore so tempdir cleanup works.
+    perms.set_mode(0o755);
+    fs::set_permissions(dir.path(), perms).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn install_bundled_themes_bad_path_is_silent() {
+    // Pass a path whose parent is a regular file — create_dir_all fails →
+    // covers lines 121-122 (log::warn + return).
+    let dir = tempdir().unwrap();
+    let file = dir.path().join("regular_file");
+    fs::write(&file, "content").unwrap();
+    // Subdirectory of a file can't be created.
+    install_bundled_themes(&file.join("subdir"));
+}
