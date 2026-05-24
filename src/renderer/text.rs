@@ -893,6 +893,186 @@ impl Renderer {
         );
     }
 
+    /// `entries` is a slice of `(label, shortcut)` pairs — e.g. `("Split Vertical", "Ctrl+W s")`.
+    pub fn draw_command_palette(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        query: &str,
+        entries: &[(&str, &str)],
+        selected: usize,
+    ) {
+        // Dim background
+        for p in buf.iter_mut() {
+            let r = ((*p >> 16) & 0xFF) / 3;
+            let g = ((*p >> 8) & 0xFF) / 3;
+            let b = (*p & 0xFF) / 3;
+            *p = 0xff_00_00_00 | (r << 16) | (g << 8) | b;
+        }
+
+        let fp = self.status_font_px;
+        let cw = self.glyphs.rasterize('M', fp, false).1;
+        let row_h = (fp * 1.6) as u32 + 4;
+
+        const MAX_VISIBLE: usize = 10;
+        let visible = entries.len().min(MAX_VISIBLE);
+        let panel_h = row_h * (1 + visible as u32 + 1);
+        let panel_w = (bw as f32 * 0.62) as u32;
+        let px = (bw - panel_w) / 2;
+        let py = bh / 4;
+
+        let bg = 0xff_1a_1b_26_u32;
+        let border = 0xff_89_b4_fa_u32;
+        let pad = cw;
+
+        // Background
+        for dy in 0..panel_h {
+            for dx in 0..panel_w {
+                let idx = ((py + dy) * bw + px + dx) as usize;
+                if idx < buf.len() {
+                    buf[idx] = bg;
+                }
+            }
+        }
+        // Border
+        for dx in 0..panel_w {
+            let t = (py * bw + px + dx) as usize;
+            let b_row = ((py + panel_h - 1) * bw + px + dx) as usize;
+            if t < buf.len() {
+                buf[t] = border;
+            }
+            if b_row < buf.len() {
+                buf[b_row] = border;
+            }
+        }
+        for dy in 0..panel_h {
+            let l = ((py + dy) * bw + px) as usize;
+            let r = ((py + dy) * bw + px + panel_w - 1) as usize;
+            if l < buf.len() {
+                buf[l] = border;
+            }
+            if r < buf.len() {
+                buf[r] = border;
+            }
+        }
+
+        // Query input row
+        let query_display = format!("> {query}_");
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad,
+            py + 4,
+            &query_display,
+            fp,
+            false,
+            0xff_cb_d5_f5,
+        );
+
+        // Entry count indicator
+        let count_str = format!("{}/{}", entries.len(), crate::command_palette::total());
+        let count_x = px + panel_w - cw * count_str.len() as u32 - pad;
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            count_x,
+            py + 4,
+            &count_str,
+            fp,
+            false,
+            0xff_58_5b_70,
+        );
+
+        // Separator line under query row
+        let sep_y = py + row_h;
+        for dx in 1..panel_w - 1 {
+            let idx = (sep_y * bw + px + dx) as usize;
+            if idx < buf.len() {
+                buf[idx] = 0xff_24_25_3a;
+            }
+        }
+
+        // Scroll window: keep selected visible
+        let scroll_start = if selected >= MAX_VISIBLE {
+            selected + 1 - MAX_VISIBLE
+        } else {
+            0
+        };
+
+        let content_y = py + row_h + 1;
+        for (list_i, &(label, code)) in entries.iter().enumerate().skip(scroll_start) {
+            if list_i - scroll_start >= MAX_VISIBLE {
+                break;
+            }
+            let row_y = content_y + (list_i - scroll_start) as u32 * row_h;
+            let is_sel = list_i == selected;
+
+            let row_bg = if is_sel { 0xff_2a_2b_3d } else { bg };
+            for dx in 1..panel_w - 1 {
+                for dy in 0..row_h {
+                    let idx = ((row_y + dy) * bw + px + dx) as usize;
+                    if idx < buf.len() {
+                        buf[idx] = row_bg;
+                    }
+                }
+            }
+            if is_sel {
+                for dy in 0..row_h {
+                    let idx = ((row_y + dy) * bw + px + 1) as usize;
+                    if idx < buf.len() {
+                        buf[idx] = border;
+                    }
+                }
+            }
+
+            // Label (left, bold when selected)
+            let label_color = if is_sel { 0xff_f9_e2_af } else { 0xff_ba_c2_de };
+            self.draw_str(
+                buf,
+                bw,
+                bh,
+                px + pad + 4,
+                row_y + 2,
+                label,
+                fp,
+                is_sel,
+                label_color,
+            );
+
+            // Shortcut hint (right-aligned, dimmed)
+            let shortcut = code; // parameter name reused — holds the shortcut string
+            let shortcut_x = px + panel_w - cw * shortcut.len() as u32 - pad;
+            self.draw_str(
+                buf,
+                bw,
+                bh,
+                shortcut_x,
+                row_y + 2,
+                shortcut,
+                fp,
+                false,
+                0xff_58_5b_70,
+            );
+        }
+
+        // Footer hint
+        let footer_y = py + panel_h - row_h + 4;
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad,
+            footer_y,
+            "↑↓ navigate   Enter execute   Esc close",
+            fp,
+            false,
+            0xff_58_5b_70,
+        );
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw_str(
         &mut self,
@@ -1232,6 +1412,7 @@ fn mode_style(mode: &InputMode, theme: &ResolvedTheme) -> (&'static str, u32) {
         InputMode::Visual { .. } => ("VISUAL", color_u32(theme.palette[5])),
         InputMode::RenameTab { .. } => ("RENAME", color_u32(theme.palette[3])),
         InputMode::Search { .. } => ("SEARCH", color_u32(theme.palette[3])),
+        InputMode::CommandPalette { .. } => ("PALETTE", color_u32(theme.palette[6])),
     }
 }
 

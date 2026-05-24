@@ -109,6 +109,16 @@ vim-style modal input, split panes, and multi-tab sessions.
 - Four modal modes: **Insert** (default), **Normal**, **Visual**, **Search**.
 - Mode cycle: `Ctrl+.` (Insert → Normal → Visual → Insert).
 - `Ctrl+\` as alternative entry to Normal mode.
+
+### Command Palette
+- `Ctrl+Shift+P` — open the command palette overlay (works in all modes).
+- Type to filter the list of all available actions by label or internal code (case-insensitive substring).
+- `↑` / `↓` — navigate between matched entries.
+- `Enter` — execute the selected action and close the palette.
+- `Esc` — close without executing; returns to Insert mode.
+- Each row shows the human-readable label on the left and the keyboard shortcut on the right.
+- The filter resets the selection to the first entry on every keystroke.
+- Rendered as a 62%-wide centered overlay with a dimmed background; disappears as soon as an action runs.
 - Escape is always forwarded to the PTY — vim, less, etc. work as expected.
 - Full function-key, arrow-key, and special-key forwarding in Insert mode.
 - Ctrl+character encoding (Ctrl+A = 0x01 … Ctrl+Z = 0x1A).
@@ -342,6 +352,7 @@ writing a file.
 | `Ctrl+-` | Decrease font size (active tab) |
 | `Ctrl+0` | Reset font size (active tab) |
 | `Ctrl+,` | Open config panel |
+| `Ctrl+Shift+P` | Open command palette |
 | `Ctrl+Shift+L` | Toggle session logging (active pane) |
 | `Ctrl+Shift+V` | Paste from clipboard |
 | `Ctrl+Shift+C` | Copy selection |

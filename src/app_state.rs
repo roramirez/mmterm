@@ -727,6 +727,13 @@ impl AppState {
 
             // ── UI ───────────────────────────────────────────────────────────
             Action::ToggleFullscreen => vec![AppEffect::ToggleFullscreen],
+            Action::OpenCommandPalette => {
+                self.mode = InputMode::CommandPalette {
+                    query: String::new(),
+                    selected: 0,
+                };
+                vec![AppEffect::Redraw]
+            }
             Action::OpenConfig => {
                 self.open_config_panel();
                 vec![AppEffect::Redraw]

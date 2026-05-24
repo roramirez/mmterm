@@ -19,4 +19,9 @@ pub enum InputMode {
     Search {
         query: String,
     },
+    /// Command palette: query filters actions; selected is index into filtered list
+    CommandPalette {
+        query: String,
+        selected: usize,
+    },
 }

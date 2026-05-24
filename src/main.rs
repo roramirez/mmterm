@@ -1,4 +1,5 @@
 mod app_state;
+mod command_palette;
 mod config;
 mod font;
 mod geometry;
@@ -753,6 +754,75 @@ impl App {
         }
     }
 
+    fn handle_command_palette_key(
+        &mut self,
+        event: &winit::event::KeyEvent,
+        event_loop: &ActiveEventLoop,
+    ) {
+        use winit::keyboard::{Key, NamedKey};
+        let (query, selected) =
+            if let InputMode::CommandPalette { query, selected } = &self.state.mode {
+                (query.clone(), *selected)
+            } else {
+                return;
+            };
+
+        match &event.logical_key {
+            Key::Named(NamedKey::Escape) => {
+                self.state.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::ArrowUp) => {
+                let filtered = command_palette::filter(&query);
+                let new_sel = if filtered.is_empty() {
+                    0
+                } else {
+                    selected.saturating_sub(1)
+                };
+                self.state.mode = InputMode::CommandPalette {
+                    query,
+                    selected: new_sel,
+                };
+            }
+            Key::Named(NamedKey::ArrowDown) => {
+                let filtered = command_palette::filter(&query);
+                let new_sel = if filtered.is_empty() {
+                    0
+                } else {
+                    (selected + 1).min(filtered.len() - 1)
+                };
+                self.state.mode = InputMode::CommandPalette {
+                    query,
+                    selected: new_sel,
+                };
+            }
+            Key::Named(NamedKey::Enter) => {
+                let filtered = command_palette::filter(&query);
+                self.state.mode = InputMode::Insert;
+                if let Some(&entry_idx) = filtered.get(selected) {
+                    let action = command_palette::entry_action(entry_idx);
+                    self.execute_action(action, event_loop);
+                }
+            }
+            Key::Named(NamedKey::Backspace) => {
+                let mut q = query;
+                q.pop();
+                self.state.mode = InputMode::CommandPalette {
+                    selected: 0,
+                    query: q,
+                };
+            }
+            Key::Character(s) => {
+                let mut q = query;
+                q.push_str(s);
+                self.state.mode = InputMode::CommandPalette {
+                    selected: 0,
+                    query: q,
+                };
+            }
+            _ => {}
+        }
+    }
+
     fn copy_current_match(&mut self) {
         let Some(&(abs_row, col, len)) = self.state.search_matches.get(self.state.search_current)
         else {
@@ -1124,6 +1194,21 @@ impl App {
             self.renderer.draw_config_panel(pixels, w, h, panel);
         }
 
+        if let InputMode::CommandPalette { query, selected } = &self.state.mode {
+            let filtered = command_palette::filter(query);
+            let entries: Vec<(&str, &str)> = filtered
+                .iter()
+                .map(|&i| {
+                    (
+                        command_palette::entry_label(i),
+                        command_palette::entry_shortcut(i),
+                    )
+                })
+                .collect();
+            self.renderer
+                .draw_command_palette(pixels, w, h, query, &entries, *selected);
+        }
+
         if self.state.quit_pending {
             self.renderer
                 .draw_quit_confirm(pixels, w, h, &self.state.theme);
@@ -1244,6 +1329,14 @@ impl ApplicationHandler for App {
 
                 if matches!(self.state.mode, InputMode::Search { .. }) {
                     self.handle_search_key(&event);
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                    return;
+                }
+
+                if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
+                    self.handle_command_palette_key(&event, event_loop);
                     if let Some(w) = &self.window {
                         w.request_redraw();
                     }

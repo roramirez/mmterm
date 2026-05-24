@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - clipboard `get_or_insert_with` panic in headless CI: replace `.expect()` with `.ok()` so Copy and VisualYankLine actions degrade gracefully when no display is available
 
 ### Added
+- command palette (`Ctrl+Shift+P`): overlay to fuzzy-filter and execute any action by name; navigate with ↑/↓, confirm with Enter, dismiss with Esc
 - RIS (`ESC c`): full terminal reset — clears screen, scrollback, SGR, scroll region, cursor, and all mode flags
 - focus reporting (`?1004h/l`): send `\e[I` on focus-in and `\e[O` on focus-out; covers OS window focus, tab switches, and pane switches
 - autowrap mode toggle (`?7h/l`, DECAWM): when disabled, characters at the right margin overwrite the last cell instead of wrapping to the next line

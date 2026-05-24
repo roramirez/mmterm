@@ -1827,3 +1827,65 @@ fn visual_arrow_down_at_last_row_scrolls_down() {
     );
     assert!(matches!(a, Action::VisualBoundaryDown(1)));
 }
+
+// ── Command Palette keybinding tests ────────────────────────────────────────
+
+fn palette_mode() -> InputMode {
+    InputMode::CommandPalette {
+        query: String::new(),
+        selected: 0,
+    }
+}
+
+#[test]
+fn ctrl_shift_p_opens_palette_from_insert() {
+    let a = handle_key_inner(&char_key("p"), true, true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::OpenCommandPalette));
+}
+
+#[test]
+fn ctrl_shift_p_opens_palette_from_normal() {
+    let a = handle_key_inner(&char_key("p"), true, true, false, &normal(), 80, 24, false);
+    assert!(matches!(a, Action::OpenCommandPalette));
+}
+
+#[test]
+fn ctrl_shift_p_opens_palette_from_visual() {
+    let a = handle_key_inner(&char_key("p"), true, true, false, &visual(), 80, 24, false);
+    assert!(matches!(a, Action::OpenCommandPalette));
+}
+
+#[test]
+fn ctrl_shift_p_opens_palette_uppercase_p() {
+    let a = handle_key_inner(&char_key("P"), true, true, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::OpenCommandPalette));
+}
+
+#[test]
+fn command_palette_mode_swallows_chars() {
+    // Keys in CommandPalette mode return None so the handler in main.rs can intercept them.
+    let a = handle_key_inner(
+        &char_key("x"),
+        false,
+        false,
+        false,
+        &palette_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn ctrl_shift_p_not_triggered_without_ctrl() {
+    let a = handle_key_inner(&char_key("p"), false, true, false, &insert(), 80, 24, false);
+    assert!(!matches!(a, Action::OpenCommandPalette));
+}
+
+#[test]
+fn ctrl_shift_p_not_triggered_without_shift() {
+    // Ctrl+P without shift is forwarded to PTY (SendToPty), not OpenCommandPalette.
+    let a = handle_key_inner(&char_key("p"), true, false, false, &insert(), 80, 24, false);
+    assert!(!matches!(a, Action::OpenCommandPalette));
+}

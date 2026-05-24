@@ -49,6 +49,7 @@ pub enum Action {
     VisualYankLine,
     ClearScrollback,
     ToggleLog,
+    OpenCommandPalette,
     ResizePaneRight,
     ResizePaneLeft,
     ResizePaneDown,
@@ -126,7 +127,8 @@ pub(crate) fn handle_key_inner(
                 },
                 InputMode::Visual { .. }
                 | InputMode::RenameTab { .. }
-                | InputMode::Search { .. } => InputMode::Insert,
+                | InputMode::Search { .. }
+                | InputMode::CommandPalette { .. } => InputMode::Insert,
             };
             return Action::SetMode(next);
         }
@@ -143,6 +145,7 @@ pub(crate) fn handle_key_inner(
             Key::Character(s) if s.eq_ignore_ascii_case("r") => return Action::RenameTab,
             Key::Character(s) if s.eq_ignore_ascii_case("k") => return Action::ClearScrollback,
             Key::Character(s) if s.eq_ignore_ascii_case("l") => return Action::ToggleLog,
+            Key::Character(s) if s.eq_ignore_ascii_case("p") => return Action::OpenCommandPalette,
             Key::Named(NamedKey::ArrowUp) => return Action::ResizePaneUp,
             Key::Named(NamedKey::ArrowDown) => return Action::ResizePaneDown,
             Key::Named(NamedKey::ArrowRight) => return Action::ResizePaneRight,
@@ -236,6 +239,7 @@ pub(crate) fn handle_key_inner(
         ),
         InputMode::RenameTab { .. } => Action::None,
         InputMode::Search { .. } => Action::None,
+        InputMode::CommandPalette { .. } => Action::None,
     }
 }
 
