@@ -334,8 +334,6 @@ impl App {
     /// (exited pairs, has_more) — callers should request another redraw when
     /// has_more is true so the display stays live during high-throughput output.
     fn drain_all(&mut self) -> (Vec<(usize, usize)>, bool) {
-        // ~256 KB per frame keeps parsing under ~4 ms while still showing
-        // progressive output for commands like `find .`.
         const BYTES_PER_FRAME: usize = 256 * 1024;
         let active_tab = self.state.active_tab;
         let detect_urls = self.state.config.window.detect_urls;
@@ -350,35 +348,9 @@ impl App {
                 loop {
                     match entry.rx.try_recv() {
                         Ok(bytes) => {
-                            bytes_this_frame += bytes.len();
-                            if let Some(f) = &mut entry.log_file {
-                                let _ = f.write_all(&bytes);
-                            }
-                            entry.pane.process(&bytes);
-                            let responses =
-                                std::mem::take(&mut entry.pane.parser.grid.pending_responses);
-                            if !responses.is_empty() {
-                                let _ = entry.pty.write_input(&responses);
-                            }
-                            if let Some(text) =
-                                entry.pane.parser.grid.pending_clipboard_write.take()
-                                && let Some(cb) = self.state.clipboard.as_mut()
-                            {
-                                let _ = cb.set_text(text);
-                            }
-                            if std::mem::take(&mut entry.pane.parser.grid.pending_clipboard_read) {
-                                let text = self
-                                    .state
-                                    .clipboard
-                                    .as_mut()
-                                    .and_then(|cb| cb.get_text().ok())
-                                    .unwrap_or_default();
-                                let encoded = base64::engine::general_purpose::STANDARD
-                                    .encode(text.as_bytes());
-                                let resp = format!("\x1b]52;c;{encoded}\x1b\\");
-                                let _ = entry.pty.write_input(resp.as_bytes());
-                            }
                             got_data = true;
+                            bytes_this_frame += bytes.len();
+                            process_pane_bytes(bytes, entry, &mut self.state.clipboard);
                             if bytes_this_frame >= BYTES_PER_FRAME {
                                 has_more = true;
                                 break;
@@ -406,7 +378,6 @@ impl App {
         if has_more {
             self.last_pty_data = Some(Instant::now());
         } else {
-            // No more pending data — stop the vsync loop.
             self.last_pty_data = None;
         }
         (exited, has_more)
@@ -1214,6 +1185,31 @@ impl ApplicationHandler for App {
             }
             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
         }
+    }
+}
+
+fn process_pane_bytes(bytes: Vec<u8>, entry: &mut PaneEntry, clipboard: &mut Option<Clipboard>) {
+    if let Some(f) = &mut entry.log_file {
+        let _ = f.write_all(&bytes);
+    }
+    entry.pane.process(&bytes);
+    let responses = std::mem::take(&mut entry.pane.parser.grid.pending_responses);
+    if !responses.is_empty() {
+        let _ = entry.pty.write_input(&responses);
+    }
+    if let Some(text) = entry.pane.parser.grid.pending_clipboard_write.take()
+        && let Some(cb) = clipboard.as_mut()
+    {
+        let _ = cb.set_text(text);
+    }
+    if std::mem::take(&mut entry.pane.parser.grid.pending_clipboard_read) {
+        let text = clipboard
+            .as_mut()
+            .and_then(|cb| cb.get_text().ok())
+            .unwrap_or_default();
+        let encoded = base64::engine::general_purpose::STANDARD.encode(text.as_bytes());
+        let resp = format!("\x1b]52;c;{encoded}\x1b\\");
+        let _ = entry.pty.write_input(resp.as_bytes());
     }
 }
 
