@@ -1003,3 +1003,26 @@ fn dec_line_drawing_reset_on_alt_screen() {
     p.process(b"\x1b[?1049h"); // enter alt screen — should reset
     assert!(!p.grid.charset_drawing);
 }
+
+#[test]
+fn focus_report_enabled_by_1004h() {
+    let mut p = make_parser(80, 24);
+    assert!(!p.grid.focus_report);
+    p.process(b"\x1b[?1004h");
+    assert!(p.grid.focus_report);
+}
+
+#[test]
+fn focus_report_disabled_by_1004l() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[?1004h");
+    assert!(p.grid.focus_report);
+    p.process(b"\x1b[?1004l");
+    assert!(!p.grid.focus_report);
+}
+
+#[test]
+fn focus_report_off_by_default() {
+    let p = make_parser(80, 24);
+    assert!(!p.grid.focus_report);
+}

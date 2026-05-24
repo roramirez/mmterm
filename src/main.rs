@@ -560,6 +560,10 @@ impl App {
     /// Execute an action: pure state mutations go through AppState::dispatch_action;
     /// effects that need winit or the renderer are handled here.
     fn execute_action(&mut self, action: Action, event_loop: &ActiveEventLoop) {
+        let focus_before = (
+            self.state.active_tab,
+            self.state.tabs[self.state.active_tab].active,
+        );
         let effects = self.state.dispatch_action(action);
         for effect in effects {
             match effect {
@@ -671,6 +675,29 @@ impl App {
                     }
                 }
             }
+        }
+        let focus_after = (
+            self.state.active_tab,
+            self.state.tabs[self.state.active_tab].active,
+        );
+        if focus_before != focus_after {
+            self.send_pane_focus_seq(focus_before.0, focus_before.1, false);
+            self.send_pane_focus_seq(focus_after.0, focus_after.1, true);
+        }
+    }
+
+    // ── Focus reporting ───────────────────────────────────────────────────────
+
+    fn send_pane_focus_seq(&mut self, tab_idx: usize, pane_id: usize, gained: bool) {
+        if let Some(entry) = self
+            .state
+            .tabs
+            .get_mut(tab_idx)
+            .and_then(|t| t.panes.get_mut(&pane_id))
+            && entry.pane.parser.grid.focus_report
+        {
+            let seq: &[u8] = if gained { b"\x1b[I" } else { b"\x1b[O" };
+            let _ = entry.pty.write_input(seq);
         }
     }
 
@@ -1161,6 +1188,9 @@ impl ApplicationHandler for App {
                     // for keys held when focus leaves.
                     self.modifiers = Modifiers::default();
                 }
+                let active_tab = self.state.active_tab;
+                let tab_active = self.state.tabs[active_tab].active;
+                self.send_pane_focus_seq(active_tab, tab_active, gained);
             }
 
             WindowEvent::ModifiersChanged(mods) => {

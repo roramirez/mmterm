@@ -176,6 +176,8 @@ pub struct Grid {
     pub pending_clipboard_read: bool,
     // DEC Special Graphics character set (ESC ( 0 = on, ESC ( B = off)
     pub charset_drawing: bool,
+    // Focus reporting mode (?1004): send \e[I on focus-in, \e[O on focus-out
+    pub focus_report: bool,
 }
 
 impl Grid {
@@ -249,6 +251,7 @@ impl Grid {
             pending_clipboard_write: None,
             pending_clipboard_read: false,
             charset_drawing: false,
+            focus_report: false,
         }
     }
 
