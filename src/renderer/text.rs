@@ -348,74 +348,48 @@ impl Renderer {
         m: &FontMetrics,
         clip: [u32; 4],
     ) {
-        let [rx, ry, rw, rh] = clip;
         let info = self.glyphs.get(cell.c, m.font_px, cell.bold, cell.italic);
-        let (gw, gh) = (info.width, info.height);
-        let glyph_top = m.baseline as i32 - (gh as i32 + info.ymin);
+        let glyph_top = m.baseline as i32 - (info.height as i32 + info.ymin);
         let y_offset = glyph_top.max(0) as u32;
-        // Center color emoji horizontally within the cell area.
-        let x_base = if info.color && gw < draw_w {
-            cell_x + (draw_w - gw) / 2
+        let x_base = if info.color && info.width < draw_w {
+            cell_x + (draw_w - info.width) / 2
         } else {
             cell_x
         };
-
         if info.color {
-            // RGBA bitmap (color emoji): blit with per-pixel alpha.
-            for gy in 0..gh {
-                for gx in 0..gw {
-                    let base = ((gy * gw + gx) * 4) as usize;
-                    let a = info.bitmap[base + 3];
-                    if a == 0 {
-                        continue;
-                    }
-                    let r = info.bitmap[base] as u32;
-                    let g = info.bitmap[base + 1] as u32;
-                    let b = info.bitmap[base + 2] as u32;
-                    let sx = x_base + gx;
-                    let sy = cell_y + y_offset + gy;
-                    if sx >= rx + rw || sy >= ry + rh {
-                        continue;
-                    }
-                    let idx = (sy * buf_width + sx) as usize;
-                    if idx < buf.len() {
-                        let px = (0xff_u32 << 24) | (r << 16) | (g << 8) | b;
-                        let px = if pane_is_active {
-                            px
-                        } else {
-                            dim_color(px, dim_factor)
-                        };
-                        buf[idx] = blend(bg32, px, a);
-                    }
-                }
-            }
+            blit_color_glyph(
+                buf,
+                buf_width,
+                &info.bitmap,
+                info.width,
+                info.height,
+                x_base,
+                cell_y,
+                y_offset,
+                bg32,
+                pane_is_active,
+                dim_factor,
+                clip,
+            );
         } else {
-            // Grayscale alpha bitmap: blend fg color with background.
-            let fg32 = {
-                let c = color_u32(fg);
-                if pane_is_active {
-                    c
-                } else {
-                    dim_color(c, dim_factor)
-                }
+            let fg32 = if pane_is_active {
+                color_u32(fg)
+            } else {
+                dim_color(color_u32(fg), dim_factor)
             };
-            for gy in 0..gh {
-                for gx in 0..gw {
-                    let alpha = info.bitmap[(gy * gw + gx) as usize];
-                    if alpha == 0 {
-                        continue;
-                    }
-                    let sx = x_base + gx;
-                    let sy = cell_y + y_offset + gy;
-                    if sx >= rx + rw || sy >= ry + rh {
-                        continue;
-                    }
-                    let idx = (sy * buf_width + sx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = blend(bg32, fg32, alpha);
-                    }
-                }
-            }
+            blit_gray_glyph(
+                buf,
+                buf_width,
+                &info.bitmap,
+                info.width,
+                info.height,
+                x_base,
+                cell_y,
+                y_offset,
+                bg32,
+                fg32,
+                clip,
+            );
         }
     }
 
@@ -792,6 +766,85 @@ pub(super) fn draw_rect_border(
         }
         if r < buf.len() {
             buf[r] = color;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blit_color_glyph(
+    buf: &mut [u32],
+    buf_width: u32,
+    bitmap: &[u8],
+    gw: u32,
+    gh: u32,
+    x_base: u32,
+    cell_y: u32,
+    y_offset: u32,
+    bg32: u32,
+    pane_is_active: bool,
+    dim_factor: f32,
+    clip: [u32; 4],
+) {
+    let [rx, ry, rw, rh] = clip;
+    for gy in 0..gh {
+        for gx in 0..gw {
+            let base = ((gy * gw + gx) * 4) as usize;
+            let a = bitmap[base + 3];
+            if a == 0 {
+                continue;
+            }
+            let sx = x_base + gx;
+            let sy = cell_y + y_offset + gy;
+            if sx >= rx + rw || sy >= ry + rh {
+                continue;
+            }
+            let idx = (sy * buf_width + sx) as usize;
+            if idx < buf.len() {
+                let r = bitmap[base] as u32;
+                let g = bitmap[base + 1] as u32;
+                let b = bitmap[base + 2] as u32;
+                let px = (0xff_u32 << 24) | (r << 16) | (g << 8) | b;
+                let px = if pane_is_active {
+                    px
+                } else {
+                    dim_color(px, dim_factor)
+                };
+                buf[idx] = blend(bg32, px, a);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blit_gray_glyph(
+    buf: &mut [u32],
+    buf_width: u32,
+    bitmap: &[u8],
+    gw: u32,
+    gh: u32,
+    x_base: u32,
+    cell_y: u32,
+    y_offset: u32,
+    bg32: u32,
+    fg32: u32,
+    clip: [u32; 4],
+) {
+    let [rx, ry, rw, rh] = clip;
+    for gy in 0..gh {
+        for gx in 0..gw {
+            let alpha = bitmap[(gy * gw + gx) as usize];
+            if alpha == 0 {
+                continue;
+            }
+            let sx = x_base + gx;
+            let sy = cell_y + y_offset + gy;
+            if sx >= rx + rw || sy >= ry + rh {
+                continue;
+            }
+            let idx = (sy * buf_width + sx) as usize;
+            if idx < buf.len() {
+                buf[idx] = blend(bg32, fg32, alpha);
+            }
         }
     }
 }
