@@ -1066,3 +1066,53 @@ fn ris_exits_alternate_screen() {
     p.process(b"\x1bc");
     assert!(!p.grid.in_alternate_screen());
 }
+
+#[test]
+fn autowrap_on_by_default() {
+    let p = make_parser(10, 5);
+    assert!(p.grid.autowrap);
+}
+
+#[test]
+fn autowrap_disabled_by_7l() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[?7l");
+    assert!(!p.grid.autowrap);
+}
+
+#[test]
+fn autowrap_enabled_by_7h() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[?7l");
+    p.process(b"\x1b[?7h");
+    assert!(p.grid.autowrap);
+}
+
+#[test]
+fn autowrap_off_cursor_stays_at_margin() {
+    let mut p = make_parser(5, 3);
+    p.process(b"\x1b[?7l");
+    p.process(b"ABCDEFGH"); // 8 chars into a 5-col terminal
+    // cursor must stay in row 0 (no wrap)
+    assert_eq!(p.grid.cursor_row, 0);
+    // cursor must be clamped to last column
+    assert_eq!(p.grid.cursor_col, 4);
+}
+
+#[test]
+fn autowrap_off_overwrites_last_cell() {
+    let mut p = make_parser(5, 3);
+    p.process(b"\x1b[?7l");
+    p.process(b"ABCDE"); // fills the line exactly
+    p.process(b"X"); // must overwrite last cell, not wrap
+    assert_eq!(p.grid.cell(4, 0).c, 'X');
+    assert_eq!(p.grid.cursor_row, 0);
+}
+
+#[test]
+fn autowrap_on_wraps_normally() {
+    let mut p = make_parser(5, 3);
+    p.process(b"ABCDEF"); // 6 chars: wraps after 5
+    assert_eq!(p.grid.cursor_row, 1);
+    assert_eq!(p.grid.cell(0, 1).c, 'F');
+}

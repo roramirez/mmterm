@@ -178,6 +178,8 @@ pub struct Grid {
     pub charset_drawing: bool,
     // Focus reporting mode (?1004): send \e[I on focus-in, \e[O on focus-out
     pub focus_report: bool,
+    // DECAWM (?7): autowrap — when false, chars at the right margin overwrite instead of wrapping
+    pub autowrap: bool,
 }
 
 impl Grid {
@@ -252,6 +254,7 @@ impl Grid {
             pending_clipboard_read: false,
             charset_drawing: false,
             focus_report: false,
+            autowrap: true,
         }
     }
 
@@ -358,8 +361,12 @@ impl Grid {
         let char_cols = UnicodeWidthChar::width(c).unwrap_or(1).max(1);
 
         if self.cursor_col + char_cols > self.cols {
-            self.cursor_col = 0;
-            self.advance_row();
+            if self.autowrap {
+                self.cursor_col = 0;
+                self.advance_row();
+            } else {
+                self.cursor_col = self.cols - char_cols;
+            }
         }
 
         let fg = self.fg;
@@ -405,6 +412,10 @@ impl Grid {
                 ..blank
             };
             self.cursor_col += 1;
+        }
+
+        if !self.autowrap {
+            self.cursor_col = self.cursor_col.min(self.cols - 1);
         }
     }
 

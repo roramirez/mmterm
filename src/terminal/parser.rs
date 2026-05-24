@@ -82,6 +82,8 @@ impl Perform for Performer<'_> {
                 ('l', 1049) => self.grid.exit_alternate_screen(),
                 ('h', 2004) => self.grid.bracketed_paste = true,
                 ('l', 2004) => self.grid.bracketed_paste = false,
+                ('h', 7) => self.grid.autowrap = true,
+                ('l', 7) => self.grid.autowrap = false,
                 ('h', 1004) => self.grid.focus_report = true,
                 ('l', 1004) => self.grid.focus_report = false,
                 _ => {}

@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - RIS (`ESC c`): full terminal reset — clears screen, scrollback, SGR, scroll region, cursor, and all mode flags
 - focus reporting (`?1004h/l`): send `\e[I` on focus-in and `\e[O` on focus-out; covers OS window focus, tab switches, and pane switches
+- autowrap mode toggle (`?7h/l`, DECAWM): when disabled, characters at the right margin overwrite the last cell instead of wrapping to the next line
 - DEC Special Graphics character set (`ESC ( 0` / `ESC ( B`): box-drawing characters for ncurses apps (`dialog`, `nmtui`, `mutt`, etc.)
 - auto-split pane with `Ctrl+W a`: splits along the longest dimension (horizontal if wider, vertical if taller)
 - resizable pane splits by dragging the separator line between panes; cursor changes to a resize icon on hover
