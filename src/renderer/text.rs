@@ -262,14 +262,7 @@ impl Renderer {
                     theme,
                 );
 
-                for dy in 0..m.cell_height {
-                    for dx in 0..draw_w {
-                        let idx = ((cell_y + dy) * buf_width + cell_x + dx) as usize;
-                        if idx < buf.len() {
-                            buf[idx] = bg32;
-                        }
-                    }
-                }
+                fill_rect(buf, buf_width, cell_x, cell_y, draw_w, m.cell_height, bg32);
 
                 if cell.c != ' ' && (!cell.blink || pane.blink_visible) {
                     self.draw_glyph(
@@ -1007,22 +1000,8 @@ fn draw_scrollbar(
     } else {
         color_u32(theme.palette[4])
     };
-    for dy in 0..thumb_h {
-        let sy = thumb_y + dy;
-        if sy >= ry + rh {
-            break;
-        }
-        for dx in 0..2u32 {
-            let sx = scrollbar_x + dx;
-            if sx >= rx + rw {
-                break;
-            }
-            let idx = (sy * buf_width + sx) as usize;
-            if idx < buf.len() {
-                buf[idx] = color;
-            }
-        }
-    }
+    let clamped_h = thumb_h.min((ry + rh).saturating_sub(thumb_y));
+    fill_rect(buf, buf_width, scrollbar_x, thumb_y, 2, clamped_h, color);
 }
 
 fn draw_images(
