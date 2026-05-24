@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - add kimun code quality gates to workflow: `.kimun.toml` config and `doc/LLMs.md` section
 
 ### Changed
+- extract `ctrl_shift_action`, `ctrl_char_action`, `alt_action` from `handle_global_shortcuts()` and `encode_ctrl_key`, `encode_alt_key`, `cursor_seq` from `handle_insert()` in `keybindings.rs`; reduces cognitive complexity from 85 to ~30
 - extract `active_entry`, `active_entry_mut`, `active_grid_rows`, `move_visual_cursor`, `copy_text_to_clipboard`, `adjust_visual_scroll_up/down`, `visual_start_pos` from `dispatch_action()` in `app_state.rs`; reduces cognitive complexity from 144 to 61; add 6 tests covering previously untested arms (`VisualWordBackward`, `VisualWordEnd`, `VisualBoundaryDown`, visual coordinate adjustment on scroll)
 - split `window_event()` into `handle_keyboard_input`, `handle_cursor_moved`, `handle_mouse_input`, `handle_mouse_wheel`; split `redraw()` into `collect_pane_views`, `build_tab_titles` — reduces `main.rs` cognitive complexity from 171 to 58
 - split `draw_pane()` in `renderer/text.rs` into `fill_pane_background`, `search_highlight`, `resolve_cell_colors`, `draw_cell_decorations`, `draw_cursor_overlay`, `draw_scrollbar`, `draw_images`, and `draw_glyph` — reduces max function size from 419 to 130 lines

@@ -131,6 +131,58 @@ pub(crate) fn handle_key_inner(
     }
 }
 
+// ── Global shortcut sub-handlers ────────────────────────────────────────────
+
+fn ctrl_shift_action(key: &Key) -> Option<Action> {
+    match key {
+        Key::Character(s) if s.eq_ignore_ascii_case("v") => Some(Action::Paste),
+        Key::Character(s) if s.eq_ignore_ascii_case("w") => Some(Action::CloseTab),
+        Key::Character(s) if s.eq_ignore_ascii_case("r") => Some(Action::RenameTab),
+        Key::Character(s) if s.eq_ignore_ascii_case("k") => Some(Action::ClearScrollback),
+        Key::Character(s) if s.eq_ignore_ascii_case("l") => Some(Action::ToggleLog),
+        Key::Character(s) if s.eq_ignore_ascii_case("p") => Some(Action::OpenCommandPalette),
+        Key::Named(NamedKey::ArrowUp) => Some(Action::ResizePaneUp),
+        Key::Named(NamedKey::ArrowDown) => Some(Action::ResizePaneDown),
+        Key::Named(NamedKey::ArrowRight) => Some(Action::ResizePaneRight),
+        Key::Named(NamedKey::ArrowLeft) => Some(Action::ResizePaneLeft),
+        Key::Named(NamedKey::PageUp) => Some(Action::MoveTabLeft),
+        Key::Named(NamedKey::PageDown) => Some(Action::MoveTabRight),
+        Key::Named(NamedKey::Home) => Some(Action::ScrollToTop),
+        Key::Named(NamedKey::End) => Some(Action::ScrollToBottom),
+        _ => None,
+    }
+}
+
+fn ctrl_char_action(key: &Key, alt: bool) -> Option<Action> {
+    match key {
+        Key::Character(s) if s.eq_ignore_ascii_case("q") => Some(Action::Quit),
+        Key::Character(s) if s == "," => Some(Action::OpenConfig),
+        Key::Character(s) if s.eq_ignore_ascii_case("t") => Some(Action::NewTab),
+        Key::Character(s) if s == "+" || s == "=" => Some(Action::IncreaseFontSize),
+        Key::Character(s) if s == "-" => Some(Action::DecreaseFontSize),
+        Key::Character(s) if s == "0" => Some(Action::ResetFontSize),
+        Key::Named(NamedKey::PageUp) => Some(Action::PrevTab),
+        Key::Named(NamedKey::PageDown) => Some(Action::NextTab),
+        Key::Named(NamedKey::Enter) if !alt => Some(Action::ToggleFullscreen),
+        _ => None,
+    }
+}
+
+fn alt_action(key: &Key, ctrl: bool, shift: bool) -> Option<Action> {
+    if !ctrl && *key == Key::Named(NamedKey::Tab) {
+        return Some(Action::None);
+    }
+    if !ctrl
+        && !shift
+        && let Key::Character(s) = key
+        && let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
+        && d >= 1
+    {
+        return Some(Action::GoToTab((d - 1) as usize));
+    }
+    None
+}
+
 fn handle_global_shortcuts(
     key: &Key,
     ctrl: bool,
@@ -139,7 +191,6 @@ fn handle_global_shortcuts(
     mode: &InputMode,
     grid_rows: usize,
 ) -> Option<Action> {
-    // Ctrl+W — pane management prefix
     if ctrl
         && !shift
         && let Key::Character(s) = key
@@ -148,7 +199,6 @@ fn handle_global_shortcuts(
         return Some(Action::CtrlWPrefix);
     }
 
-    // Ctrl+. — cycle modes; Ctrl+\ — enter Normal
     if ctrl && let Key::Character(s) = key {
         if s == "." {
             let next = match mode {
@@ -170,29 +220,9 @@ fn handle_global_shortcuts(
     }
 
     if ctrl && shift {
-        let action = match key {
-            Key::Character(s) if s.eq_ignore_ascii_case("v") => Some(Action::Paste),
-            Key::Character(s) if s.eq_ignore_ascii_case("w") => Some(Action::CloseTab),
-            Key::Character(s) if s.eq_ignore_ascii_case("r") => Some(Action::RenameTab),
-            Key::Character(s) if s.eq_ignore_ascii_case("k") => Some(Action::ClearScrollback),
-            Key::Character(s) if s.eq_ignore_ascii_case("l") => Some(Action::ToggleLog),
-            Key::Character(s) if s.eq_ignore_ascii_case("p") => Some(Action::OpenCommandPalette),
-            Key::Named(NamedKey::ArrowUp) => Some(Action::ResizePaneUp),
-            Key::Named(NamedKey::ArrowDown) => Some(Action::ResizePaneDown),
-            Key::Named(NamedKey::ArrowRight) => Some(Action::ResizePaneRight),
-            Key::Named(NamedKey::ArrowLeft) => Some(Action::ResizePaneLeft),
-            Key::Named(NamedKey::PageUp) => Some(Action::MoveTabLeft),
-            Key::Named(NamedKey::PageDown) => Some(Action::MoveTabRight),
-            Key::Named(NamedKey::Home) => Some(Action::ScrollToTop),
-            Key::Named(NamedKey::End) => Some(Action::ScrollToBottom),
-            _ => None,
-        };
-        if action.is_some() {
-            return action;
-        }
+        return ctrl_shift_action(key);
     }
 
-    // Ctrl+C in Visual mode
     if ctrl
         && !shift
         && let Key::Character(s) = key
@@ -203,48 +233,19 @@ fn handle_global_shortcuts(
     }
 
     if ctrl && !shift {
-        let action = match key {
-            Key::Character(s) if s.eq_ignore_ascii_case("q") => Some(Action::Quit),
-            Key::Character(s) if s == "," => Some(Action::OpenConfig),
-            Key::Character(s) if s.eq_ignore_ascii_case("t") => Some(Action::NewTab),
-            Key::Character(s) if s == "+" || s == "=" => Some(Action::IncreaseFontSize),
-            Key::Character(s) if s == "-" => Some(Action::DecreaseFontSize),
-            Key::Character(s) if s == "0" => Some(Action::ResetFontSize),
-            Key::Named(NamedKey::PageUp) => Some(Action::PrevTab),
-            Key::Named(NamedKey::PageDown) => Some(Action::NextTab),
-            Key::Named(NamedKey::Enter) if !alt => Some(Action::ToggleFullscreen),
-            _ => None,
-        };
-        if action.is_some() {
-            return action;
-        }
+        return ctrl_char_action(key, alt);
     }
 
     if shift && !ctrl {
-        let action = match key {
-            Key::Named(NamedKey::PageUp) => Some(Action::ScrollUp(grid_rows)),
-            Key::Named(NamedKey::PageDown) => Some(Action::ScrollDown(grid_rows)),
-            _ => None,
-        };
-        if action.is_some() {
-            return action;
+        match key {
+            Key::Named(NamedKey::PageUp) => return Some(Action::ScrollUp(grid_rows)),
+            Key::Named(NamedKey::PageDown) => return Some(Action::ScrollDown(grid_rows)),
+            _ => {}
         }
     }
 
-    // Alt+Tab — consumed silently (suppress window-manager focus switch leaking to PTY)
-    if alt && !ctrl && *key == Key::Named(NamedKey::Tab) {
-        return Some(Action::None);
-    }
-
-    // Alt+1..9 — jump to tab by position (1-indexed)
-    if alt
-        && !ctrl
-        && !shift
-        && let Key::Character(s) = key
-        && let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
-        && d >= 1
-    {
-        return Some(Action::GoToTab((d - 1) as usize));
+    if alt {
+        return alt_action(key, ctrl, shift);
     }
 
     None
@@ -273,6 +274,87 @@ pub(crate) fn ctrl_w_action(key: &Key) -> Action {
     }
 }
 
+// ── Insert mode sub-handlers ─────────────────────────────────────────────────
+
+fn encode_ctrl_key(key: &Key) -> Option<Action> {
+    if let Key::Character(s) = key
+        && let Some(c) = s.chars().next()
+    {
+        let raw = c as u32;
+        if (1..=26).contains(&raw) {
+            return Some(Action::SendToPty(vec![raw as u8]));
+        }
+        let lower = (c as u8).to_ascii_lowercase();
+        if lower.is_ascii_alphabetic() {
+            return Some(Action::SendToPty(vec![lower - b'a' + 1]));
+        }
+    }
+    if *key == Key::Named(NamedKey::Enter) {
+        return Some(Action::SendToPty(vec![b'\n']));
+    }
+    None
+}
+
+fn encode_alt_key(key: &Key) -> Option<Action> {
+    let mut bytes = match key {
+        Key::Named(NamedKey::Tab) => vec![b'\t'],
+        Key::Named(NamedKey::Enter) => vec![b'\r'],
+        Key::Named(NamedKey::Backspace) => vec![0x7f],
+        Key::Character(s) => s.as_bytes().to_vec(),
+        _ => return None,
+    };
+    bytes.insert(0, 0x1b);
+    Some(Action::SendToPty(bytes))
+}
+
+fn cursor_seq(key: &Key, app: bool) -> Option<&'static [u8]> {
+    Some(match key {
+        Key::Named(NamedKey::ArrowUp) => {
+            if app {
+                b"\x1bOA"
+            } else {
+                b"\x1b[A"
+            }
+        }
+        Key::Named(NamedKey::ArrowDown) => {
+            if app {
+                b"\x1bOB"
+            } else {
+                b"\x1b[B"
+            }
+        }
+        Key::Named(NamedKey::ArrowRight) => {
+            if app {
+                b"\x1bOC"
+            } else {
+                b"\x1b[C"
+            }
+        }
+        Key::Named(NamedKey::ArrowLeft) => {
+            if app {
+                b"\x1bOD"
+            } else {
+                b"\x1b[D"
+            }
+        }
+        Key::Named(NamedKey::Home) => {
+            if app {
+                b"\x1bOH"
+            } else {
+                b"\x1b[1~"
+            }
+        }
+        Key::Named(NamedKey::End) => {
+            if app {
+                b"\x1bOF"
+            } else {
+                b"\x1b[4~"
+            }
+        }
+        _ => return None,
+    })
+}
+
 fn handle_insert(
     key: &Key,
     ctrl: bool,
@@ -280,40 +362,18 @@ fn handle_insert(
     alt: bool,
     application_cursor_keys: bool,
 ) -> Action {
-    // Escape is forwarded to PTY — vim / other TUI apps need it
-    if ctrl {
-        if let Key::Character(s) = key
-            && let Some(c) = s.chars().next()
-        {
-            let raw = c as u32;
-            if (1..=26).contains(&raw) {
-                return Action::SendToPty(vec![raw as u8]);
-            }
-            let lower = (c as u8).to_ascii_lowercase();
-            if lower.is_ascii_alphabetic() {
-                return Action::SendToPty(vec![lower - b'a' + 1]);
-            }
-        }
-        if *key == Key::Named(NamedKey::Enter) {
-            return Action::SendToPty(vec![b'\n']);
-        }
+    if ctrl && let Some(action) = encode_ctrl_key(key) {
+        return action;
     }
-
-    // Alt+key: prefix with ESC (standard xterm Alt encoding)
-    if alt && !ctrl {
-        let inner = match key {
-            Key::Named(NamedKey::Tab) => Some(vec![b'\t']),
-            Key::Named(NamedKey::Enter) => Some(vec![b'\r']),
-            Key::Named(NamedKey::Backspace) => Some(vec![0x7f]),
-            Key::Character(s) => Some(s.as_bytes().to_vec()),
-            _ => None,
-        };
-        if let Some(mut bytes) = inner {
-            bytes.insert(0, 0x1b);
-            return Action::SendToPty(bytes);
-        }
+    if alt
+        && !ctrl
+        && let Some(action) = encode_alt_key(key)
+    {
+        return action;
     }
-
+    if let Some(seq) = cursor_seq(key, application_cursor_keys) {
+        return Action::SendToPty(seq.to_vec());
+    }
     match key {
         Key::Named(NamedKey::Escape) => Action::SendToPty(vec![0x1b]),
         Key::Named(NamedKey::Space) => Action::SendToPty(vec![b' ']),
@@ -321,36 +381,6 @@ fn handle_insert(
         Key::Named(NamedKey::Backspace) => Action::SendToPty(vec![0x7f]),
         Key::Named(NamedKey::Tab) if shift => Action::SendToPty(b"\x1b[Z".to_vec()),
         Key::Named(NamedKey::Tab) => Action::SendToPty(vec![b'\t']),
-        Key::Named(NamedKey::ArrowUp) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOA".to_vec()
-        } else {
-            b"\x1b[A".to_vec()
-        }),
-        Key::Named(NamedKey::ArrowDown) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOB".to_vec()
-        } else {
-            b"\x1b[B".to_vec()
-        }),
-        Key::Named(NamedKey::ArrowRight) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOC".to_vec()
-        } else {
-            b"\x1b[C".to_vec()
-        }),
-        Key::Named(NamedKey::ArrowLeft) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOD".to_vec()
-        } else {
-            b"\x1b[D".to_vec()
-        }),
-        Key::Named(NamedKey::Home) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOH".to_vec()
-        } else {
-            b"\x1b[1~".to_vec()
-        }),
-        Key::Named(NamedKey::End) => Action::SendToPty(if application_cursor_keys {
-            b"\x1bOF".to_vec()
-        } else {
-            b"\x1b[4~".to_vec()
-        }),
         Key::Named(NamedKey::PageUp) => Action::SendToPty(b"\x1b[5~".to_vec()),
         Key::Named(NamedKey::PageDown) => Action::SendToPty(b"\x1b[6~".to_vec()),
         Key::Named(NamedKey::Delete) => Action::SendToPty(b"\x1b[3~".to_vec()),
@@ -465,7 +495,6 @@ fn handle_visual(
             "y" => Action::Copy,
             "Y" => Action::VisualYankLine,
             "o" => Action::VisualSwapAnchor,
-            // set anchor at current cursor position (start marking from here)
             "v" => Action::VisualAnchor,
             "q" => Action::SetMode(InputMode::Insert),
             _ => Action::None,
