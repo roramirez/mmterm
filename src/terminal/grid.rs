@@ -617,6 +617,19 @@ impl Grid {
         }
     }
 
+    pub fn reset_sgr(&mut self) {
+        self.fg = self.default_fg;
+        self.bg = self.default_bg;
+        self.bold = false;
+        self.dim = false;
+        self.italic = false;
+        self.underline = false;
+        self.strikethrough = false;
+        self.overline = false;
+        self.reverse = false;
+        self.blink = false;
+    }
+
     pub fn save_cursor(&mut self) {
         self.decsc = Some(SavedCursor {
             col: self.cursor_col,

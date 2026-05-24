@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - split `window_event()` into `handle_keyboard_input`, `handle_cursor_moved`, `handle_mouse_input`, `handle_mouse_wheel`; split `redraw()` into `collect_pane_views`, `build_tab_titles` — reduces `main.rs` cognitive complexity from 171 to 58
 - split `draw_pane()` in `renderer/text.rs` into `fill_pane_background`, `search_highlight`, `resolve_cell_colors`, `draw_cell_decorations`, `draw_cursor_overlay`, `draw_scrollbar`, `draw_images`, and `draw_glyph` — reduces max function size from 419 to 130 lines
+- extract `handle_dec_private_modes`, `handle_erase_display`, `handle_erase_line`, `handle_sgr`, `handle_char_ops` from `csi_dispatch()` in `terminal/parser.rs`; extract `handle_global_shortcuts` from `handle_key_inner()` in `input/keybindings.rs`
 
 ### Performance
 - replace `scroll_up`/`scroll_down` double-loop clones with `rotate_left`/`rotate_right`; reduces cost per scroll line ~3.3× (49 µs → 15 µs for 220×50); `seq 1 100000` drops from 4.4 s to 1.4 s

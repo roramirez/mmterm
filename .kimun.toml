@@ -1,7 +1,7 @@
 # Subir fail_below tras cada phase completada
 [score]
 model      = "cogcom"
-fail_below = "D-"         # after Phase A+B: D- (59.2)
+fail_below = "D-"         # after Phase A+B+C: D- (59.6)
 
 [smells]
 max_lines  = 50

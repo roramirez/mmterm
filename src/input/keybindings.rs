@@ -104,125 +104,9 @@ pub(crate) fn handle_key_inner(
     grid_rows: usize,
     application_cursor_keys: bool,
 ) -> Action {
-    // ── Global shortcuts (all modes, never sent to PTY) ──────────────────
-
-    // Ctrl+W — pane management prefix
-    if ctrl
-        && !shift
-        && let Key::Character(s) = key
-        && s.eq_ignore_ascii_case("w")
-    {
-        return Action::CtrlWPrefix;
+    if let Some(action) = handle_global_shortcuts(key, ctrl, shift, alt, mode, grid_rows) {
+        return action;
     }
-
-    // Ctrl+. — cycle Insert → Normal → Visual
-    if ctrl && let Key::Character(s) = key {
-        if s == "." {
-            let next = match mode {
-                InputMode::Insert => InputMode::Normal,
-                InputMode::Normal => InputMode::Visual {
-                    start_col: 0,
-                    start_row: 0,
-                    cur_col: 0,
-                    cur_row: 0,
-                    anchored: false,
-                },
-                InputMode::Visual { .. }
-                | InputMode::RenameTab { .. }
-                | InputMode::Search { .. }
-                | InputMode::CommandPalette { .. }
-                | InputMode::QuitSave => InputMode::Insert,
-            };
-            return Action::SetMode(next);
-        }
-        // Ctrl+\ — also enters Normal mode (alternative)
-        if s == "\\" || s == "|" {
-            return Action::SetMode(InputMode::Normal);
-        }
-    }
-
-    if ctrl && shift {
-        match key {
-            Key::Character(s) if s.eq_ignore_ascii_case("v") => return Action::Paste,
-            Key::Character(s) if s.eq_ignore_ascii_case("w") => return Action::CloseTab,
-            Key::Character(s) if s.eq_ignore_ascii_case("r") => return Action::RenameTab,
-            Key::Character(s) if s.eq_ignore_ascii_case("k") => return Action::ClearScrollback,
-            Key::Character(s) if s.eq_ignore_ascii_case("l") => return Action::ToggleLog,
-            Key::Character(s) if s.eq_ignore_ascii_case("p") => return Action::OpenCommandPalette,
-            Key::Named(NamedKey::ArrowUp) => return Action::ResizePaneUp,
-            Key::Named(NamedKey::ArrowDown) => return Action::ResizePaneDown,
-            Key::Named(NamedKey::ArrowRight) => return Action::ResizePaneRight,
-            Key::Named(NamedKey::ArrowLeft) => return Action::ResizePaneLeft,
-            Key::Named(NamedKey::PageUp) => return Action::MoveTabLeft,
-            Key::Named(NamedKey::PageDown) => return Action::MoveTabRight,
-            Key::Named(NamedKey::Home) => return Action::ScrollToTop,
-            Key::Named(NamedKey::End) => return Action::ScrollToBottom,
-            _ => {}
-        }
-    }
-
-    if ctrl
-        && !shift
-        && let Key::Character(s) = key
-        && s.eq_ignore_ascii_case("c")
-        && matches!(mode, InputMode::Visual { .. })
-    {
-        return Action::Copy;
-    }
-
-    if ctrl && !shift {
-        match key {
-            Key::Character(s) if s.eq_ignore_ascii_case("q") => return Action::Quit,
-            Key::Character(s) if s == "," => return Action::OpenConfig,
-            Key::Character(s) if s.eq_ignore_ascii_case("t") => return Action::NewTab,
-            // Ctrl++ / Ctrl+= — increase font size
-            Key::Character(s) if s == "+" || s == "=" => return Action::IncreaseFontSize,
-            // Ctrl+- — decrease font size
-            Key::Character(s) if s == "-" => return Action::DecreaseFontSize,
-            // Ctrl+0 — reset font size
-            Key::Character(s) if s == "0" => return Action::ResetFontSize,
-            _ => {}
-        }
-        // Ctrl+PageUp/Down → tab navigation
-        if *key == Key::Named(NamedKey::PageUp) {
-            return Action::PrevTab;
-        }
-        if *key == Key::Named(NamedKey::PageDown) {
-            return Action::NextTab;
-        }
-    }
-
-    if shift && !ctrl {
-        match key {
-            Key::Named(NamedKey::PageUp) => return Action::ScrollUp(grid_rows),
-            Key::Named(NamedKey::PageDown) => return Action::ScrollDown(grid_rows),
-            _ => {}
-        }
-    }
-
-    // Ctrl+Enter — toggle fullscreen (all modes, like Ghostty on Linux/Windows)
-    if ctrl && !shift && !alt && *key == Key::Named(NamedKey::Enter) {
-        return Action::ToggleFullscreen;
-    }
-
-    // Alt+Tab / Alt+Shift+Tab — consumed silently so the keystroke isn't
-    // forwarded to the PTY while the window manager switches focus.
-    if alt && !ctrl && *key == Key::Named(NamedKey::Tab) {
-        return Action::None;
-    }
-
-    // Alt+1..9 — jump to tab by position (1-indexed)
-    if alt
-        && !ctrl
-        && !shift
-        && let Key::Character(s) = key
-        && let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
-        && d >= 1
-    {
-        return Action::GoToTab((d - 1) as usize);
-    }
-
-    // ── Per-mode handling ────────────────────────────────────────────────
     match mode {
         InputMode::Insert => handle_insert(key, ctrl, shift, alt, application_cursor_keys),
         InputMode::Normal => handle_normal(key, grid_rows),
@@ -245,6 +129,125 @@ pub(crate) fn handle_key_inner(
         InputMode::CommandPalette { .. } => Action::None,
         InputMode::QuitSave => handle_quit_save(key),
     }
+}
+
+fn handle_global_shortcuts(
+    key: &Key,
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    mode: &InputMode,
+    grid_rows: usize,
+) -> Option<Action> {
+    // Ctrl+W — pane management prefix
+    if ctrl
+        && !shift
+        && let Key::Character(s) = key
+        && s.eq_ignore_ascii_case("w")
+    {
+        return Some(Action::CtrlWPrefix);
+    }
+
+    // Ctrl+. — cycle modes; Ctrl+\ — enter Normal
+    if ctrl && let Key::Character(s) = key {
+        if s == "." {
+            let next = match mode {
+                InputMode::Insert => InputMode::Normal,
+                InputMode::Normal => InputMode::Visual {
+                    start_col: 0,
+                    start_row: 0,
+                    cur_col: 0,
+                    cur_row: 0,
+                    anchored: false,
+                },
+                _ => InputMode::Insert,
+            };
+            return Some(Action::SetMode(next));
+        }
+        if s == "\\" || s == "|" {
+            return Some(Action::SetMode(InputMode::Normal));
+        }
+    }
+
+    if ctrl && shift {
+        let action = match key {
+            Key::Character(s) if s.eq_ignore_ascii_case("v") => Some(Action::Paste),
+            Key::Character(s) if s.eq_ignore_ascii_case("w") => Some(Action::CloseTab),
+            Key::Character(s) if s.eq_ignore_ascii_case("r") => Some(Action::RenameTab),
+            Key::Character(s) if s.eq_ignore_ascii_case("k") => Some(Action::ClearScrollback),
+            Key::Character(s) if s.eq_ignore_ascii_case("l") => Some(Action::ToggleLog),
+            Key::Character(s) if s.eq_ignore_ascii_case("p") => Some(Action::OpenCommandPalette),
+            Key::Named(NamedKey::ArrowUp) => Some(Action::ResizePaneUp),
+            Key::Named(NamedKey::ArrowDown) => Some(Action::ResizePaneDown),
+            Key::Named(NamedKey::ArrowRight) => Some(Action::ResizePaneRight),
+            Key::Named(NamedKey::ArrowLeft) => Some(Action::ResizePaneLeft),
+            Key::Named(NamedKey::PageUp) => Some(Action::MoveTabLeft),
+            Key::Named(NamedKey::PageDown) => Some(Action::MoveTabRight),
+            Key::Named(NamedKey::Home) => Some(Action::ScrollToTop),
+            Key::Named(NamedKey::End) => Some(Action::ScrollToBottom),
+            _ => None,
+        };
+        if action.is_some() {
+            return action;
+        }
+    }
+
+    // Ctrl+C in Visual mode
+    if ctrl
+        && !shift
+        && let Key::Character(s) = key
+        && s.eq_ignore_ascii_case("c")
+        && matches!(mode, InputMode::Visual { .. })
+    {
+        return Some(Action::Copy);
+    }
+
+    if ctrl && !shift {
+        let action = match key {
+            Key::Character(s) if s.eq_ignore_ascii_case("q") => Some(Action::Quit),
+            Key::Character(s) if s == "," => Some(Action::OpenConfig),
+            Key::Character(s) if s.eq_ignore_ascii_case("t") => Some(Action::NewTab),
+            Key::Character(s) if s == "+" || s == "=" => Some(Action::IncreaseFontSize),
+            Key::Character(s) if s == "-" => Some(Action::DecreaseFontSize),
+            Key::Character(s) if s == "0" => Some(Action::ResetFontSize),
+            Key::Named(NamedKey::PageUp) => Some(Action::PrevTab),
+            Key::Named(NamedKey::PageDown) => Some(Action::NextTab),
+            Key::Named(NamedKey::Enter) if !alt => Some(Action::ToggleFullscreen),
+            _ => None,
+        };
+        if action.is_some() {
+            return action;
+        }
+    }
+
+    if shift && !ctrl {
+        let action = match key {
+            Key::Named(NamedKey::PageUp) => Some(Action::ScrollUp(grid_rows)),
+            Key::Named(NamedKey::PageDown) => Some(Action::ScrollDown(grid_rows)),
+            _ => None,
+        };
+        if action.is_some() {
+            return action;
+        }
+    }
+
+    // Alt+Tab — consumed silently (suppress window-manager focus switch leaking to PTY)
+    if alt && !ctrl && *key == Key::Named(NamedKey::Tab) {
+        return Some(Action::None);
+    }
+
+    // Alt+1..9 — jump to tab by position (1-indexed)
+    if alt
+        && !ctrl
+        && !shift
+        && let Key::Character(s) = key
+        && let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
+        && d >= 1
+    {
+        return Some(Action::GoToTab((d - 1) as usize));
+    }
+
+    None
 }
 
 pub(crate) fn ctrl_w_action(key: &Key) -> Action {
