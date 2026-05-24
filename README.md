@@ -17,6 +17,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Themes** — 9 built-in themes; custom themes via `~/.config/mmterm/themes/`
 - **OSC 8 hyperlinks** — clickable URLs rendered in the terminal
 - **OSC 52 clipboard sync** — copy/paste over SSH without extra tools
+- **Focus reporting** — `?1004h/l` sends `\e[I`/`\e[O` on window, tab, and pane focus changes; neovim `autoread` and tmux work correctly
 - **DEC line drawing** — box-drawing characters for ncurses TUI apps (`dialog`, `nmtui`, `mutt`)
 - **Pane zoom** — full-window focus for the active pane
 - **Session logging** — capture PTY output per-pane to `~/.mmterm/` with `Ctrl+Shift+L`

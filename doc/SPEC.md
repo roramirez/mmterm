@@ -85,6 +85,12 @@ vim-style modal input, split panes, and multi-tab sessions.
 - RIS (`ESC c`): full terminal reset — clears screen and scrollback, resets
   cursor, SGR, scroll region, alternate screen, and all mode flags to their
   initial state.
+- Focus reporting (`?1004h/l`): sends `\e[I` on focus-in and `\e[O` on focus-out
+  to the active pane; fires on OS window focus events, tab switches, and pane
+  switches — neovim uses this to trigger `autoread` and `FocusGained` hooks.
+- DECAWM (`?7h/l`): autowrap mode toggle; when disabled, characters written at
+  the right margin overwrite the last cell and the cursor stays at the margin
+  instead of advancing to the next line.
 
 ### Rendering
 - CPU-only pixel buffer (no GPU, no OpenGL, no Vulkan).
