@@ -1,4 +1,5 @@
 use super::grid::{Color, CursorShape, Grid, GridColors};
+use super::sixel::SixelDecoder;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use vte::{Params, Parser, Perform};
@@ -25,6 +26,10 @@ impl TerminalParser {
         // vte requires a mutable performer; we route through a wrapper
         let mut performer = Performer {
             grid: &mut self.grid,
+            dcs_kind: None,
+            sixel_decoder: None,
+            sixel_col: 0,
+            sixel_row: 0,
         };
         for &byte in bytes {
             self.parser.advance(&mut performer, byte);
@@ -32,8 +37,17 @@ impl TerminalParser {
     }
 }
 
+enum DcsKind {
+    Sixel,
+    Unknown,
+}
+
 struct Performer<'a> {
     grid: &'a mut Grid,
+    dcs_kind: Option<DcsKind>,
+    sixel_decoder: Option<SixelDecoder>,
+    sixel_col: usize,
+    sixel_row: usize,
 }
 
 impl Perform for Performer<'_> {
@@ -413,9 +427,41 @@ impl Perform for Performer<'_> {
             }
         }
     }
-    fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {}
-    fn put(&mut self, _byte: u8) {}
-    fn unhook(&mut self) {}
+    fn hook(&mut self, _params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
+        // Sixel graphics: DCS P...q (final char = 'q', no intermediates)
+        if action == 'q' && intermediates.is_empty() {
+            self.dcs_kind = Some(DcsKind::Sixel);
+            self.sixel_decoder = Some(SixelDecoder::new());
+            self.sixel_col = self.grid.cursor_col;
+            self.sixel_row = self.grid.cursor_row;
+        } else {
+            self.dcs_kind = Some(DcsKind::Unknown);
+        }
+    }
+
+    fn put(&mut self, byte: u8) {
+        if let (Some(DcsKind::Sixel), Some(dec)) = (&self.dcs_kind, &mut self.sixel_decoder) {
+            dec.feed_byte(byte);
+        }
+        // Unknown DCS: silently discard bytes.
+    }
+
+    fn unhook(&mut self) {
+        if let (Some(DcsKind::Sixel), Some(mut img)) = (
+            self.dcs_kind.take(),
+            self.sixel_decoder.take().and_then(|d| d.finish()),
+        ) {
+            img.col = self.sixel_col;
+            img.row = self.sixel_row;
+            self.grid.images.push(img);
+            // Cursor advance is intentionally omitted: the parser has no
+            // access to FontMetrics. Real sixel producers (chafa, libsixel,
+            // img2sixel) always send an explicit cursor-positioning escape
+            // after the image.
+        }
+        self.sixel_decoder = None;
+        self.dcs_kind = None;
+    }
     fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, byte: u8) {
         match (intermediates, byte) {
             // DEC Special Graphics (line drawing): ESC ( 0 = on, ESC ( B = ASCII

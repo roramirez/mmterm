@@ -1116,3 +1116,79 @@ fn autowrap_on_wraps_normally() {
     assert_eq!(p.grid.cursor_row, 1);
     assert_eq!(p.grid.cell(0, 1).c, 'F');
 }
+
+// --- DCS / Sixel tests ---
+
+#[test]
+fn dcs_sixel_sequence_stores_image_in_grid() {
+    // Minimal sixel: DCS 0;0;0 q #0;2;255;0;0 @ ST
+    // '#0;2;255;0;0' = define color 0 as red; '@' = bit 0 set → 1 pixel at (0,0)
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1bP0;0;0q#0;2;255;0;0@\x1b\\");
+    assert_eq!(p.grid.images.len(), 1, "one image should be stored");
+    let img = &p.grid.images[0];
+    assert!(img.width >= 1);
+    assert!(img.height >= 1);
+}
+
+#[test]
+fn dcs_sixel_anchored_at_cursor_position() {
+    let mut p = make_parser(80, 24);
+    // Move cursor to row 4, col 9 (CSI 5;10 H = row 5, col 10, 1-indexed)
+    p.process(b"\x1b[5;10H");
+    p.process(b"\x1bP0;0;0q@\x1b\\");
+    assert_eq!(p.grid.images.len(), 1);
+    assert_eq!(p.grid.images[0].col, 9, "anchored at cursor_col");
+    assert_eq!(p.grid.images[0].row, 4, "anchored at cursor_row");
+}
+
+#[test]
+fn dcs_clear_screen_clears_images() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1bP0;0;0q@\x1b\\");
+    assert_eq!(p.grid.images.len(), 1);
+    p.process(b"\x1b[2J"); // ED 2 → clear_screen()
+    assert!(p.grid.images.is_empty(), "images cleared by clear_screen");
+}
+
+#[test]
+fn dcs_alternate_screen_enter_clears_images() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1bP0;0;0q@\x1b\\");
+    assert_eq!(p.grid.images.len(), 1);
+    p.process(b"\x1b[?1049h"); // enter alternate screen
+    assert!(
+        p.grid.images.is_empty(),
+        "images cleared on alt-screen enter"
+    );
+}
+
+#[test]
+fn dcs_alternate_screen_exit_clears_images() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b[?1049h"); // enter alt screen
+    p.process(b"\x1bP0;0;0q@\x1b\\"); // add image in alt screen
+    assert_eq!(p.grid.images.len(), 1);
+    p.process(b"\x1b[?1049l"); // exit alt screen
+    assert!(
+        p.grid.images.is_empty(),
+        "images cleared on alt-screen exit"
+    );
+}
+
+#[test]
+fn dcs_unknown_sequence_does_not_crash_and_leaves_grid_clean() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1bP$qm\x1b\\"); // DECRQSS: DCS $ q m ST — unknown DCS
+    assert_eq!(p.grid.images.len(), 0, "unknown DCS adds no images");
+    p.process(b"X");
+    assert_eq!(p.grid.cell(0, 0).c, 'X', "grid usable after unknown DCS");
+}
+
+#[test]
+fn dcs_multiple_sixel_images_accumulate() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1bP0;0;0q@\x1b\\");
+    p.process(b"\x1bP0;0;0q@\x1b\\");
+    assert_eq!(p.grid.images.len(), 2, "two images should accumulate");
+}

@@ -552,6 +552,38 @@ impl Renderer {
                 }
             }
         }
+
+        // Sixel image blit: pixel overlay on top of the cell layer.
+        // Images are only shown at scroll_offset == 0 (live view); their col/row
+        // coordinates are live-grid positions and become meaningless when scrolled.
+        if pane.scroll_offset == 0 {
+            for img in &grid.images {
+                let img_x = rx + PANE_PADDING + img.col as u32 * m.cell_width;
+                let img_y = ry + PANE_PADDING + img.row as u32 * m.cell_height;
+                for py in 0..img.height {
+                    for px in 0..img.width {
+                        let base = ((py * img.width + px) * 4) as usize;
+                        let a = img.pixels[base + 3];
+                        if a == 0 {
+                            continue;
+                        }
+                        let r = img.pixels[base] as u32;
+                        let g = img.pixels[base + 1] as u32;
+                        let b = img.pixels[base + 2] as u32;
+                        let sx = img_x + px;
+                        let sy = img_y + py;
+                        if sx >= rx + rw || sy >= ry + rh {
+                            continue;
+                        }
+                        let idx = (sy * buf_width + sx) as usize;
+                        if idx < buf.len() {
+                            let fg = 0xFF_00_00_00 | (r << 16) | (g << 8) | b;
+                            buf[idx] = blend(buf[idx], fg, a);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn draw_tab_bar(
@@ -2704,5 +2736,96 @@ mod tests {
             rows_padded <= rows_raw,
             "padded rows {rows_padded} should be ≤ raw rows {rows_raw}"
         );
+    }
+
+    #[test]
+    fn draw_pane_with_sixel_image_does_not_panic() {
+        use crate::terminal::sixel::SixelImage;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        // 2×6 red image at cell (0, 0)
+        let pixels = vec![255u8, 0, 0, 255].repeat(2 * 6);
+        grid.images.push(SixelImage {
+            col: 0,
+            row: 0,
+            width: 2,
+            height: 6,
+            pixels,
+        });
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_sixel_image_wider_than_pane_does_not_panic() {
+        use crate::terminal::sixel::SixelImage;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        // Image deliberately wider than the pane (9000 pixels)
+        let pixels = vec![255u8, 0, 0, 128].repeat(9000);
+        grid.images.push(SixelImage {
+            col: 0,
+            row: 0,
+            width: 9000,
+            height: 1,
+            pixels,
+        });
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_sixel_image_scrolled_up_not_drawn() {
+        use crate::terminal::sixel::SixelImage;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        grid.images.push(SixelImage {
+            col: 0,
+            row: 0,
+            width: 4,
+            height: 6,
+            pixels: vec![255, 0, 0, 255].repeat(4 * 6),
+        });
+        // With scroll_offset > 0 the image blit is skipped; must not panic.
+        let pane = PaneView {
+            grid: &grid,
+            rect: [0, 22, 800, 600 - 44],
+            scroll_offset: 5,
+            is_active: true,
+            show_cursor: false,
+            blink_visible: true,
+            search_matches: &[],
+            search_current: None,
+            hovered_url: None,
+            cursor_shape: CursorShape::Block,
+        };
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    }
+
+    #[test]
+    fn draw_pane_sixel_transparent_pixels_preserved() {
+        // Transparent pixels (alpha=0) must not overwrite the background.
+        use crate::terminal::sixel::SixelImage;
+        let mut r = make_renderer();
+        let m = r.make_metrics(16.0);
+        let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+        let mut grid = make_grid(cols, rows);
+        // Fully transparent image
+        let pixels = vec![255u8, 0, 0, 0].repeat(4 * 6);
+        grid.images.push(SixelImage {
+            col: 0,
+            row: 0,
+            width: 4,
+            height: 6,
+            pixels,
+        });
+        let pane = make_pane(&grid, &m);
+        do_draw(&mut r, &m, &[pane], &InputMode::Insert);
     }
 }

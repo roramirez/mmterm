@@ -14,6 +14,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - command palette (`Ctrl+Shift+P`): overlay to fuzzy-filter and execute any action by name; navigate with ↑/↓, confirm with Enter, dismiss with Esc
+- DCS sequence dispatch: `hook()`, `put()`, and `unhook()` now route sixel graphics (`DCS...q...ST`) to a self-contained decoder; unknown DCS sequences are silently discarded
+- sixel graphics: images decoded into RGBA pixel buffers and blitted as a post-pass overlay in the renderer, anchored to the cursor position at emission time; palette define (`#n;2;r;g;b`, `#n;1;h;l;s`), RLE (`!count<byte>`), carriage-return (`$`), and band-linefeed (`-`) are all supported
 - RIS (`ESC c`): full terminal reset — clears screen, scrollback, SGR, scroll region, cursor, and all mode flags
 - focus reporting (`?1004h/l`): send `\e[I` on focus-in and `\e[O` on focus-out; covers OS window focus, tab switches, and pane switches
 - autowrap mode toggle (`?7h/l`, DECAWM): when disabled, characters at the right margin overwrite the last cell instead of wrapping to the next line

@@ -1,3 +1,4 @@
+use super::sixel::SixelImage;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -180,6 +181,9 @@ pub struct Grid {
     pub focus_report: bool,
     // DECAWM (?7): autowrap — when false, chars at the right margin overwrite instead of wrapping
     pub autowrap: bool,
+    // Sixel images anchored to live-grid cell coordinates; cleared on clear_screen
+    // and alternate-screen transitions.
+    pub images: Vec<SixelImage>,
 }
 
 impl Grid {
@@ -255,6 +259,7 @@ impl Grid {
             charset_drawing: false,
             focus_report: false,
             autowrap: true,
+            images: Vec::new(),
         }
     }
 
@@ -300,6 +305,7 @@ impl Grid {
         self.reverse = false;
         self.blink = false;
         self.charset_drawing = false;
+        self.images.clear();
     }
 
     pub fn exit_alternate_screen(&mut self) {
@@ -322,6 +328,7 @@ impl Grid {
             self.blink = saved.blink;
             self.scrollback = saved.scrollback;
             self.current_url = saved.current_url;
+            self.images.clear();
         }
     }
 
@@ -583,6 +590,7 @@ impl Grid {
     pub fn clear_screen(&mut self) {
         let blank = self.erase_cell();
         self.cells = vec![blank; self.cols * self.rows];
+        self.images.clear();
     }
 
     /// Scan all live grid rows for plain-text `http(s)://` URLs and stamp
