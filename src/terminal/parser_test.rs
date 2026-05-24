@@ -1026,3 +1026,43 @@ fn focus_report_off_by_default() {
     let p = make_parser(80, 24);
     assert!(!p.grid.focus_report);
 }
+
+#[test]
+fn ris_resets_cursor_and_cells() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[3;5Hhello");
+    p.process(b"\x1bc");
+    assert_eq!(p.grid.cursor_col, 0);
+    assert_eq!(p.grid.cursor_row, 0);
+    assert_eq!(p.grid.cell(4, 2).c, ' ');
+}
+
+#[test]
+fn ris_resets_sgr() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[1;3;4mX");
+    p.process(b"\x1bc");
+    assert!(!p.grid.bold);
+    assert!(!p.grid.italic);
+    assert!(!p.grid.underline);
+}
+
+#[test]
+fn ris_clears_scrollback() {
+    let mut p = make_parser(10, 3);
+    for _ in 0..10 {
+        p.process(b"line\n");
+    }
+    assert!(p.grid.scrollback_len() > 0);
+    p.process(b"\x1bc");
+    assert_eq!(p.grid.scrollback_len(), 0);
+}
+
+#[test]
+fn ris_exits_alternate_screen() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[?1049h");
+    assert!(p.grid.in_alternate_screen());
+    p.process(b"\x1bc");
+    assert!(!p.grid.in_alternate_screen());
+}

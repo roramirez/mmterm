@@ -435,6 +435,10 @@ impl Perform for Performer<'_> {
                 // DECRC: restore cursor position and SGR attributes
                 self.grid.restore_cursor();
             }
+            ([], b'c') => {
+                // RIS: Full Reset — clear all state as if freshly opened
+                self.grid.reset();
+            }
             _ => {}
         }
     }

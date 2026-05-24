@@ -82,6 +82,9 @@ vim-style modal input, split panes, and multi-tab sessions.
 - DEC Special Graphics character set (`ESC ( 0` / `ESC ( B`): maps `j`–`x` and
   surrounding chars to Unicode box-drawing glyphs (`┘┐┌└┼─│├┤┴┬` etc.);
   required by ncurses apps (`dialog`, `nmtui`, `mutt`, `alpine`).
+- RIS (`ESC c`): full terminal reset — clears screen and scrollback, resets
+  cursor, SGR, scroll region, alternate screen, and all mode flags to their
+  initial state.
 
 ### Rendering
 - CPU-only pixel buffer (no GPU, no OpenGL, no Vulkan).

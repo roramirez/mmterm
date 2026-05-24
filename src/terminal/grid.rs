@@ -631,6 +631,49 @@ impl Grid {
             self.blink = s.blink;
         }
     }
+
+    /// RIS — Full Reset (ESC c).  Clears all state as if the terminal were freshly opened.
+    pub fn reset(&mut self) {
+        // Exit alternate screen first so we reset the primary buffer.
+        self.alternate_saved = None;
+
+        let blank = Cell {
+            c: ' ',
+            fg: self.default_fg,
+            bg: self.default_bg,
+            ..Cell::default()
+        };
+        self.cells = vec![blank; self.cols * self.rows];
+        self.scrollback.clear();
+
+        self.cursor_col = 0;
+        self.cursor_row = 0;
+        self.scroll_top = 0;
+        self.scroll_bottom = self.rows - 1;
+
+        self.fg = self.default_fg;
+        self.bg = self.default_bg;
+        self.bold = false;
+        self.dim = false;
+        self.italic = false;
+        self.underline = false;
+        self.strikethrough = false;
+        self.overline = false;
+        self.reverse = false;
+        self.blink = false;
+
+        self.decsc = None;
+        self.current_url = None;
+        self.osc_title = None;
+        self.cursor_visible = true;
+        self.cursor_shape = CursorShape::Block;
+        self.bracketed_paste = false;
+        self.mouse_mode = 0;
+        self.mouse_sgr = false;
+        self.application_cursor_keys = false;
+        self.charset_drawing = false;
+        self.focus_report = false;
+    }
 }
 
 /// Returns the length (in chars) of a URL starting at `chars[start]`, or
