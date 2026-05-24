@@ -35,6 +35,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - extract `send_pty_scroll`, `viewport_scroll` from `handle_mouse_wheel()` in `app_event.rs` — reduces complexity from 21 → 3
 - extract `do_toggle_fullscreen`, `do_new_tab`, `do_send_to_pty` from `execute_action()` in `main.rs` — reduces complexity from 24 → 13
 - extract `update_tab_after_pane_poll` from `drain_all()` in `main.rs` — reduces complexity from 22 → 11
+- extract `ctrl_special_char_action`, `shift_scroll_action` from `handle_global_shortcuts()` in `input/keybindings.rs` — reduces complexity from 25 (extreme) → 20 (very complex)
+- update `.kimun.toml` fail_below to "B" now that score reached 80.1
 
 ### Performance
 - replace `scroll_up`/`scroll_down` double-loop clones with `rotate_left`/`rotate_right`; reduces cost per scroll line ~3.3× (49 µs → 15 µs for 220×50); `seq 1 100000` drops from 4.4 s to 1.4 s

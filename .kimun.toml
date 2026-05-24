@@ -1,6 +1,6 @@
 [score]
 model      = "cogcom"
-fail_below = "D"
+fail_below = "B"
 
 [smells]
 max_lines  = 50

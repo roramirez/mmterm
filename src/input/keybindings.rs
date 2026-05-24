@@ -197,6 +197,24 @@ fn ctrl_dot_next_mode(mode: &InputMode) -> InputMode {
     }
 }
 
+fn ctrl_special_char_action(s: &str, mode: &InputMode) -> Option<Action> {
+    if s == "." {
+        return Some(Action::SetMode(ctrl_dot_next_mode(mode)));
+    }
+    if s == "\\" || s == "|" {
+        return Some(Action::SetMode(InputMode::Normal));
+    }
+    None
+}
+
+fn shift_scroll_action(key: &Key, grid_rows: usize) -> Option<Action> {
+    match key {
+        Key::Named(NamedKey::PageUp) => Some(Action::ScrollUp(grid_rows)),
+        Key::Named(NamedKey::PageDown) => Some(Action::ScrollDown(grid_rows)),
+        _ => None,
+    }
+}
+
 fn handle_global_shortcuts(
     key: &Key,
     ctrl: bool,
@@ -213,13 +231,11 @@ fn handle_global_shortcuts(
         return Some(Action::CtrlWPrefix);
     }
 
-    if ctrl && let Key::Character(s) = key {
-        if s == "." {
-            return Some(Action::SetMode(ctrl_dot_next_mode(mode)));
-        }
-        if s == "\\" || s == "|" {
-            return Some(Action::SetMode(InputMode::Normal));
-        }
+    if ctrl
+        && let Key::Character(s) = key
+        && let Some(action) = ctrl_special_char_action(s, mode)
+    {
+        return Some(action);
     }
 
     if ctrl && shift {
@@ -239,12 +255,11 @@ fn handle_global_shortcuts(
         return ctrl_char_action(key, alt);
     }
 
-    if shift && !ctrl {
-        match key {
-            Key::Named(NamedKey::PageUp) => return Some(Action::ScrollUp(grid_rows)),
-            Key::Named(NamedKey::PageDown) => return Some(Action::ScrollDown(grid_rows)),
-            _ => {}
-        }
+    if shift
+        && !ctrl
+        && let Some(action) = shift_scroll_action(key, grid_rows)
+    {
+        return Some(action);
     }
 
     if alt {
