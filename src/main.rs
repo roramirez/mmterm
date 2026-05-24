@@ -599,6 +599,17 @@ impl App {
                 AppEffect::CloseTab => self.close_tab(event_loop),
                 AppEffect::SplitPane(dir) => self.do_split(dir),
                 AppEffect::ChangeFontSize(delta) => self.change_font_size(delta),
+                AppEffect::ResizePane { split_h, delta } => {
+                    let active = self.tab().active;
+                    let ai = self.state.active_tab;
+                    self.state.tabs[ai]
+                        .layout
+                        .nudge_pane(active, split_h, delta);
+                    Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                }
                 AppEffect::ToggleLog => {
                     let active = self.tab().active;
                     let log_dir = self.state.config.logging.log_dir.clone();
@@ -1225,9 +1236,46 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::CursorMoved { position, .. } => {
-                self.state.mouse_pos = Some((position.x, position.y));
-                let url = self.url_at_pixel(position.x, position.y);
-                let icon = if url.is_some() {
+                let (px, py) = (position.x, position.y);
+                self.state.mouse_pos = Some((px, py));
+
+                // Active separator drag takes full priority
+                if let Some(handle) = self.state.drag_separator {
+                    let new_pos = match handle.dir {
+                        SplitDir::H => px as u32,
+                        SplitDir::V => py as u32,
+                    };
+                    let ai = self.state.active_tab;
+                    self.state.tabs[ai].layout.move_separator(handle, new_pos);
+                    Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+                    let icon = match handle.dir {
+                        SplitDir::H => CursorIcon::ColResize,
+                        SplitDir::V => CursorIcon::RowResize,
+                    };
+                    if let Some(w) = &self.window {
+                        w.set_cursor(icon);
+                        w.request_redraw();
+                    }
+                    return;
+                }
+
+                // Hover detection: show resize cursor near separators
+                let hover_sep = {
+                    let tab = &self.state.tabs[self.state.active_tab];
+                    if !tab.zoomed {
+                        tab.layout.separator_at_pixel(px as u32, py as u32, 4)
+                    } else {
+                        None
+                    }
+                };
+
+                let url = self.url_at_pixel(px, py);
+                let icon = if let Some(h) = &hover_sep {
+                    match h.dir {
+                        SplitDir::H => CursorIcon::ColResize,
+                        SplitDir::V => CursorIcon::RowResize,
+                    }
+                } else if url.is_some() {
                     CursorIcon::Pointer
                 } else {
                     CursorIcon::Text
@@ -1245,8 +1293,6 @@ impl ApplicationHandler for App {
                     // Button-motion or any-motion: report if button is held (selecting) or always
                     let report = mouse_mode >= 1003 || self.state.mouse_selecting;
                     if report {
-                        let px = position.x;
-                        let py = position.y;
                         let active = self.tab().active;
                         if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
                             // btn 32 = motion with no button, 32 = left held already encoded as 32
@@ -1255,7 +1301,7 @@ impl ApplicationHandler for App {
                         }
                     }
                 } else if self.state.mouse_selecting {
-                    self.update_mouse_selection(position.x, position.y);
+                    self.update_mouse_selection(px, py);
                     if let Some(w) = &self.window {
                         w.request_redraw();
                     }
@@ -1263,6 +1309,33 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::MouseInput { state, button, .. } => {
+                // End an active separator drag before any other handling
+                if button == MouseButton::Left
+                    && state == ElementState::Released
+                    && self.state.drag_separator.take().is_some()
+                {
+                    return;
+                }
+
+                // Separator click takes priority over PTY mouse and text selection
+                if button == MouseButton::Left
+                    && state == ElementState::Pressed
+                    && let Some((mx, my)) = self.state.mouse_pos
+                {
+                    let sep = {
+                        let tab = &self.state.tabs[self.state.active_tab];
+                        if !tab.zoomed {
+                            tab.layout.separator_at_pixel(mx as u32, my as u32, 4)
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(handle) = sep {
+                        self.state.drag_separator = Some(handle);
+                        return;
+                    }
+                }
+
                 let btn_code = match button {
                     MouseButton::Left => 0u8,
                     MouseButton::Middle => 1u8,

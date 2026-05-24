@@ -199,7 +199,7 @@ fn ctrl_shift_r_renames_tab() {
 }
 
 #[test]
-fn ctrl_shift_arrow_up_scrolls_up_1() {
+fn ctrl_shift_arrow_up_resizes_pane_up() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowUp),
         true,
@@ -210,11 +210,11 @@ fn ctrl_shift_arrow_up_scrolls_up_1() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScrollUp(1)));
+    assert!(matches!(a, Action::ResizePaneUp));
 }
 
 #[test]
-fn ctrl_shift_arrow_down_scrolls_down_1() {
+fn ctrl_shift_arrow_down_resizes_pane_down() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowDown),
         true,
@@ -225,7 +225,7 @@ fn ctrl_shift_arrow_down_scrolls_down_1() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScrollDown(1)));
+    assert!(matches!(a, Action::ResizePaneDown));
 }
 
 #[test]

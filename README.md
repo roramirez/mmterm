@@ -11,7 +11,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 ## Features
 
 - **Modal input** — Insert, Normal, Visual, and Search modes (vim-style)
-- **Split panes** — binary-tree layout, horizontal and vertical splits
+- **Split panes** — binary-tree layout, horizontal and vertical splits; drag separators or use `Ctrl+Shift+Arrow` to resize
 - **Multi-tab** — independent pane trees and font metrics per tab
 - **Scrollback search** — live match highlighting across 10 000-line buffer
 - **Themes** — 9 built-in themes; custom themes via `~/.config/mmterm/themes/`
@@ -142,13 +142,15 @@ You can also edit settings live with `Ctrl+,`.
 | `Ctrl+W w` | Cycle focus |
 | `Ctrl+W q` | Close pane |
 | `Ctrl+W z` | Toggle pane zoom |
+| `Ctrl+Shift+←/→` | Grow/shrink active pane horizontally |
+| `Ctrl+Shift+↑/↓` | Grow/shrink active pane vertically |
+| drag separator | Drag the 1 px separator line to resize |
 
 ### Scrollback
 
 | Binding | Action |
 |---|---|
 | `Shift+PageUp` / `Shift+PageDown` | Scroll half screen |
-| `Ctrl+Shift+↑` / `Ctrl+Shift+↓` | Scroll one line |
 | `Ctrl+Shift+Home` / `Ctrl+Shift+End` | Jump to top / bottom |
 
 ### Search (enter from Normal mode with `/`)

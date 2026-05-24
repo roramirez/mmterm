@@ -262,3 +262,151 @@ fn pane_rects_cover_full_usable_area_in_h_split() {
     let total: u32 = rects.iter().map(|(_, r)| r[2]).sum::<u32>() + SEP;
     assert_eq!(total, W);
 }
+
+// ── separator_at_pixel ────────────────────────────────────────────────────────
+
+#[test]
+fn separator_at_pixel_h_split_hit() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    // Separator is at x = W/2 (ratio 0.5), spanning full usable height
+    let sep_x = W / 2;
+    let mid_y = TAB_BAR_H + (H - STATUS_BAR_H - TAB_BAR_H) / 2;
+    let handle = layout.separator_at_pixel(sep_x, mid_y, 4);
+    assert!(handle.is_some());
+    assert!(matches!(handle.unwrap().dir, SplitDir::H));
+}
+
+#[test]
+fn separator_at_pixel_v_split_hit() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::V);
+    // Separator is at y = TAB_BAR_H + usable_h/2
+    let usable_h = H - STATUS_BAR_H - TAB_BAR_H;
+    let sep_y = TAB_BAR_H + usable_h / 2;
+    let handle = layout.separator_at_pixel(W / 2, sep_y, 4);
+    assert!(handle.is_some());
+    assert!(matches!(handle.unwrap().dir, SplitDir::V));
+}
+
+#[test]
+fn separator_at_pixel_miss() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    // Far from separator
+    assert!(layout.separator_at_pixel(10, TAB_BAR_H + 10, 4).is_none());
+}
+
+#[test]
+fn separator_at_pixel_single_pane_none() {
+    let layout = Layout::new(0, W, H);
+    assert!(layout.separator_at_pixel(W / 2, H / 2, 4).is_none());
+}
+
+// ── move_separator ────────────────────────────────────────────────────────────
+
+#[test]
+fn move_separator_h_changes_rects() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    let sep_x = W / 2;
+    let mid_y = TAB_BAR_H + (H - STATUS_BAR_H - TAB_BAR_H) / 2;
+    let handle = layout.separator_at_pixel(sep_x, mid_y, 4).unwrap();
+    // Move separator to ~25% of width
+    layout.move_separator(handle, W / 4);
+    let rects = layout.rects();
+    let left_w = rects.iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    // Left pane should now be around 25% wide (within 10px tolerance)
+    assert!((left_w as i32 - (W / 4) as i32).abs() < 10);
+}
+
+#[test]
+fn move_separator_v_changes_rects() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::V);
+    let usable_h = H - STATUS_BAR_H - TAB_BAR_H;
+    let sep_y = TAB_BAR_H + usable_h / 2;
+    let handle = layout.separator_at_pixel(W / 2, sep_y, 4).unwrap();
+    // Move separator to ~25% of usable height
+    layout.move_separator(handle, TAB_BAR_H + usable_h / 4);
+    let rects = layout.rects();
+    let top_h = rects.iter().find(|(id, _)| *id == 0).unwrap().1[3];
+    assert!((top_h as i32 - (usable_h / 4) as i32).abs() < 10);
+}
+
+#[test]
+fn move_separator_clamps_minimum() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    let sep_x = W / 2;
+    let mid_y = TAB_BAR_H + (H - STATUS_BAR_H - TAB_BAR_H) / 2;
+    let handle = layout.separator_at_pixel(sep_x, mid_y, 4).unwrap();
+    // Move to far left (below 10% minimum)
+    layout.move_separator(handle, 0);
+    let rects = layout.rects();
+    let left_w = rects.iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    // Must be at least 10% of W
+    assert!(left_w >= W / 10);
+}
+
+// ── nudge_pane ───────────────────────────────────────────────────────────────
+
+#[test]
+fn nudge_pane_h_right_grows_active() {
+    // Ctrl+Shift+Right: active pane grows horizontally regardless of position
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    // pane 0 is in 'a' (left side)
+    let before = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    layout.nudge_pane(0, true, 0.05);
+    let after = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    assert!(after > before);
+}
+
+#[test]
+fn nudge_pane_h_right_separator_moves_right_for_b_side() {
+    // pane 1 is in 'b' (right side) — Right moves separator right, so pane 1 shrinks
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    let before = layout.rects().iter().find(|(id, _)| *id == 1).unwrap().1[2];
+    layout.nudge_pane(1, true, 0.05);
+    let after = layout.rects().iter().find(|(id, _)| *id == 1).unwrap().1[2];
+    assert!(after < before); // separator moved right → b side shrinks
+}
+
+#[test]
+fn nudge_pane_h_left_shrinks_active() {
+    // Ctrl+Shift+Left: active pane shrinks horizontally
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    let before = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    layout.nudge_pane(0, true, -0.05);
+    let after = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    assert!(after < before);
+}
+
+#[test]
+fn nudge_pane_clamps_at_max() {
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    for _ in 0..20 {
+        layout.nudge_pane(0, true, 0.05);
+    }
+    let rects = layout.rects();
+    let left_w = rects.iter().find(|(id, _)| *id == 0).unwrap().1[2];
+    // Must not exceed 90% of W
+    assert!(left_w <= (W as f32 * 0.91) as u32);
+}
+
+#[test]
+fn nudge_pane_nested_innermost_v() {
+    // Layout: H{ V{ Leaf(0), Leaf(2) }, Leaf(1) }
+    // Ctrl+Shift+Down on pane 0 should affect the inner V split (pane 0 is in 'a')
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    layout.split(0, 2, SplitDir::V);
+    let before_0 = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[3];
+    layout.nudge_pane(0, false, 0.05);
+    let after_0 = layout.rects().iter().find(|(id, _)| *id == 0).unwrap().1[3];
+    assert!(after_0 > before_0);
+}

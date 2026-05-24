@@ -9,7 +9,7 @@ use crate::input::keybindings::Action;
 use crate::renderer::FontMetrics;
 use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
-use crate::ui::{Layout, Pane, SplitDir};
+use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
 
 // ── Re-exports so main.rs can still use these types ─────────────────────────
 
@@ -49,6 +49,7 @@ pub enum AppEffect {
     ToggleLog,
     SendToPty(Vec<u8>),
     Paste,
+    ResizePane { split_h: bool, delta: f32 },
 }
 
 // ── AppState ─────────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ pub struct AppState {
     pub hovered_url: Option<String>,
     pub swallow_next_tab: bool,
     pub theme: ResolvedTheme,
+    pub drag_separator: Option<SeparatorHandle>,
 }
 
 impl AppState {
@@ -95,6 +97,7 @@ impl AppState {
             swallow_next_tab: false,
             theme,
             config,
+            drag_separator: None,
         }
     }
 
@@ -689,6 +692,32 @@ impl AppState {
                     .map(|t| t.metrics.font_px)
                     .unwrap_or(default);
                 vec![AppEffect::ChangeFontSize(default - current)]
+            }
+
+            // ── Pane resize ──────────────────────────────────────────────────
+            Action::ResizePaneRight => {
+                vec![AppEffect::ResizePane {
+                    split_h: true,
+                    delta: crate::ui::layout::NUDGE_STEP,
+                }]
+            }
+            Action::ResizePaneLeft => {
+                vec![AppEffect::ResizePane {
+                    split_h: true,
+                    delta: -crate::ui::layout::NUDGE_STEP,
+                }]
+            }
+            Action::ResizePaneDown => {
+                vec![AppEffect::ResizePane {
+                    split_h: false,
+                    delta: crate::ui::layout::NUDGE_STEP,
+                }]
+            }
+            Action::ResizePaneUp => {
+                vec![AppEffect::ResizePane {
+                    split_h: false,
+                    delta: -crate::ui::layout::NUDGE_STEP,
+                }]
             }
 
             // ── Logging ──────────────────────────────────────────────────────

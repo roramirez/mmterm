@@ -108,6 +108,9 @@ vim-style modal input, split panes, and multi-tab sessions.
 - Cycle focus: `Ctrl+W w`.
 - Close pane: `Ctrl+W q` (closes tab when last pane).
 - 50/50 initial split ratio; separator is 1 px wide.
+- Resize by dragging the separator (4 px click margin); cursor changes to `ColResize`/`RowResize` on hover.
+- Keyboard resize: `Ctrl+Shift+←/→` (horizontal) and `Ctrl+Shift+↑/↓` (vertical) move the nearest separator by 5% per keypress.
+- Minimum pane size is 10% of the parent region (ratio clamped to 0.1–0.9).
 
 ### Tabs
 - `Ctrl+T` — new tab.
@@ -124,7 +127,6 @@ vim-style modal input, split panes, and multi-tab sessions.
 
 ### Scrollback Navigation
 - `Shift+PageUp` / `Shift+PageDown` — scroll half a screen.
-- `Ctrl+Shift+↑` / `Ctrl+Shift+↓` — scroll one line.
 - `Ctrl+Shift+Home` / `Ctrl+Shift+End` — jump to top / bottom.
 
 ### Scrollback Search
@@ -331,7 +333,6 @@ writing a file.
 | `Ctrl+Shift+V` | Paste from clipboard |
 | `Ctrl+Shift+C` | Copy selection |
 | `Ctrl+Shift+K` | Clear scrollback |
-| `Ctrl+Shift+↑/↓` | Scroll one line |
 | `Ctrl+Shift+PgUp/PgDn` | Scroll half screen |
 | `Ctrl+Shift+Home/End` | Scroll to top / bottom |
 | `Shift+PgUp/PgDn` | Scroll half screen |
@@ -351,6 +352,9 @@ writing a file.
 | `Ctrl+W w` | Cycle focus to next pane |
 | `Ctrl+W q` | Close active pane |
 | `Ctrl+W z` | Toggle pane zoom (full-window focus) |
+| `Ctrl+Shift+←/→` | Resize active pane horizontally (5% step) |
+| `Ctrl+Shift+↑/↓` | Resize active pane vertically (5% step) |
+| drag separator | Drag the 1 px line between panes to resize |
 
 ### Normal Mode
 

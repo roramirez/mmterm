@@ -13,6 +13,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - clipboard `get_or_insert_with` panic in headless CI: replace `.expect()` with `.ok()` so Copy and VisualYankLine actions degrade gracefully when no display is available
 
 ### Added
+- resizable pane splits by dragging the separator line between panes; cursor changes to a resize icon on hover
+- keyboard pane resizing with `Ctrl+Shift+Arrow` keys (Right/Left grow/shrink horizontally, Down/Up grow/shrink vertically); minimum pane size is 10% of the parent region
 - `AppState` struct extracts all action-dispatch logic from `App` into a pure, winit-free type; `dispatch_action` returns `Vec<AppEffect>` allowing full unit-test coverage of every action without an event loop
 - 6 VT integration scenario tests covering bash prompt sequences, alternate screen, SGR attributes, scrollback search, mouse reporting, and OSC 8 hyperlinks
 - headless `App` constructor using `EventLoopBuilderExtX11::with_any_thread(true)` enabling `App`-level tests in CI without a display
