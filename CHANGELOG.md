@@ -30,6 +30,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - extract `ctrl_dot_next_mode` from `handle_global_shortcuts()` in `input/keybindings.rs` — removes nested mode-cycle match
 - extract `draw_config_field_row` from `draw_config_panel()` in `renderer/overlays.rs` — reduces complexity from 32 → 12; introduce `FieldRowLayout` context struct
 - extract `blit_glyph_badge` from `draw_badge_label()` in `renderer/overlays.rs` — reduces complexity from 19 → 1
+- extract `try_start_separator_drag`, `send_pty_mouse_click`, `handle_selection_click` from `handle_mouse_input()` in `app_event.rs` — reduces complexity from 30 → 13
+- extract `move_separator_drag`, `report_pty_mouse_move` from `handle_cursor_moved()` in `app_event.rs` — reduces complexity from 30 → 14
+- extract `send_pty_scroll`, `viewport_scroll` from `handle_mouse_wheel()` in `app_event.rs` — reduces complexity from 21 → 3
 
 ### Performance
 - replace `scroll_up`/`scroll_down` double-loop clones with `rotate_left`/`rotate_right`; reduces cost per scroll line ~3.3× (49 µs → 15 µs for 220×50); `seq 1 100000` drops from 4.4 s to 1.4 s

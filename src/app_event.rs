@@ -386,22 +386,8 @@ impl App {
     pub(super) fn handle_cursor_moved(&mut self, px: f64, py: f64) {
         self.state.mouse_pos = Some((px, py));
 
-        if let Some(handle) = self.state.drag_separator {
-            let new_pos = match handle.dir {
-                SplitDir::H => px as u32,
-                SplitDir::V => py as u32,
-            };
-            let ai = self.state.active_tab;
-            self.state.tabs[ai].layout.move_separator(handle, new_pos);
-            Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
-            let icon = match handle.dir {
-                SplitDir::H => CursorIcon::ColResize,
-                SplitDir::V => CursorIcon::RowResize,
-            };
-            if let Some(w) = &self.window {
-                w.set_cursor(icon);
-                w.request_redraw();
-            }
+        if self.state.drag_separator.is_some() {
+            self.move_separator_drag(px, py);
             return;
         }
 
@@ -435,18 +421,44 @@ impl App {
         }
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
         if mouse_mode >= 1002 {
-            let report = mouse_mode >= 1003 || self.state.mouse_selecting;
-            if report {
-                let active = self.tab().active;
-                if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
-                    let btn = if self.state.mouse_selecting { 32 } else { 35 };
-                    self.send_mouse_event(btn, col, row, false, mouse_sgr);
-                }
-            }
+            self.report_pty_mouse_move(px, py, mouse_mode, mouse_sgr);
         } else if self.state.mouse_selecting {
             self.update_mouse_selection(px, py);
             if let Some(w) = &self.window {
                 w.request_redraw();
+            }
+        }
+    }
+
+    fn move_separator_drag(&mut self, px: f64, py: f64) {
+        let handle = match self.state.drag_separator {
+            Some(h) => h,
+            None => return,
+        };
+        let new_pos = match handle.dir {
+            SplitDir::H => px as u32,
+            SplitDir::V => py as u32,
+        };
+        let ai = self.state.active_tab;
+        self.state.tabs[ai].layout.move_separator(handle, new_pos);
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let icon = match handle.dir {
+            SplitDir::H => CursorIcon::ColResize,
+            SplitDir::V => CursorIcon::RowResize,
+        };
+        if let Some(w) = &self.window {
+            w.set_cursor(icon);
+            w.request_redraw();
+        }
+    }
+
+    fn report_pty_mouse_move(&mut self, px: f64, py: f64, mouse_mode: u16, mouse_sgr: bool) {
+        let report = mouse_mode >= 1003 || self.state.mouse_selecting;
+        if report {
+            let active = self.tab().active;
+            if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
+                let btn = if self.state.mouse_selecting { 32 } else { 35 };
+                self.send_mouse_event(btn, col, row, false, mouse_sgr);
             }
         }
     }
@@ -462,19 +474,9 @@ impl App {
         if button == MouseButton::Left
             && state == ElementState::Pressed
             && let Some((mx, my)) = self.state.mouse_pos
+            && self.try_start_separator_drag(mx, my)
         {
-            let sep = {
-                let tab = &self.state.tabs[self.state.active_tab];
-                if !tab.zoomed {
-                    tab.layout.separator_at_pixel(mx as u32, my as u32, 4)
-                } else {
-                    None
-                }
-            };
-            if let Some(handle) = sep {
-                self.state.drag_separator = Some(handle);
-                return;
-            }
+            return;
         }
 
         let btn_code = match button {
@@ -485,35 +487,64 @@ impl App {
         };
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
         if mouse_mode >= 1000 && btn_code < 3 {
-            if let Some((px, py)) = self.state.mouse_pos {
-                let active = self.tab().active;
-                if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
-                    let release = state == ElementState::Released;
-                    self.send_mouse_event(btn_code, col, row, release, mouse_sgr);
-                }
-            }
-            if button == MouseButton::Left {
-                self.state.mouse_selecting = state == ElementState::Pressed;
-            }
+            self.send_pty_mouse_click(btn_code, state, button, mouse_sgr);
             return;
         }
 
         if button == MouseButton::Left {
-            match state {
-                ElementState::Pressed => {
-                    if let Some((mx, my)) = self.state.mouse_pos {
-                        self.start_mouse_selection(mx, my);
-                    }
-                }
-                ElementState::Released => {
-                    if self.state.mouse_selecting {
-                        self.state.mouse_selecting = false;
-                        self.finish_mouse_selection();
-                    }
-                }
-            }
+            self.handle_selection_click(state);
         } else if button == MouseButton::Middle && state == ElementState::Pressed {
             self.do_middle_click_paste();
+        }
+    }
+
+    fn try_start_separator_drag(&mut self, mx: f64, my: f64) -> bool {
+        let tab = &self.state.tabs[self.state.active_tab];
+        let sep = if !tab.zoomed {
+            tab.layout.separator_at_pixel(mx as u32, my as u32, 4)
+        } else {
+            None
+        };
+        if let Some(handle) = sep {
+            self.state.drag_separator = Some(handle);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn send_pty_mouse_click(
+        &mut self,
+        btn_code: u8,
+        state: ElementState,
+        button: MouseButton,
+        mouse_sgr: bool,
+    ) {
+        if let Some((px, py)) = self.state.mouse_pos {
+            let active = self.tab().active;
+            if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
+                let release = state == ElementState::Released;
+                self.send_mouse_event(btn_code, col, row, release, mouse_sgr);
+            }
+        }
+        if button == MouseButton::Left {
+            self.state.mouse_selecting = state == ElementState::Pressed;
+        }
+    }
+
+    fn handle_selection_click(&mut self, state: ElementState) {
+        match state {
+            ElementState::Pressed => {
+                if let Some((mx, my)) = self.state.mouse_pos {
+                    self.start_mouse_selection(mx, my);
+                }
+            }
+            ElementState::Released => {
+                if self.state.mouse_selecting {
+                    self.state.mouse_selecting = false;
+                    self.finish_mouse_selection();
+                }
+            }
         }
     }
 
@@ -542,34 +573,39 @@ impl App {
         };
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
         if mouse_mode >= 1000 {
-            let steps = lines.abs().ceil() as usize;
-            let btn = if lines > 0.0 { 64u8 } else { 65u8 };
-            if let Some((px, py)) = self.state.mouse_pos {
-                let active = self.tab().active;
-                if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
-                    for _ in 0..steps.max(1) {
-                        self.send_mouse_event(btn, col, row, false, mouse_sgr);
-                    }
+            self.send_pty_scroll(lines, mouse_sgr);
+        } else {
+            self.viewport_scroll(lines);
+        }
+    }
+
+    fn send_pty_scroll(&mut self, lines: f32, mouse_sgr: bool) {
+        let steps = lines.abs().ceil() as usize;
+        let btn = if lines > 0.0 { 64u8 } else { 65u8 };
+        if let Some((px, py)) = self.state.mouse_pos {
+            let active = self.tab().active;
+            if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
+                for _ in 0..steps.max(1) {
+                    self.send_mouse_event(btn, col, row, false, mouse_sgr);
                 }
             }
-        } else if lines > 0.0 {
-            let n = lines.ceil() as usize;
-            let active = self.tab().active;
+        }
+    }
+
+    fn viewport_scroll(&mut self, lines: f32) {
+        let n = lines.abs().ceil() as usize;
+        let active = self.tab().active;
+        if lines > 0.0 {
             if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
                 entry.pane.scroll_up(n);
             }
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
         } else {
-            let n = (-lines).ceil() as usize;
-            let active = self.tab().active;
             if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
                 entry.pane.scroll_down(n);
             }
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
+        }
+        if let Some(w) = &self.window {
+            w.request_redraw();
         }
     }
 }
