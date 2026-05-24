@@ -126,14 +126,7 @@ impl Renderer {
         // Draw separators
         let sep_color = color_u32(theme.separator);
         for &[sx, sy, sw, sh] in separators {
-            for dy in 0..sh {
-                for dx in 0..sw {
-                    let idx = ((sy + dy) * buf_width + sx + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = sep_color;
-                    }
-                }
-            }
+            fill_rect(buf, buf_width, sx, sy, sw, sh, sep_color);
         }
 
         if bell_flash {
@@ -446,22 +439,9 @@ impl Renderer {
         let cw = self.glyphs.rasterize('M', fp, false).1;
 
         // Background
-        for y in 0..TAB_BAR_H {
-            for x in 0..width {
-                let idx = (y * width + x) as usize;
-                if idx < buf.len() {
-                    buf[idx] = bar_bg;
-                }
-            }
-        }
+        fill_rect(buf, width, 0, 0, width, TAB_BAR_H, bar_bg);
         // Bottom separator
-        let sep_y = TAB_BAR_H - 1;
-        for x in 0..width {
-            let idx = (sep_y * width + x) as usize;
-            if idx < buf.len() {
-                buf[idx] = sep_col;
-            }
-        }
+        fill_rect(buf, width, 0, TAB_BAR_H - 1, width, 1, sep_col);
 
         let mut cursor_x = 4u32;
         for (label, is_active, has_activity) in tabs {
@@ -476,14 +456,7 @@ impl Renderer {
             };
 
             // Badge fill
-            for dy in 2..TAB_BAR_H - 2 {
-                for dx in 0..tab_w {
-                    let idx = (dy * width + cursor_x + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = badge_bg;
-                    }
-                }
-            }
+            fill_rect(buf, width, cursor_x, 2, tab_w, TAB_BAR_H - 4, badge_bg);
 
             // Label
             self.draw_str(
@@ -504,14 +477,7 @@ impl Renderer {
                 let dot_color = color_u32(theme.palette[1]); // red/pink
                 let dot_x = cursor_x + tab_w.saturating_sub(DOT + 3);
                 let dot_y = 4u32;
-                for dy in 0..DOT {
-                    for dx in 0..DOT {
-                        let idx = ((dot_y + dy) * width + dot_x + dx) as usize;
-                        if idx < buf.len() {
-                            buf[idx] = dot_color;
-                        }
-                    }
-                }
+                fill_rect(buf, width, dot_x, dot_y, DOT, DOT, dot_color);
             }
 
             cursor_x += tab_w + 2;
@@ -579,21 +545,9 @@ impl Renderer {
         let bar_bg = dim_color(color_u32(theme.background), 0.85);
         let sep_color = color_u32(theme.separator);
 
-        for y in bar_y..height {
-            for x in 0..width {
-                let idx = (y * width + x) as usize;
-                if idx < buf.len() {
-                    buf[idx] = bar_bg;
-                }
-            }
-        }
+        fill_rect(buf, width, 0, bar_y, width, height - bar_y, bar_bg);
         if bar_y > 0 {
-            for x in 0..width {
-                let idx = (bar_y * width + x) as usize;
-                if idx < buf.len() {
-                    buf[idx] = sep_color;
-                }
-            }
+            fill_rect(buf, width, 0, bar_y, width, 1, sep_color);
         }
 
         let (label, badge_color) = mode_style(mode, theme);
@@ -605,14 +559,7 @@ impl Renderer {
         let badge_x = 8u32;
         let badge_y = bar_y + 2;
 
-        for dy in 0..badge_h {
-            for dx in 0..badge_w {
-                let idx = ((badge_y + dy) * width + badge_x + dx) as usize;
-                if idx < buf.len() {
-                    buf[idx] = badge_color;
-                }
-            }
-        }
+        fill_rect(buf, width, badge_x, badge_y, badge_w, badge_h, badge_color);
 
         self.draw_badge_label(
             buf,
@@ -656,14 +603,7 @@ impl Renderer {
             let rec_w = rec_label.len() as u32 * char_w + BADGE_PAD_X * 2;
             let rec_color = color_u32(theme.palette[1]); // red/pink
             let rec_x = badge_x + badge_w + 8;
-            for dy in 0..badge_h {
-                for dx in 0..rec_w {
-                    let idx = ((badge_y + dy) * width + rec_x + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = rec_color;
-                    }
-                }
-            }
+            fill_rect(buf, width, rec_x, badge_y, rec_w, badge_h, rec_color);
             self.draw_badge_label(
                 buf,
                 width,

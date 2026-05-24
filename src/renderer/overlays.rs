@@ -76,13 +76,7 @@ impl Renderer {
 
             // Section header
             if let Some(sec) = field.section {
-                // separator line
-                for dx in 1..panel_w - 1 {
-                    let idx = (draw_y * bw + px + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = 0xff_24_25_3a;
-                    }
-                }
+                fill_rect(buf, bw, px + 1, draw_y, panel_w - 2, 1, 0xff_24_25_3a);
                 let sec_label = format!("── {} ", sec);
                 self.draw_str(
                     buf,
@@ -106,22 +100,9 @@ impl Renderer {
 
             // Row background
             let row_bg = if is_sel { 0xff_2a_2b_3d } else { bg };
-            for dx in 1..panel_w - 1 {
-                for dy in 0..row_h {
-                    let idx = ((draw_y + dy) * bw + px + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = row_bg;
-                    }
-                }
-            }
+            fill_rect(buf, bw, px + 1, draw_y, panel_w - 2, row_h, row_bg);
             if is_sel {
-                // left accent bar
-                for dy in 0..row_h {
-                    let idx = ((draw_y + dy) * bw + px + 1) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = border;
-                    }
-                }
+                fill_rect(buf, bw, px + 1, draw_y, 1, row_h, border);
             }
 
             // Color swatch for hex fields
@@ -129,16 +110,15 @@ impl Renderer {
                 let hex = panel.display_value(i);
                 if let Ok(n) = u32::from_str_radix(hex.trim_start_matches('#'), 16) {
                     let swatch_color = 0xff_00_00_00 | n;
-                    for dy in 2..row_h - 2 {
-                        for dx in 0..8 {
-                            let sx = px + panel_w - pad - 10 + dx;
-                            let sy = draw_y + dy;
-                            let idx = (sy * bw + sx) as usize;
-                            if idx < buf.len() {
-                                buf[idx] = swatch_color;
-                            }
-                        }
-                    }
+                    fill_rect(
+                        buf,
+                        bw,
+                        px + panel_w - pad - 10,
+                        draw_y + 2,
+                        8,
+                        row_h - 4,
+                        swatch_color,
+                    );
                 }
             }
 
@@ -183,13 +163,7 @@ impl Renderer {
 
         // Footer: hint + status/help
         let footer_y = py + panel_h - row_h * footer_rows;
-        // divider
-        for dx in 1..panel_w - 1 {
-            let idx = (footer_y * bw + px + dx) as usize;
-            if idx < buf.len() {
-                buf[idx] = 0xff_31_32_44;
-            }
-        }
+        fill_rect(buf, bw, px + 1, footer_y, panel_w - 2, 1, 0xff_31_32_44);
 
         let hint = format!("hint: {}", panel.fields[panel.selected].hint);
         self.draw_str(
@@ -288,12 +262,7 @@ impl Renderer {
 
         // Separator line under query row
         let sep_y = py + row_h;
-        for dx in 1..panel_w - 1 {
-            let idx = (sep_y * bw + px + dx) as usize;
-            if idx < buf.len() {
-                buf[idx] = 0xff_24_25_3a;
-            }
-        }
+        fill_rect(buf, bw, px + 1, sep_y, panel_w - 2, 1, 0xff_24_25_3a);
 
         // Scroll window: keep selected visible
         let scroll_start = if selected >= MAX_VISIBLE {
@@ -311,21 +280,9 @@ impl Renderer {
             let is_sel = list_i == selected;
 
             let row_bg = if is_sel { 0xff_2a_2b_3d } else { bg };
-            for dx in 1..panel_w - 1 {
-                for dy in 0..row_h {
-                    let idx = ((row_y + dy) * bw + px + dx) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = row_bg;
-                    }
-                }
-            }
+            fill_rect(buf, bw, px + 1, row_y, panel_w - 2, row_h, row_bg);
             if is_sel {
-                for dy in 0..row_h {
-                    let idx = ((row_y + dy) * bw + px + 1) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = border;
-                    }
-                }
+                fill_rect(buf, bw, px + 1, row_y, 1, row_h, border);
             }
 
             // Label (left, bold when selected)

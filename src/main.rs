@@ -771,7 +771,9 @@ impl App {
     fn do_resize_pane(&mut self, split_h: bool, delta: f32) {
         let active = self.tab().active;
         let ai = self.state.active_tab;
-        self.state.tabs[ai].layout.nudge_pane(active, split_h, delta);
+        self.state.tabs[ai]
+            .layout
+            .nudge_pane(active, split_h, delta);
         Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
         if let Some(w) = &self.window {
             w.request_redraw();
