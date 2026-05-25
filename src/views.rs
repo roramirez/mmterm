@@ -1,0 +1,102 @@
+use crate::app_state::AppState;
+use crate::input::InputMode;
+use crate::renderer::PaneView;
+use crate::tabs;
+use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
+
+pub fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneView<'a>> {
+    let tab = &state.tabs[state.active_tab];
+    let active_id = tab.active;
+    let has_search = !state.search_matches.is_empty();
+    let search_matches = &state.search_matches;
+    let search_current_val = state.search_current;
+
+    if tab.zoomed {
+        if let Some(entry) = tab.panes.get(&active_id) {
+            let show_cursor = tabs::should_show_cursor(
+                true,
+                matches!(state.mode, InputMode::Insert),
+                state.cursor_blink,
+                entry.pane.scroll_offset,
+            );
+            let (sm, sc) = if has_search {
+                (search_matches.as_slice(), Some(search_current_val))
+            } else {
+                (&[][..], None)
+            };
+            vec![PaneView {
+                grid: &entry.pane.parser.grid,
+                rect: [0, TAB_BAR_H, w, h.saturating_sub(TAB_BAR_H + STATUS_BAR_H)],
+                scroll_offset: entry.pane.scroll_offset,
+                is_active: true,
+                show_cursor,
+                blink_visible: state.cursor_blink,
+                search_matches: sm,
+                search_current: sc,
+                hovered_url: state.hovered_url.as_deref(),
+                cursor_shape: entry.pane.parser.grid.cursor_shape,
+            }]
+        } else {
+            vec![]
+        }
+    } else {
+        let rects = tab.layout.rects();
+        rects
+            .iter()
+            .filter_map(|(id, rect)| {
+                let entry = tab.panes.get(id)?;
+                let is_active = *id == active_id;
+                let show_cursor = tabs::should_show_cursor(
+                    is_active,
+                    matches!(state.mode, InputMode::Insert),
+                    state.cursor_blink,
+                    entry.pane.scroll_offset,
+                );
+                let (sm, sc) = if is_active && has_search {
+                    (search_matches.as_slice(), Some(search_current_val))
+                } else {
+                    (&[][..], None)
+                };
+                Some(PaneView {
+                    grid: &entry.pane.parser.grid,
+                    rect: *rect,
+                    scroll_offset: entry.pane.scroll_offset,
+                    is_active,
+                    show_cursor,
+                    blink_visible: state.cursor_blink,
+                    search_matches: sm,
+                    search_current: sc,
+                    hovered_url: state.hovered_url.as_deref(),
+                    cursor_shape: entry.pane.parser.grid.cursor_shape,
+                })
+            })
+            .collect()
+    }
+}
+
+pub fn build_tab_titles(state: &AppState) -> Vec<(String, bool, bool)> {
+    state
+        .tabs
+        .iter()
+        .enumerate()
+        .map(|(i, tab)| {
+            let is_active = i == state.active_tab;
+            let osc_title = tab
+                .panes
+                .get(&tab.active)
+                .and_then(|e| e.pane.parser.grid.osc_title.as_deref())
+                .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
+            let rename_buf = if is_active {
+                if let InputMode::RenameTab { buf } = &state.mode {
+                    Some(buf.as_str())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let label = tabs::tab_label(i, tab.name.as_deref(), osc_title, is_active, rename_buf);
+            (label, is_active, tab.has_activity)
+        })
+        .collect()
+}

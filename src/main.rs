@@ -11,6 +11,7 @@ mod motion;
 mod mouse;
 mod pty;
 mod renderer;
+mod restore;
 mod search;
 mod session;
 mod statusbar;
@@ -19,6 +20,7 @@ mod terminal;
 mod theme;
 mod tui_config;
 mod ui;
+mod views;
 
 pub use app_state::{AppEffect, AppState, PaneEntry, TabState};
 
@@ -31,7 +33,7 @@ use chrono::Local;
 use config::Config;
 use crossbeam_channel::unbounded;
 use input::InputMode;
-use renderer::{PaneView, Renderer};
+use renderer::Renderer;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -47,7 +49,7 @@ use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 use crate::input::keybindings::Action;
 use crate::terminal::grid::GridColors;
 use crate::theme::{default_theme, install_bundled_themes, load_theme, themes_dir};
-use crate::ui::layout::{PANE_PADDING, STATUS_BAR_H, TAB_BAR_H};
+use crate::ui::layout::{PANE_PADDING, TAB_BAR_H};
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
@@ -184,103 +186,6 @@ impl App {
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
         self.spawn_pane_into(self.state.active_tab, rect, cwd)
-    }
-
-    // ── Session persistence ──────────────────────────────────────────────────
-
-    fn build_saved_session(&self) -> session::SavedSession {
-        let home = dirs_next::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
-        let tabs = self
-            .state
-            .tabs
-            .iter()
-            .map(|tab| {
-                let (node, id_order) = tab.layout.to_saved_node();
-                let active_slot = id_order
-                    .iter()
-                    .position(|&id| id == tab.active)
-                    .unwrap_or(0);
-                let pane_cwds = id_order
-                    .iter()
-                    .map(|id| {
-                        tab.panes
-                            .get(id)
-                            .and_then(|e| e.pty.cwd())
-                            .unwrap_or_else(|| home.clone())
-                    })
-                    .collect();
-                session::SavedTab {
-                    name: tab.name.clone(),
-                    active_pane: active_slot,
-                    pane_cwds,
-                    layout: node,
-                }
-            })
-            .collect();
-        session::SavedSession {
-            active_tab: self.state.active_tab,
-            tabs,
-        }
-    }
-
-    fn restore_session(&mut self, saved: session::SavedSession, win_w: u32, win_h: u32) -> bool {
-        if saved.tabs.is_empty() {
-            return false;
-        }
-        let metrics = self.renderer.make_metrics(self.renderer.font_px);
-        let home = dirs_next::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
-        for tab_sess in &saved.tabs {
-            let tab_idx = self.state.tabs.len();
-            self.state.tabs.push(TabState {
-                panes: HashMap::new(),
-                layout: Layout::new(0, win_w, win_h),
-                active: 0,
-                metrics: metrics.clone(),
-                name: tab_sess.name.clone(),
-                zoomed: false,
-                has_activity: false,
-                bell_flash_until: None,
-            });
-            let rect = [
-                0,
-                TAB_BAR_H,
-                win_w,
-                win_h.saturating_sub(TAB_BAR_H + STATUS_BAR_H),
-            ];
-            let slot_to_id: Vec<usize> = tab_sess
-                .pane_cwds
-                .iter()
-                .map(|cwd| {
-                    let cwd_opt = if cwd.as_os_str().is_empty() {
-                        Some(home.clone())
-                    } else if cwd.exists() {
-                        Some(cwd.clone())
-                    } else {
-                        Some(home.clone())
-                    };
-                    self.spawn_pane_into(tab_idx, rect, cwd_opt)
-                })
-                .collect();
-            if slot_to_id.is_empty() {
-                // Shouldn't happen but guard against empty pane list
-                let id = self.spawn_pane_into(tab_idx, rect, None);
-                self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
-                self.state.tabs[tab_idx].active = id;
-            } else {
-                let layout = Layout::from_saved_node(&tab_sess.layout, &slot_to_id, win_w, win_h);
-                let active_id = slot_to_id
-                    .get(tab_sess.active_pane)
-                    .copied()
-                    .unwrap_or(slot_to_id[0]);
-                self.state.tabs[tab_idx].layout = layout;
-                self.state.tabs[tab_idx].active = active_id;
-            }
-            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx]);
-        }
-        self.state.active_tab = saved
-            .active_tab
-            .min(self.state.tabs.len().saturating_sub(1));
-        true
     }
 
     // ── Tab management ───────────────────────────────────────────────────────
@@ -771,106 +676,6 @@ impl App {
 
     // ── Render helpers ────────────────────────────────────────────────────────
 
-    fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneView<'a>> {
-        let tab = &state.tabs[state.active_tab];
-        let active_id = tab.active;
-        let has_search = !state.search_matches.is_empty();
-        let search_matches = &state.search_matches;
-        let search_current_val = state.search_current;
-
-        if tab.zoomed {
-            if let Some(entry) = tab.panes.get(&active_id) {
-                // Honour only our own modal cursor state; TUI apps often hide the PTY
-                // cursor (?25l) and don't restore it, but we always show it in Insert mode.
-                let show_cursor = tabs::should_show_cursor(
-                    true,
-                    matches!(state.mode, InputMode::Insert),
-                    state.cursor_blink,
-                    entry.pane.scroll_offset,
-                );
-                let (sm, sc) = if has_search {
-                    (search_matches.as_slice(), Some(search_current_val))
-                } else {
-                    (&[][..], None)
-                };
-                vec![PaneView {
-                    grid: &entry.pane.parser.grid,
-                    rect: [0, TAB_BAR_H, w, h.saturating_sub(TAB_BAR_H + STATUS_BAR_H)],
-                    scroll_offset: entry.pane.scroll_offset,
-                    is_active: true,
-                    show_cursor,
-                    blink_visible: state.cursor_blink,
-                    search_matches: sm,
-                    search_current: sc,
-                    hovered_url: state.hovered_url.as_deref(),
-                    cursor_shape: entry.pane.parser.grid.cursor_shape,
-                }]
-            } else {
-                vec![]
-            }
-        } else {
-            let rects = tab.layout.rects();
-            rects
-                .iter()
-                .filter_map(|(id, rect)| {
-                    let entry = tab.panes.get(id)?;
-                    let is_active = *id == active_id;
-                    let show_cursor = tabs::should_show_cursor(
-                        is_active,
-                        matches!(state.mode, InputMode::Insert),
-                        state.cursor_blink,
-                        entry.pane.scroll_offset,
-                    );
-                    let (sm, sc) = if is_active && has_search {
-                        (search_matches.as_slice(), Some(search_current_val))
-                    } else {
-                        (&[][..], None)
-                    };
-                    Some(PaneView {
-                        grid: &entry.pane.parser.grid,
-                        rect: *rect,
-                        scroll_offset: entry.pane.scroll_offset,
-                        is_active,
-                        show_cursor,
-                        blink_visible: state.cursor_blink,
-                        search_matches: sm,
-                        search_current: sc,
-                        hovered_url: state.hovered_url.as_deref(),
-                        cursor_shape: entry.pane.parser.grid.cursor_shape,
-                    })
-                })
-                .collect()
-        }
-    }
-
-    fn build_tab_titles(state: &AppState) -> Vec<(String, bool, bool)> {
-        state
-            .tabs
-            .iter()
-            .enumerate()
-            .map(|(i, tab)| {
-                let is_active = i == state.active_tab;
-                let osc_title = tab
-                    .panes
-                    .get(&tab.active)
-                    .and_then(|e| e.pane.parser.grid.osc_title.as_deref())
-                    .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
-                let rename_buf = if is_active {
-                    if let InputMode::RenameTab { buf } = &state.mode {
-                        Some(buf.as_str())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                let label =
-                    tabs::tab_label(i, tab.name.as_deref(), osc_title, is_active, rename_buf);
-                (label, is_active, tab.has_activity)
-            })
-            .collect()
-    }
-
     // ── Render ────────────────────────────────────────────────────────────────
 
     fn redraw(&mut self) {
@@ -913,8 +718,8 @@ impl App {
             (tab.layout.separators(), tab.zoomed, tab.active)
         };
 
-        let views = Self::collect_pane_views(&self.state, w, h);
-        let tab_titles = Self::build_tab_titles(&self.state);
+        let views = views::collect_pane_views(&self.state, w, h);
+        let tab_titles = views::build_tab_titles(&self.state);
 
         let metrics = self.state.tabs[self.state.active_tab].metrics.clone();
         let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };

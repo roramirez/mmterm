@@ -422,6 +422,35 @@ fn visual_down_action(
     }
 }
 
+fn visual_char_action(
+    s: &str,
+    cur_col: usize,
+    cur_row: usize,
+    cols: usize,
+    rows: usize,
+    move_to: &impl Fn(usize, usize) -> Action,
+) -> Action {
+    match s {
+        "h" => move_to(cur_col.saturating_sub(1), cur_row),
+        "l" => move_to((cur_col + 1).min(cols), cur_row),
+        "k" => visual_up_action(cur_col, cur_row, move_to),
+        "j" => visual_down_action(cur_col, cur_row, rows, move_to),
+        "0" => move_to(0, cur_row),
+        "$" => move_to(cols, cur_row),
+        "g" => move_to(cur_col, 0),
+        "G" => move_to(cur_col, rows),
+        "w" => Action::VisualWordForward,
+        "b" => Action::VisualWordBackward,
+        "e" => Action::VisualWordEnd,
+        "y" => Action::Copy,
+        "Y" => Action::VisualYankLine,
+        "o" => Action::VisualSwapAnchor,
+        "v" => Action::VisualAnchor,
+        "q" => Action::SetMode(InputMode::Insert),
+        _ => Action::None,
+    }
+}
+
 fn handle_visual(
     key: &Key,
     (start_col, start_row): (usize, usize),
@@ -451,25 +480,7 @@ fn handle_visual(
         Key::Named(NamedKey::ArrowDown) => visual_down_action(cur_col, cur_row, rows, &move_to),
         Key::Named(NamedKey::Home) => move_to(0, cur_row),
         Key::Named(NamedKey::End) => move_to(cols, cur_row),
-        Key::Character(s) => match s.as_str() {
-            "h" => move_to(cur_col.saturating_sub(1), cur_row),
-            "l" => move_to((cur_col + 1).min(cols), cur_row),
-            "k" => visual_up_action(cur_col, cur_row, &move_to),
-            "j" => visual_down_action(cur_col, cur_row, rows, &move_to),
-            "0" => move_to(0, cur_row),
-            "$" => move_to(cols, cur_row),
-            "g" => move_to(cur_col, 0),
-            "G" => move_to(cur_col, rows),
-            "w" => Action::VisualWordForward,
-            "b" => Action::VisualWordBackward,
-            "e" => Action::VisualWordEnd,
-            "y" => Action::Copy,
-            "Y" => Action::VisualYankLine,
-            "o" => Action::VisualSwapAnchor,
-            "v" => Action::VisualAnchor,
-            "q" => Action::SetMode(InputMode::Insert),
-            _ => Action::None,
-        },
+        Key::Character(s) => visual_char_action(s, cur_col, cur_row, cols, rows, &move_to),
         _ => Action::None,
     }
 }

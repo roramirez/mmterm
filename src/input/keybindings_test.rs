@@ -2003,3 +2003,54 @@ fn visual_down_not_at_bottom_moves_cursor() {
         Action::ScrollDown(6)
     ));
 }
+
+// ── visual_char_action ───────────────────────────────────────────────────────
+
+#[test]
+fn visual_char_w_returns_word_forward() {
+    let move_to = |_c: usize, _r: usize| Action::None;
+    assert!(matches!(
+        visual_char_action("w", 0, 0, 80, 24, &move_to),
+        Action::VisualWordForward
+    ));
+}
+
+#[test]
+fn visual_char_y_returns_copy() {
+    let move_to = |_c: usize, _r: usize| Action::None;
+    assert!(matches!(
+        visual_char_action("y", 5, 3, 80, 24, &move_to),
+        Action::Copy
+    ));
+}
+
+#[test]
+fn visual_char_h_moves_left() {
+    let move_to = |c: usize, r: usize| {
+        Action::SetMode(crate::input::InputMode::Visual {
+            start_col: 0,
+            start_row: 0,
+            cur_col: c,
+            cur_row: r,
+            anchored: false,
+        })
+    };
+    let result = visual_char_action("h", 5, 3, 80, 24, &move_to);
+    assert!(matches!(
+        result,
+        Action::SetMode(crate::input::InputMode::Visual {
+            cur_col: 4,
+            cur_row: 3,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn visual_char_unknown_returns_none() {
+    let move_to = |_c: usize, _r: usize| Action::None;
+    assert!(matches!(
+        visual_char_action("z", 0, 0, 80, 24, &move_to),
+        Action::None
+    ));
+}
