@@ -133,14 +133,21 @@ pub(crate) fn handle_key_inner(
 
 // ── Global shortcut sub-handlers ────────────────────────────────────────────
 
+fn ctrl_shift_char_action(s: &str) -> Option<Action> {
+    match s.to_lowercase().as_str() {
+        "v" => Some(Action::Paste),
+        "w" => Some(Action::CloseTab),
+        "r" => Some(Action::RenameTab),
+        "k" => Some(Action::ClearScrollback),
+        "l" => Some(Action::ToggleLog),
+        "p" => Some(Action::OpenCommandPalette),
+        _ => None,
+    }
+}
+
 fn ctrl_shift_action(key: &Key) -> Option<Action> {
     match key {
-        Key::Character(s) if s.eq_ignore_ascii_case("v") => Some(Action::Paste),
-        Key::Character(s) if s.eq_ignore_ascii_case("w") => Some(Action::CloseTab),
-        Key::Character(s) if s.eq_ignore_ascii_case("r") => Some(Action::RenameTab),
-        Key::Character(s) if s.eq_ignore_ascii_case("k") => Some(Action::ClearScrollback),
-        Key::Character(s) if s.eq_ignore_ascii_case("l") => Some(Action::ToggleLog),
-        Key::Character(s) if s.eq_ignore_ascii_case("p") => Some(Action::OpenCommandPalette),
+        Key::Character(s) => ctrl_shift_char_action(s),
         Key::Named(NamedKey::ArrowUp) => Some(Action::ResizePaneUp),
         Key::Named(NamedKey::ArrowDown) => Some(Action::ResizePaneDown),
         Key::Named(NamedKey::ArrowRight) => Some(Action::ResizePaneRight),
@@ -153,14 +160,21 @@ fn ctrl_shift_action(key: &Key) -> Option<Action> {
     }
 }
 
+fn ctrl_char_key_action(s: &str) -> Option<Action> {
+    match s.to_lowercase().as_str() {
+        "q" => Some(Action::Quit),
+        "," => Some(Action::OpenConfig),
+        "t" => Some(Action::NewTab),
+        "+" | "=" => Some(Action::IncreaseFontSize),
+        "-" => Some(Action::DecreaseFontSize),
+        "0" => Some(Action::ResetFontSize),
+        _ => None,
+    }
+}
+
 fn ctrl_char_action(key: &Key, alt: bool) -> Option<Action> {
     match key {
-        Key::Character(s) if s.eq_ignore_ascii_case("q") => Some(Action::Quit),
-        Key::Character(s) if s == "," => Some(Action::OpenConfig),
-        Key::Character(s) if s.eq_ignore_ascii_case("t") => Some(Action::NewTab),
-        Key::Character(s) if s == "+" || s == "=" => Some(Action::IncreaseFontSize),
-        Key::Character(s) if s == "-" => Some(Action::DecreaseFontSize),
-        Key::Character(s) if s == "0" => Some(Action::ResetFontSize),
+        Key::Character(s) => ctrl_char_key_action(s),
         Key::Named(NamedKey::PageUp) => Some(Action::PrevTab),
         Key::Named(NamedKey::PageDown) => Some(Action::NextTab),
         Key::Named(NamedKey::Enter) if !alt => Some(Action::ToggleFullscreen),

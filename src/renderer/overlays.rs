@@ -17,6 +17,60 @@ struct FieldRowLayout {
     sel: usize,
 }
 
+fn field_value_display(
+    panel: &ConfigPanel,
+    i: usize,
+    is_select: bool,
+    is_sel: bool,
+    is_editing: bool,
+) -> String {
+    if is_select && is_sel {
+        format!("\u{2190} {} \u{2192}", panel.display_value(i))
+    } else {
+        format!(
+            "{}{}",
+            panel.display_value(i),
+            if is_editing { "_" } else { "" }
+        )
+    }
+}
+
+fn draw_hex_color_swatch(
+    buf: &mut [u32],
+    bw: u32,
+    panel: &ConfigPanel,
+    i: usize,
+    draw_y: u32,
+    l: &FieldRowLayout,
+) {
+    if !matches!(panel.fields[i].kind, crate::tui_config::FieldKind::HexColor) {
+        return;
+    }
+    let hex = panel.display_value(i);
+    let Ok(n) = u32::from_str_radix(hex.trim_start_matches('#'), 16) else {
+        return;
+    };
+    fill_rect(
+        buf,
+        bw,
+        l.px + l.panel_w - l.pad - 10,
+        draw_y + 2,
+        8,
+        l.row_h - 4,
+        0xff_00_00_00 | n,
+    );
+}
+
+fn badge_pixel(buf: &mut [u32], bw: u32, bh: u32, sx: u32, sy: u32, color: u32) {
+    if sx >= bw || sy >= bh {
+        return;
+    }
+    let idx = (sy * bw + sx) as usize;
+    if idx < buf.len() {
+        buf[idx] = color;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn blit_glyph_badge(
     buf: &mut [u32],
@@ -36,15 +90,7 @@ fn blit_glyph_badge(
             if alpha == 0 {
                 continue;
             }
-            let sx = ox + gx;
-            let sy = oy + gy;
-            if sx >= bw || sy >= bh {
-                continue;
-            }
-            let idx = (sy * bw + sx) as usize;
-            if idx < buf.len() {
-                buf[idx] = blend(badge_color, fg, alpha);
-            }
+            badge_pixel(buf, bw, bh, ox + gx, oy + gy, blend(badge_color, fg, alpha));
         }
     }
 }
@@ -104,11 +150,7 @@ impl Renderer {
 
         // Scroll window: keep selected in view
         let sel = panel.selected;
-        let scroll_start = if sel >= max_visible as usize {
-            sel + 1 - max_visible as usize
-        } else {
-            0
-        };
+        let scroll_start = sel.saturating_sub(max_visible as usize - 1);
         let layout = FieldRowLayout {
             px,
             panel_w,
@@ -216,29 +258,11 @@ impl Renderer {
             fill_rect(buf, bw, l.px + 1, draw_y, 1, l.row_h, l.border);
         }
 
-        if matches!(field.kind, crate::tui_config::FieldKind::HexColor) {
-            let hex = panel.display_value(i);
-            if let Ok(n) = u32::from_str_radix(hex.trim_start_matches('#'), 16) {
-                fill_rect(
-                    buf,
-                    bw,
-                    l.px + l.panel_w - l.pad - 10,
-                    draw_y + 2,
-                    8,
-                    l.row_h - 4,
-                    0xff_00_00_00 | n,
-                );
-            }
-        }
+        draw_hex_color_swatch(buf, bw, panel, i, draw_y, l);
 
         let label_color = if is_sel { 0xff_f9_e2_af } else { 0xff_ba_c2_de };
         let is_select = matches!(field.kind, crate::tui_config::FieldKind::Select(_));
-        let cursor_str = if is_editing { "_" } else { "" };
-        let value_display = if is_select && is_sel {
-            format!("\u{2190} {} \u{2192}", panel.display_value(i))
-        } else {
-            format!("{}{}", panel.display_value(i), cursor_str)
-        };
+        let value_display = field_value_display(panel, i, is_select, is_sel, is_editing);
         let text = format!("{:<18} {}", field.label, value_display);
         self.draw_str(
             buf,
@@ -332,17 +356,15 @@ impl Renderer {
         fill_rect(buf, bw, px + 1, sep_y, panel_w - 2, 1, 0xff_24_25_3a);
 
         // Scroll window: keep selected visible
-        let scroll_start = if selected >= MAX_VISIBLE {
-            selected + 1 - MAX_VISIBLE
-        } else {
-            0
-        };
+        let scroll_start = selected.saturating_sub(MAX_VISIBLE - 1);
 
         let content_y = py + row_h + 1;
-        for (list_i, &(label, code)) in entries.iter().enumerate().skip(scroll_start) {
-            if list_i - scroll_start >= MAX_VISIBLE {
-                break;
-            }
+        for (list_i, &(label, code)) in entries
+            .iter()
+            .enumerate()
+            .skip(scroll_start)
+            .take(MAX_VISIBLE)
+        {
             let row_y = content_y + (list_i - scroll_start) as u32 * row_h;
             let is_sel = list_i == selected;
 
@@ -493,3 +515,7 @@ impl Renderer {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "overlays_test.rs"]
+mod tests;

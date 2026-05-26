@@ -139,6 +139,12 @@ pub(super) fn fill_rect(buf: &mut [u32], bw: u32, x: u32, y: u32, w: u32, h: u32
     }
 }
 
+fn write_pixel(buf: &mut [u32], idx: usize, color: u32) {
+    if idx < buf.len() {
+        buf[idx] = color;
+    }
+}
+
 pub(super) fn draw_rect_border(
     buf: &mut [u32],
     bw: u32,
@@ -149,24 +155,12 @@ pub(super) fn draw_rect_border(
     color: u32,
 ) {
     for dx in 0..w {
-        let t = (y * bw + x + dx) as usize;
-        let b = ((y + h - 1) * bw + x + dx) as usize;
-        if t < buf.len() {
-            buf[t] = color;
-        }
-        if b < buf.len() {
-            buf[b] = color;
-        }
+        write_pixel(buf, (y * bw + x + dx) as usize, color);
+        write_pixel(buf, ((y + h - 1) * bw + x + dx) as usize, color);
     }
     for dy in 0..h {
-        let l = ((y + dy) * bw + x) as usize;
-        let r = ((y + dy) * bw + x + w - 1) as usize;
-        if l < buf.len() {
-            buf[l] = color;
-        }
-        if r < buf.len() {
-            buf[r] = color;
-        }
+        write_pixel(buf, ((y + dy) * bw + x) as usize, color);
+        write_pixel(buf, ((y + dy) * bw + x + w - 1) as usize, color);
     }
 }
 
@@ -189,6 +183,31 @@ pub(super) fn search_highlight(
         }
     }
     (in_match, is_current_match)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_bg_color(
+    is_cursor: bool,
+    cursor_shape: CursorShape,
+    is_selected: bool,
+    is_current_match: bool,
+    in_match: bool,
+    bg: Color,
+    cursor_color: Color,
+    selection_color: Color,
+    theme: &ResolvedTheme,
+) -> u32 {
+    if is_cursor && cursor_shape == CursorShape::Block {
+        color_u32(cursor_color)
+    } else if is_selected {
+        color_u32(selection_color)
+    } else if is_current_match {
+        color_u32(theme.search_current)
+    } else if in_match {
+        color_u32(theme.search_match)
+    } else {
+        color_u32(bg)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -217,17 +236,17 @@ pub(super) fn resolve_cell_colors(
     } else {
         fg
     };
-    let bg32 = if is_cursor && cursor_shape == CursorShape::Block {
-        color_u32(cursor_color)
-    } else if is_selected {
-        color_u32(selection_color)
-    } else if is_current_match {
-        color_u32(theme.search_current)
-    } else if in_match {
-        color_u32(theme.search_match)
-    } else {
-        color_u32(bg)
-    };
+    let bg32 = resolve_bg_color(
+        is_cursor,
+        cursor_shape,
+        is_selected,
+        is_current_match,
+        in_match,
+        bg,
+        cursor_color,
+        selection_color,
+        theme,
+    );
     let fg = if (in_match || is_current_match) && !is_cursor {
         SEARCH_MATCH_FG
     } else {

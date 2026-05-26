@@ -41,7 +41,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use ui::{Layout, Pane, SplitDir};
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, Modifiers, WindowEvent};
+use winit::event::{ElementState, KeyEvent, Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
@@ -66,6 +66,18 @@ struct App {
     /// Timestamp of the last frame where PTY data was actually consumed.
     /// Used to drive a vsync-style render loop while output is flowing.
     last_pty_data: Option<Instant>,
+}
+
+fn bracketed_paste_encode(text: &str, bracketed: bool) -> Vec<u8> {
+    let mut data = Vec::new();
+    if bracketed {
+        data.extend_from_slice(b"\x1b[200~");
+    }
+    data.extend_from_slice(text.as_bytes());
+    if bracketed {
+        data.extend_from_slice(b"\x1b[201~");
+    }
+    data
 }
 
 impl App {
@@ -489,6 +501,14 @@ impl App {
         }
     }
 
+    // ── Window helpers ────────────────────────────────────────────────────────
+
+    pub(crate) fn request_redraw(&self) {
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
+    }
+
     // ── Action dispatch ───────────────────────────────────────────────────────
 
     /// Execute an action: pure state mutations go through AppState::dispatch_action;
@@ -501,11 +521,7 @@ impl App {
         let effects = self.state.dispatch_action(action);
         for effect in effects {
             match effect {
-                AppEffect::Redraw => {
-                    if let Some(w) = &self.window {
-                        w.request_redraw();
-                    }
-                }
+                AppEffect::Redraw => self.request_redraw(),
                 AppEffect::Quit => {
                     event_loop.exit();
                 }
@@ -516,11 +532,7 @@ impl App {
                     }
                     event_loop.exit();
                 }
-                AppEffect::QuitPending => {
-                    if let Some(w) = &self.window {
-                        w.request_redraw();
-                    }
-                }
+                AppEffect::QuitPending => self.request_redraw(),
                 AppEffect::ToggleFullscreen => self.do_toggle_fullscreen(),
                 AppEffect::NewTab => self.do_new_tab(),
                 AppEffect::ClosePane => self.do_close_pane(event_loop),
@@ -614,15 +626,7 @@ impl App {
         if let Some(text) = text {
             let active = self.tab().active;
             if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-                let bracketed = entry.pane.parser.grid.bracketed_paste;
-                let mut data = Vec::new();
-                if bracketed {
-                    data.extend_from_slice(b"\x1b[200~");
-                }
-                data.extend_from_slice(text.as_bytes());
-                if bracketed {
-                    data.extend_from_slice(b"\x1b[201~");
-                }
+                let data = bracketed_paste_encode(&text, entry.pane.parser.grid.bracketed_paste);
                 let _ = entry.pty.write_input(&data);
             }
         } else {
@@ -767,35 +771,7 @@ impl App {
             &self.state.theme,
         );
 
-        if let Some(panel) = &self.state.config_panel {
-            self.renderer.draw_config_panel(pixels, w, h, panel);
-        }
-
-        if let InputMode::CommandPalette { query, selected } = &self.state.mode {
-            let filtered = command_palette::filter(query);
-            let entries: Vec<(&str, &str)> = filtered
-                .iter()
-                .map(|&i| {
-                    (
-                        command_palette::entry_label(i),
-                        command_palette::entry_shortcut(i),
-                    )
-                })
-                .collect();
-            self.renderer
-                .draw_command_palette(pixels, w, h, query, &entries, *selected);
-        }
-
-        if self.state.quit_pending {
-            self.renderer
-                .draw_quit_confirm(pixels, w, h, &self.state.theme);
-        }
-
-        if matches!(self.state.mode, InputMode::QuitSave) {
-            self.renderer
-                .draw_save_session_confirm(pixels, w, h, &self.state.theme);
-        }
-
+        draw_overlays(&mut self.renderer, &self.state, pixels, w, h);
         buf.present().unwrap();
     }
 
@@ -819,6 +795,50 @@ impl App {
         if has_more && let Some(w) = &self.window {
             w.request_redraw();
         }
+    }
+}
+
+fn draw_overlays(renderer: &mut Renderer, state: &AppState, pixels: &mut [u32], w: u32, h: u32) {
+    if let Some(panel) = &state.config_panel {
+        renderer.draw_config_panel(pixels, w, h, panel);
+    }
+    if let InputMode::CommandPalette { query, selected } = &state.mode {
+        let filtered = command_palette::filter(query);
+        let entries: Vec<(&str, &str)> = filtered
+            .iter()
+            .map(|&i| {
+                (
+                    command_palette::entry_label(i),
+                    command_palette::entry_shortcut(i),
+                )
+            })
+            .collect();
+        renderer.draw_command_palette(pixels, w, h, query, &entries, *selected);
+    }
+    if state.quit_pending {
+        renderer.draw_quit_confirm(pixels, w, h, &state.theme);
+    }
+    if matches!(state.mode, InputMode::QuitSave) {
+        renderer.draw_save_session_confirm(pixels, w, h, &state.theme);
+    }
+}
+
+impl App {
+    fn handle_resize(&mut self, w: u32, h: u32) {
+        for tab in &mut self.state.tabs {
+            tab.layout.resize(w, h);
+        }
+        self.sync_all_pane_sizes();
+    }
+
+    fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {
+        if self.state.swallow_next_tab {
+            self.state.swallow_next_tab = false;
+            if event.logical_key == Key::Named(NamedKey::Tab) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -866,49 +886,29 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => {
                 self.execute_action(Action::Quit, event_loop);
             }
-
             WindowEvent::Resized(size) => {
-                for tab in &mut self.state.tabs {
-                    tab.layout.resize(size.width, size.height);
-                }
-                self.sync_all_pane_sizes();
+                self.handle_resize(size.width, size.height);
             }
-
             WindowEvent::Focused(gained) => {
                 self.handle_focus_changed(gained);
             }
-
             WindowEvent::ModifiersChanged(mods) => {
                 self.modifiers = mods;
             }
-
-            WindowEvent::KeyboardInput { event, .. } => {
-                if event.state != ElementState::Pressed {
-                    return;
-                }
-                // Swallow the first Tab that arrives after regaining focus —
-                // it is the Tab from the Alt+Tab that transferred focus to us.
-                if self.state.swallow_next_tab {
-                    self.state.swallow_next_tab = false;
-                    if event.logical_key == Key::Named(NamedKey::Tab) {
-                        return;
-                    }
-                }
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == ElementState::Pressed && !self.should_swallow_key(&event) =>
+            {
                 self.handle_keyboard_input(event, event_loop);
             }
-
             WindowEvent::CursorMoved { position, .. } => {
                 self.handle_cursor_moved(position.x, position.y);
             }
-
             WindowEvent::MouseInput { state, button, .. } => {
                 self.handle_mouse_input(state, button);
             }
-
             WindowEvent::MouseWheel { delta, .. } => {
                 self.handle_mouse_wheel(delta);
             }
-
             WindowEvent::RedrawRequested => {
                 self.handle_redraw_requested(event_loop);
             }
@@ -931,9 +931,7 @@ impl ApplicationHandler for App {
         // While PTY data is flowing, keep rendering at ~60fps so output
         // appears progressively instead of in large batches.
         if self.last_pty_data.is_some() {
-            if let Some(window) = &self.window {
-                window.request_redraw();
-            }
+            self.request_redraw();
             event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + FRAME_16MS));
             return;
         }
@@ -941,9 +939,7 @@ impl ApplicationHandler for App {
         let blink_dur = Duration::from_millis(self.state.config.window.cursor_blink_ms as u64);
         let elapsed = self.state.blink_last.elapsed();
         if elapsed >= blink_dur {
-            if let Some(window) = &self.window {
-                window.request_redraw();
-            }
+            self.request_redraw();
             event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + blink_dur));
         } else {
             let default_next = Instant::now() + (blink_dur - elapsed);

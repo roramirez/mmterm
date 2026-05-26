@@ -2054,3 +2054,61 @@ fn visual_char_unknown_returns_none() {
         Action::None
     ));
 }
+
+// ── ctrl_shift_char_action ───────────────────────────────────────────────────
+
+#[test]
+fn ctrl_shift_char_v_pastes() {
+    assert!(matches!(ctrl_shift_char_action("v"), Some(Action::Paste)));
+}
+
+#[test]
+fn ctrl_shift_char_uppercase_v_pastes() {
+    assert!(matches!(ctrl_shift_char_action("V"), Some(Action::Paste)));
+}
+
+#[test]
+fn ctrl_shift_char_w_closes_tab() {
+    assert!(matches!(
+        ctrl_shift_char_action("w"),
+        Some(Action::CloseTab)
+    ));
+}
+
+#[test]
+fn ctrl_shift_char_unknown_returns_none() {
+    assert!(ctrl_shift_char_action("x").is_none());
+}
+
+// ── ctrl_char_key_action ─────────────────────────────────────────────────────
+
+#[test]
+fn ctrl_char_key_q_quits() {
+    assert!(matches!(ctrl_char_key_action("q"), Some(Action::Quit)));
+}
+
+#[test]
+fn ctrl_char_key_uppercase_q_quits() {
+    assert!(matches!(ctrl_char_key_action("Q"), Some(Action::Quit)));
+}
+
+#[test]
+fn ctrl_char_key_plus_increases_font() {
+    assert!(matches!(
+        ctrl_char_key_action("+"),
+        Some(Action::IncreaseFontSize)
+    ));
+}
+
+#[test]
+fn ctrl_char_key_equals_increases_font() {
+    assert!(matches!(
+        ctrl_char_key_action("="),
+        Some(Action::IncreaseFontSize)
+    ));
+}
+
+#[test]
+fn ctrl_char_key_unknown_returns_none() {
+    assert!(ctrl_char_key_action("z").is_none());
+}

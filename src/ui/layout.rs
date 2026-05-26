@@ -36,6 +36,19 @@ enum Node {
     },
 }
 
+fn sep_hit(
+    perp_start: u32,
+    perp_size: u32,
+    sep_along: u32,
+    point_along: u32,
+    point_perp: u32,
+    margin: u32,
+) -> bool {
+    point_perp >= perp_start
+        && point_perp < perp_start + perp_size
+        && sep_along.abs_diff(point_along) <= margin
+}
+
 impl Node {
     fn leaves(&self) -> Vec<usize> {
         match self {
@@ -119,8 +132,7 @@ impl Node {
             SplitDir::H => {
                 let wa = ((w as f32 * ratio) as u32).clamp(1, w.saturating_sub(SEP + 1));
                 let wb = w.saturating_sub(wa + SEP);
-                let sep_x = x + wa;
-                if py >= y && py < y + h && sep_x.abs_diff(px) <= margin {
+                if sep_hit(y, h, x + wa, px, py, margin) {
                     return Some(SeparatorHandle {
                         idx,
                         dir: SplitDir::H,
@@ -136,8 +148,7 @@ impl Node {
             SplitDir::V => {
                 let ha = ((h as f32 * ratio) as u32).clamp(1, h.saturating_sub(SEP + 1));
                 let hb = h.saturating_sub(ha + SEP);
-                let sep_y = y + ha;
-                if px >= x && px < x + w && sep_y.abs_diff(py) <= margin {
+                if sep_hit(x, w, y + ha, py, px, margin) {
                     return Some(SeparatorHandle {
                         idx,
                         dir: SplitDir::V,

@@ -1,5 +1,26 @@
 use super::text::{blend, dim_color};
 
+fn blit_pixel(buf: &mut [u32], buf_width: u32, sx: u32, sy: u32, clip: [u32; 4], color: u32) {
+    let [rx, ry, rw, rh] = clip;
+    if sx >= rx + rw || sy >= ry + rh {
+        return;
+    }
+    let idx = (sy * buf_width + sx) as usize;
+    if idx < buf.len() {
+        buf[idx] = color;
+    }
+}
+
+fn blend_pixel(buf: &mut [u32], bw: u32, bh: u32, sx: u32, sy: u32, color: u32, alpha: u8) {
+    if sx >= bw || sy >= bh {
+        return;
+    }
+    let idx = (sy * bw + sx) as usize;
+    if idx < buf.len() {
+        buf[idx] = blend(buf[idx], color, alpha);
+    }
+}
+
 fn compose_color_pixel(
     bitmap: &[u8],
     base: usize,
@@ -35,7 +56,6 @@ pub(super) fn blit_color_glyph(
     dim_factor: f32,
     clip: [u32; 4],
 ) {
-    let [rx, ry, rw, rh] = clip;
     for gy in 0..gh {
         for gx in 0..gw {
             let base = ((gy * gw + gx) * 4) as usize;
@@ -45,13 +65,8 @@ pub(super) fn blit_color_glyph(
             }
             let sx = x_base + gx;
             let sy = cell_y + y_offset + gy;
-            if sx >= rx + rw || sy >= ry + rh {
-                continue;
-            }
-            let idx = (sy * buf_width + sx) as usize;
-            if idx < buf.len() {
-                buf[idx] = compose_color_pixel(bitmap, base, pane_is_active, dim_factor, bg32, a);
-            }
+            let color = compose_color_pixel(bitmap, base, pane_is_active, dim_factor, bg32, a);
+            blit_pixel(buf, buf_width, sx, sy, clip, color);
         }
     }
 }
@@ -70,7 +85,6 @@ pub(super) fn blit_gray_glyph(
     fg32: u32,
     clip: [u32; 4],
 ) {
-    let [rx, ry, rw, rh] = clip;
     for gy in 0..gh {
         for gx in 0..gw {
             let alpha = bitmap[(gy * gw + gx) as usize];
@@ -79,13 +93,7 @@ pub(super) fn blit_gray_glyph(
             }
             let sx = x_base + gx;
             let sy = cell_y + y_offset + gy;
-            if sx >= rx + rw || sy >= ry + rh {
-                continue;
-            }
-            let idx = (sy * buf_width + sx) as usize;
-            if idx < buf.len() {
-                buf[idx] = blend(bg32, fg32, alpha);
-            }
+            blit_pixel(buf, buf_width, sx, sy, clip, blend(bg32, fg32, alpha));
         }
     }
 }
@@ -110,13 +118,7 @@ pub(super) fn blit_glyph_pixels(
             }
             let sx = ox + gx;
             let sy = oy + gy;
-            if sx >= bw || sy >= bh {
-                continue;
-            }
-            let idx = (sy * bw + sx) as usize;
-            if idx < buf.len() {
-                buf[idx] = blend(buf[idx], color, alpha);
-            }
+            blend_pixel(buf, bw, bh, sx, sy, color, alpha);
         }
     }
 }

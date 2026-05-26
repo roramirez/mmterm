@@ -42,6 +42,18 @@ enum DcsKind {
     Unknown,
 }
 
+fn cursor_shape_from_param(p0: u16) -> CursorShape {
+    match p0 {
+        3 | 4 => CursorShape::Underline,
+        5 | 6 => CursorShape::Beam,
+        _ => CursorShape::Block,
+    }
+}
+
+fn sgr_should_reset(ps: &[u16]) -> bool {
+    ps.is_empty() || (ps.len() == 1 && ps[0] == 0)
+}
+
 struct Performer<'a> {
     grid: &'a mut Grid,
     dcs_kind: Option<DcsKind>,
@@ -130,8 +142,21 @@ impl Performer<'_> {
         }
     }
 
+    fn apply_sgr_color_param(&mut self, ps: &[u16], i: usize, fg: bool) -> usize {
+        if let Some((color, skip)) = parse_color_from_params(ps, i, &self.grid.palette) {
+            if fg {
+                self.grid.fg = color;
+            } else {
+                self.grid.bg = color;
+            }
+            skip
+        } else {
+            0
+        }
+    }
+
     fn handle_sgr(&mut self, ps: &[u16]) {
-        if ps.is_empty() || (ps.len() == 1 && ps[0] == 0) {
+        if sgr_should_reset(ps) {
             self.grid.reset_sgr();
             return;
         }
@@ -163,20 +188,8 @@ impl Performer<'_> {
                 49 => self.grid.bg = self.grid.default_bg,
                 n @ 90..=97 => self.grid.fg = self.grid.palette[(n - 90 + 8) as usize],
                 n @ 100..=107 => self.grid.bg = self.grid.palette[(n - 100 + 8) as usize],
-                38 => {
-                    if let Some((color, skip)) = parse_color_from_params(ps, i, &self.grid.palette)
-                    {
-                        self.grid.fg = color;
-                        i += skip;
-                    }
-                }
-                48 => {
-                    if let Some((color, skip)) = parse_color_from_params(ps, i, &self.grid.palette)
-                    {
-                        self.grid.bg = color;
-                        i += skip;
-                    }
-                }
+                38 => i += self.apply_sgr_color_param(ps, i, true),
+                48 => i += self.apply_sgr_color_param(ps, i, false),
                 _ => {}
             }
             i += 1;
@@ -199,6 +212,20 @@ impl Performer<'_> {
             }
             _ => {}
         }
+    }
+
+    fn handle_scroll_region(&mut self, p0: u16, p1: u16) {
+        let top = (p0.saturating_sub(1) as usize).min(self.grid.rows - 1);
+        let bot = if p1 == 0 {
+            self.grid.rows - 1
+        } else {
+            (p1 - 1) as usize
+        }
+        .min(self.grid.rows - 1);
+        self.grid.scroll_top = top;
+        self.grid.scroll_bottom = bot;
+        self.grid.cursor_row = top;
+        self.grid.cursor_col = 0;
     }
 }
 
@@ -299,26 +326,10 @@ impl Perform for Performer<'_> {
             'c' if p0 == 0 => self.grid.pending_responses.extend_from_slice(b"\x1b[?1;0c"),
             // DECSCUSR: cursor shape (CSI Ps SP q)
             'q' if intermediates == b" " => {
-                self.grid.cursor_shape = match p0 {
-                    3 | 4 => CursorShape::Underline,
-                    5 | 6 => CursorShape::Beam,
-                    _ => CursorShape::Block,
-                };
+                self.grid.cursor_shape = cursor_shape_from_param(p0);
             }
             // Set scroll region
-            'r' => {
-                let top = (p0.saturating_sub(1) as usize).min(self.grid.rows - 1);
-                let bot = if p1 == 0 {
-                    self.grid.rows - 1
-                } else {
-                    (p1 - 1) as usize
-                }
-                .min(self.grid.rows - 1);
-                self.grid.scroll_top = top;
-                self.grid.scroll_bottom = bot;
-                self.grid.cursor_row = top;
-                self.grid.cursor_col = 0;
-            }
+            'r' => self.handle_scroll_region(p0, p1),
             _ => {}
         }
     }

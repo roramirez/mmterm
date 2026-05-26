@@ -15,20 +15,17 @@ impl App {
         let mut exited = Vec::new();
         let mut has_more = false;
         for (tab_idx, tab) in self.state.tabs.iter_mut().enumerate() {
-            let ids: Vec<usize> = tab.panes.keys().copied().collect();
-            for id in ids {
-                let (got_data, more, disconnected) = {
-                    let entry = tab.panes.get_mut(&id).unwrap();
-                    poll_pane_bytes(entry, &mut self.state.clipboard)
-                };
-                if more {
-                    has_more = true;
-                }
-                if disconnected {
-                    exited.push((tab_idx, id));
-                }
-                update_tab_after_pane_poll(tab, id, got_data, detect_urls, tab_idx != active_tab);
+            let (more, disc) = drain_tab_panes(
+                tab_idx,
+                tab,
+                &mut self.state.clipboard,
+                detect_urls,
+                active_tab,
+            );
+            if more {
+                has_more = true;
             }
+            exited.extend(disc.into_iter().map(|id| (tab_idx, id)));
         }
         if has_more {
             self.last_pty_data = Some(Instant::now());
@@ -37,6 +34,32 @@ impl App {
         }
         (exited, has_more)
     }
+}
+
+fn drain_tab_panes(
+    tab_idx: usize,
+    tab: &mut TabState,
+    clipboard: &mut Option<arboard::Clipboard>,
+    detect_urls: bool,
+    active_tab: usize,
+) -> (bool, Vec<usize>) {
+    let ids: Vec<usize> = tab.panes.keys().copied().collect();
+    let mut has_more = false;
+    let mut disconnected = Vec::new();
+    for id in ids {
+        let (got_data, more, disc) = {
+            let entry = tab.panes.get_mut(&id).unwrap();
+            poll_pane_bytes(entry, clipboard)
+        };
+        if more {
+            has_more = true;
+        }
+        if disc {
+            disconnected.push(id);
+        }
+        update_tab_after_pane_poll(tab, id, got_data, detect_urls, tab_idx != active_tab);
+    }
+    (has_more, disconnected)
 }
 
 pub(super) fn update_tab_after_pane_poll(

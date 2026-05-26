@@ -5,29 +5,7 @@ fn is_word(c: char) -> bool {
 }
 
 fn char_at(grid: &Grid, scroll_offset: usize, row: usize, col: usize) -> char {
-    if col >= grid.cols {
-        return ' ';
-    }
-    if scroll_offset == 0 {
-        return if row < grid.rows {
-            grid.cell(col, row).c
-        } else {
-            ' '
-        };
-    }
-    let sb_len = grid.scrollback.len();
-    let abs_row = sb_len.saturating_sub(scroll_offset) + row;
-    if abs_row < sb_len {
-        let line = &grid.scrollback[abs_row];
-        if col < line.len() { line[col].c } else { ' ' }
-    } else {
-        let live = abs_row.saturating_sub(sb_len);
-        if live < grid.rows {
-            grid.cell(col, live).c
-        } else {
-            ' '
-        }
-    }
+    grid.cell_char_at(row, col, scroll_offset).unwrap_or(' ')
 }
 
 /// Advance one step in linear viewport order, wrapping across rows.
@@ -63,22 +41,15 @@ pub fn word_forward(grid: &Grid, scroll_offset: usize, col: usize, row: usize) -
     let cur_is_word = is_word(char_at(grid, scroll_offset, r, c));
 
     // Skip the current run (word or non-word non-space).
-    loop {
-        let next = step_forward(c, r, cols, rows);
-        let Some((nc, nr)) = next else { break };
+    while let Some((nc, nr)) = step_forward(c, r, cols, rows) {
         let next_char = char_at(grid, scroll_offset, nr, nc);
-        if cur_is_word && !is_word(next_char) {
-            c = nc;
-            r = nr;
-            break;
-        }
-        if !cur_is_word && (next_char == ' ' || is_word(next_char)) {
-            c = nc;
-            r = nr;
-            break;
-        }
         c = nc;
         r = nr;
+        if (cur_is_word && !is_word(next_char))
+            || (!cur_is_word && (next_char == ' ' || is_word(next_char)))
+        {
+            break;
+        }
     }
 
     // Skip whitespace.
@@ -168,10 +139,7 @@ pub fn word_end(grid: &Grid, scroll_offset: usize, col: usize, row: usize) -> (u
             break;
         };
         let next_is_word = is_word(char_at(grid, scroll_offset, nr, nc));
-        if cur_is_word && !next_is_word {
-            break;
-        }
-        if !cur_is_word {
+        if !cur_is_word || !next_is_word {
             break;
         }
         c = nc;

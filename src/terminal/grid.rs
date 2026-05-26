@@ -487,12 +487,7 @@ impl Grid {
         };
         let mut result = String::new();
         for row in r0..=r1 {
-            let col_start = if row == r0 { c0 } else { 0 };
-            let col_end = if row == r1 {
-                c1
-            } else {
-                self.cols.saturating_sub(1)
-            };
+            let (col_start, col_end) = row_col_range(r0, r1, c0, c1, row, self.cols);
             let line = self.collect_row_text(row, col_start, col_end, scroll_offset);
             if !result.is_empty() {
                 result.push('\n');
@@ -518,25 +513,29 @@ impl Grid {
         line
     }
 
-    fn cell_char_at(&self, row: usize, col: usize, scroll_offset: usize) -> Option<char> {
+    fn scrollback_char_at(&self, abs_row: usize, col: usize) -> Option<char> {
+        let sb_len = self.scrollback.len();
+        if abs_row < sb_len {
+            let line = &self.scrollback[abs_row];
+            Some(if col < line.len() { line[col].c } else { ' ' })
+        } else {
+            let live = abs_row.saturating_sub(sb_len);
+            (live < self.rows).then(|| self.cell(col, live).c)
+        }
+    }
+
+    pub(crate) fn cell_char_at(
+        &self,
+        row: usize,
+        col: usize,
+        scroll_offset: usize,
+    ) -> Option<char> {
         if col >= self.cols {
             return None;
         }
-        let sb_len = self.scrollback.len();
-        let sb_start = sb_len.saturating_sub(scroll_offset);
+        let sb_start = self.scrollback.len().saturating_sub(scroll_offset);
         if scroll_offset > 0 {
-            let abs_row = sb_start + row;
-            if abs_row < sb_len {
-                let sb_line = &self.scrollback[abs_row];
-                Some(if col < sb_line.len() {
-                    sb_line[col].c
-                } else {
-                    ' '
-                })
-            } else {
-                let live_row = abs_row.saturating_sub(sb_len);
-                (live_row < self.rows).then(|| self.cell(col, live_row).c)
-            }
+            self.scrollback_char_at(sb_start + row, col)
         } else if row < self.rows {
             Some(self.cell(col, row).c)
         } else {
@@ -717,6 +716,23 @@ fn stamp_url_span(row_cells: &mut [Cell], col: usize, span: usize, url_arc: &Arc
             cell.url = Some(url_arc.clone());
         }
     }
+}
+
+fn row_col_range(
+    r0: usize,
+    r1: usize,
+    c0: usize,
+    c1: usize,
+    row: usize,
+    cols: usize,
+) -> (usize, usize) {
+    let col_start = if row == r0 { c0 } else { 0 };
+    let col_end = if row == r1 {
+        c1
+    } else {
+        cols.saturating_sub(1)
+    };
+    (col_start, col_end)
 }
 
 /// Strip trailing punctuation from a URL body.  Returns the adjusted length.

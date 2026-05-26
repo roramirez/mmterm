@@ -138,6 +138,17 @@ pub struct GlyphCache {
     cache: HashMap<GlyphKey, GlyphInfo>,
 }
 
+fn make_glyph_outline(m: Metrics, bitmap: Vec<u8>) -> GlyphInfo {
+    GlyphInfo {
+        width: m.width as u32,
+        height: m.height as u32,
+        ymin: m.ymin,
+        _advance: m.advance_width.ceil() as u32,
+        bitmap,
+        color: false,
+    }
+}
+
 impl GlyphCache {
     pub fn new(family: &str) -> Self {
         let font =
@@ -187,58 +198,54 @@ impl GlyphCache {
         (info.bitmap.as_slice(), info.width, info.height)
     }
 
+    fn select_primary_font(&self, bold: bool, italic: bool) -> &Font {
+        match (bold, italic) {
+            (true, true) => &self.bold_italic_font,
+            (true, false) => &self.bold_font,
+            (false, true) => &self.italic_font,
+            (false, false) => &self.font,
+        }
+    }
+
+    fn try_resolve_from_fallbacks(&self, c: char, px: f32) -> Option<GlyphInfo> {
+        for fb in &self.fallbacks {
+            if fb.has_glyph(c) {
+                let (m, bitmap) = fb.rasterize(c, px);
+                if !bitmap.is_empty() {
+                    return Some(make_glyph_outline(m, bitmap));
+                }
+            }
+        }
+        None
+    }
+
     fn resolve_glyph(&mut self, c: char, px: f32, bold: bool, italic: bool) -> GlyphInfo {
         use unicode_width::UnicodeWidthChar;
-
-        let make_outline = |m: fontdue::Metrics, bitmap: Vec<u8>| GlyphInfo {
-            width: m.width as u32,
-            height: m.height as u32,
-            ymin: m.ymin,
-            _advance: m.advance_width.ceil() as u32,
-            bitmap,
-            color: false,
-        };
-
         let is_wide = UnicodeWidthChar::width(c).unwrap_or(1) >= 2;
 
-        // Wide chars (emoji, CJK) skip the primary font entirely: no monospace font
-        // covers emoji well, and intercepting them here would block color rendering.
+        // Wide chars (emoji, CJK) skip the primary font entirely.
         if !is_wide {
-            // 1. Primary font: covers ASCII and most monospace glyphs.
-            let primary = match (bold, italic) {
-                (true, true) => &self.bold_italic_font,
-                (true, false) => &self.bold_font,
-                (false, true) => &self.italic_font,
-                (false, false) => &self.font,
-            };
+            let primary = self.select_primary_font(bold, italic);
             if primary.has_glyph(c) {
                 let (m, bitmap) = primary.rasterize(c, px);
-                // Return even when bitmap is empty (e.g. space): empty = invisible, not missing.
-                return make_outline(m, bitmap);
+                return make_glyph_outline(m, bitmap);
             }
         }
 
-        // 2. FreeType color emoji — first for wide chars, fallback for narrow ones.
         if let Some(renderer) = &self.ft_emoji
             && let Some(info) = renderer.rasterize(c, px as u32)
         {
             return info;
         }
 
-        // 3. Outline fallback chain for symbols, CJK, box-drawing, etc.
-        for fb in &self.fallbacks {
-            if fb.has_glyph(c) {
-                let (m, bitmap) = fb.rasterize(c, px);
-                if !bitmap.is_empty() {
-                    return make_outline(m, bitmap);
-                }
-            }
+        if let Some(info) = self.try_resolve_from_fallbacks(c, px) {
+            return info;
         }
 
-        // 4. Tofu box □ so the cell is visibly non-empty.
-        let primary = if bold { &self.bold_font } else { &self.font };
+        // Tofu box □ so the cell is visibly non-empty.
+        let primary = self.select_primary_font(bold, false);
         let (m, bm) = primary.rasterize('\u{25A1}', px);
-        make_outline(m, bm)
+        make_glyph_outline(m, bm)
     }
 }
 

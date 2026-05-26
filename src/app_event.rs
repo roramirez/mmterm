@@ -8,10 +8,33 @@ use crate::config::Config;
 use crate::input::{InputMode, handle_ctrl_w, handle_key};
 use crate::theme::{load_theme, themes_dir};
 use crate::tui_config::ConfigAction;
-use crate::ui::SplitDir;
+use crate::ui::{SplitDir, layout::SeparatorHandle};
 use crate::{command_palette, search};
 
 use super::App;
+
+fn palette_move_selection(selected: usize, filtered_len: usize, up: bool) -> usize {
+    if filtered_len == 0 {
+        0
+    } else if up {
+        selected.saturating_sub(1)
+    } else {
+        (selected + 1).min(filtered_len - 1)
+    }
+}
+
+fn cursor_icon_for_hover(hover_sep: Option<&SeparatorHandle>, has_url: bool) -> CursorIcon {
+    if let Some(h) = hover_sep {
+        match h.dir {
+            SplitDir::H => CursorIcon::ColResize,
+            SplitDir::V => CursorIcon::RowResize,
+        }
+    } else if has_url {
+        CursorIcon::Pointer
+    } else {
+        CursorIcon::Text
+    }
+}
 
 impl App {
     pub(super) fn handle_search_key(&mut self, event: &winit::event::KeyEvent) {
@@ -65,27 +88,17 @@ impl App {
                 self.state.mode = InputMode::Insert;
             }
             Key::Named(NamedKey::ArrowUp) => {
-                let filtered = command_palette::filter(&query);
-                let new_sel = if filtered.is_empty() {
-                    0
-                } else {
-                    selected.saturating_sub(1)
-                };
+                let n = command_palette::filter(&query).len();
                 self.state.mode = InputMode::CommandPalette {
                     query,
-                    selected: new_sel,
+                    selected: palette_move_selection(selected, n, true),
                 };
             }
             Key::Named(NamedKey::ArrowDown) => {
-                let filtered = command_palette::filter(&query);
-                let new_sel = if filtered.is_empty() {
-                    0
-                } else {
-                    (selected + 1).min(filtered.len() - 1)
-                };
+                let n = command_palette::filter(&query).len();
                 self.state.mode = InputMode::CommandPalette {
                     query,
-                    selected: new_sel,
+                    selected: palette_move_selection(selected, n, false),
                 };
             }
             Key::Named(NamedKey::Enter) => {
@@ -270,10 +283,13 @@ impl App {
             _ => ConfigAction::None,
         };
 
+        self.apply_config_action(action);
+    }
+
+    fn apply_config_action(&mut self, action: ConfigAction) {
         match action {
             ConfigAction::Save(cfg) => {
-                let window = self.window.clone();
-                if let Some(w) = window {
+                if let Some(w) = self.window.clone() {
                     self.apply_config(*cfg, &w);
                 }
             }
@@ -331,6 +347,28 @@ impl App {
         self.execute_action(action, event_loop);
     }
 
+    fn try_dispatch_mode_key(
+        &mut self,
+        event: &winit::event::KeyEvent,
+        event_loop: &ActiveEventLoop,
+    ) -> bool {
+        if matches!(self.state.mode, InputMode::RenameTab { .. }) {
+            self.handle_rename_key(event);
+            return true;
+        }
+        if matches!(self.state.mode, InputMode::Search { .. }) {
+            self.handle_search_key(event);
+            self.request_redraw();
+            return true;
+        }
+        if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
+            self.handle_command_palette_key(event, event_loop);
+            self.request_redraw();
+            return true;
+        }
+        false
+    }
+
     fn try_dispatch_overlay_key(
         &mut self,
         event: &winit::event::KeyEvent,
@@ -344,34 +382,17 @@ impl App {
             self.state.quit_pending = false;
             if confirmed {
                 event_loop.exit();
-            } else if let Some(w) = &self.window {
-                w.request_redraw();
+            } else {
+                self.request_redraw();
             }
             return true;
         }
         if self.state.config_panel.is_some() {
             self.handle_config_key(event);
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
+            self.request_redraw();
             return true;
         }
-        if matches!(self.state.mode, InputMode::RenameTab { .. }) {
-            self.handle_rename_key(event);
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::Search { .. }) {
-            self.handle_search_key(event);
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
-            self.handle_command_palette_key(event, event_loop);
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
+        if self.try_dispatch_mode_key(event, event_loop) {
             return true;
         }
         if self.state.ctrl_w_pending {
@@ -401,32 +422,21 @@ impl App {
         };
 
         let url = self.url_at_pixel(px, py);
-        let icon = if let Some(h) = &hover_sep {
-            match h.dir {
-                SplitDir::H => CursorIcon::ColResize,
-                SplitDir::V => CursorIcon::RowResize,
-            }
-        } else if url.is_some() {
-            CursorIcon::Pointer
-        } else {
-            CursorIcon::Text
-        };
+        let icon = cursor_icon_for_hover(hover_sep.as_ref(), url.is_some());
         if let Some(w) = &self.window {
             w.set_cursor(icon);
         }
         let url_changed = self.state.hovered_url != url;
         self.state.hovered_url = url;
-        if url_changed && let Some(w) = &self.window {
-            w.request_redraw();
+        if url_changed {
+            self.request_redraw();
         }
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
         if mouse_mode >= 1002 {
             self.report_pty_mouse_move(px, py, mouse_mode, mouse_sgr);
         } else if self.state.mouse_selecting {
             self.update_mouse_selection(px, py);
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
+            self.request_redraw();
         }
     }
 
@@ -463,19 +473,21 @@ impl App {
         }
     }
 
-    pub(super) fn handle_mouse_input(&mut self, state: ElementState, button: MouseButton) {
-        if button == MouseButton::Left
-            && state == ElementState::Released
-            && self.state.drag_separator.take().is_some()
-        {
-            return;
+    fn handle_left_button(&mut self, state: ElementState) -> bool {
+        if state == ElementState::Released && self.state.drag_separator.take().is_some() {
+            return true;
         }
-
-        if button == MouseButton::Left
-            && state == ElementState::Pressed
+        if state == ElementState::Pressed
             && let Some((mx, my)) = self.state.mouse_pos
             && self.try_start_separator_drag(mx, my)
         {
+            return true;
+        }
+        false
+    }
+
+    pub(super) fn handle_mouse_input(&mut self, state: ElementState, button: MouseButton) {
+        if button == MouseButton::Left && self.handle_left_button(state) {
             return;
         }
 

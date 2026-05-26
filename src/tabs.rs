@@ -36,18 +36,13 @@ pub fn close_tab_index(active: usize, count: usize) -> usize {
 /// the left (`move_left`) or to the right (`!move_left`).
 /// Returns `active` unchanged when the move is out of bounds.
 pub fn move_tab_index(active: usize, count: usize, move_left: bool) -> usize {
+    if count <= 1 {
+        return active;
+    }
     if move_left {
-        if count > 1 && active > 0 {
-            active - 1
-        } else {
-            active
-        }
+        active.saturating_sub(1)
     } else {
-        if count > 1 && active + 1 < count {
-            active + 1
-        } else {
-            active
-        }
+        (active + 1).min(count - 1)
     }
 }
 

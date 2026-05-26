@@ -78,6 +78,20 @@ pub struct Renderer {
     pub glyphs: GlyphCache,
 }
 
+fn apply_bell_flash(buf: &mut [u32], buf_width: u32, buf_height: u32) {
+    const FLASH_COLOR: u32 = 0xff_ff_ff_ff;
+    let content_top = TAB_BAR_H;
+    let content_bot = buf_height.saturating_sub(STATUS_BAR_H);
+    for y in content_top..content_bot {
+        for x in 0..buf_width {
+            let idx = (y * buf_width + x) as usize;
+            if idx < buf.len() {
+                buf[idx] = blend(buf[idx], FLASH_COLOR, 38);
+            }
+        }
+    }
+}
+
 impl Renderer {
     pub fn new(font_family: &str, font_px: f32) -> Self {
         let glyphs = GlyphCache::new(font_family);
@@ -130,17 +144,7 @@ impl Renderer {
         }
 
         if bell_flash {
-            let flash_color = 0xff_ff_ff_ff_u32;
-            let content_top = TAB_BAR_H;
-            let content_bot = buf_height.saturating_sub(STATUS_BAR_H);
-            for y in content_top..content_bot {
-                for x in 0..buf_width {
-                    let idx = (y * buf_width + x) as usize;
-                    if idx < buf.len() {
-                        buf[idx] = blend(buf[idx], flash_color, 38);
-                    }
-                }
-            }
+            apply_bell_flash(buf, buf_width, buf_height);
         }
 
         self.draw_tab_bar(buf, buf_width, tab_titles, theme);
@@ -346,26 +350,48 @@ impl Renderer {
                 theme,
             );
 
-            fill_rect(buf, buf_width, cell_x, cell_y, draw_w, m.cell_height, bg32);
+            self.draw_cell(
+                buf,
+                buf_width,
+                pane,
+                cell,
+                cell_x,
+                cell_y,
+                draw_w,
+                is_cursor,
+                bg32,
+                fg,
+                m,
+                color_u32(grid.cursor_color),
+                dim_factor,
+                theme,
+            );
 
-            if should_draw_glyph(cell, pane.blink_visible) {
-                self.draw_glyph(
-                    buf,
-                    buf_width,
-                    cell,
-                    cell_x,
-                    cell_y,
-                    draw_w,
-                    fg,
-                    bg32,
-                    pane.is_active,
-                    dim_factor,
-                    m,
-                    pane.rect,
-                );
-            }
+            col += cell_cols as usize;
+        }
+    }
 
-            draw_cell_decorations(
+    #[allow(clippy::too_many_arguments)]
+    fn draw_cell(
+        &mut self,
+        buf: &mut [u32],
+        buf_width: u32,
+        pane: &PaneView,
+        cell: &Cell,
+        cell_x: u32,
+        cell_y: u32,
+        draw_w: u32,
+        is_cursor: bool,
+        bg32: u32,
+        fg: Color,
+        m: &FontMetrics,
+        cursor_color: u32,
+        dim_factor: f32,
+        theme: &ResolvedTheme,
+    ) {
+        fill_rect(buf, buf_width, cell_x, cell_y, draw_w, m.cell_height, bg32);
+        if should_draw_glyph(cell, pane.blink_visible) {
+            self.draw_glyph(
                 buf,
                 buf_width,
                 cell,
@@ -373,29 +399,40 @@ impl Renderer {
                 cell_y,
                 draw_w,
                 fg,
-                m,
-                pane.rect,
-                theme,
+                bg32,
                 pane.is_active,
                 dim_factor,
-                pane.hovered_url,
+                m,
+                pane.rect,
             );
-
-            if is_cursor && pane.cursor_shape != CursorShape::Block {
-                draw_cursor_overlay(
-                    buf,
-                    buf_width,
-                    pane.cursor_shape,
-                    cell_x,
-                    cell_y,
-                    draw_w,
-                    color_u32(grid.cursor_color),
-                    m,
-                    pane.rect,
-                );
-            }
-
-            col += cell_cols as usize;
+        }
+        draw_cell_decorations(
+            buf,
+            buf_width,
+            cell,
+            cell_x,
+            cell_y,
+            draw_w,
+            fg,
+            m,
+            pane.rect,
+            theme,
+            pane.is_active,
+            dim_factor,
+            pane.hovered_url,
+        );
+        if is_cursor && pane.cursor_shape != CursorShape::Block {
+            draw_cursor_overlay(
+                buf,
+                buf_width,
+                pane.cursor_shape,
+                cell_x,
+                cell_y,
+                draw_w,
+                cursor_color,
+                m,
+                pane.rect,
+            );
         }
     }
 

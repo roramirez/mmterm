@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - add kimun code quality gates to workflow: `.kimun.toml` config and `doc/LLMs.md` section
 
 ### Changed
+- extract `field_value_display`, `draw_hex_color_swatch`, `badge_pixel` helpers from `renderer/overlays.rs`; use `self.request_redraw()` in `about_to_wait` — reduces `draw_config_field_row` complexity 12→7; add 8 unit tests covering both helpers
+- extract `scrollback_char_at`, `row_col_range` from `terminal/grid.rs`; `cell_char_at` made `pub(crate)` — simplifies `selected_text` and `motion::char_at`
+- extract `scrollback_cell` from `geometry.rs`; `cell_url_at_scroll` simplified to 2 lines
+- extract `search_args` helper from `views.rs` — deduplicates search argument assembly for zoomed and normal pane views
+- extract `sep_hit` helper from `ui/layout.rs` — eliminates repeated inline bounds + distance check in `find_sep_at_pixel`
+- extract `write_pixel` from `renderer/draw_fns.rs` — removes 4 inline bounds-check `if` blocks from `draw_rect_border`
+- extract `select_primary_font`, `try_resolve_from_fallbacks`, `make_glyph_outline` from `renderer/glyph.rs` — reduces `resolve_glyph` complexity 14→6
+- extract `apply_bell_flash`, `draw_cell` from `renderer/text.rs` — reduces `draw` complexity 12→3, `render_row` 12→6
+- extract `handle_resize`, `should_swallow_key` into dedicated `impl App` block in `main.rs`; simplify `about_to_wait` using `self.request_redraw()`
+- simplify `move_tab_index` in `tabs.rs` — replace early-exit match with two `if` guards
+- simplify `word_forward` and `word_end` in `motion.rs` — convert loop+break patterns to `while let`; combine conditions
 - extract `visual_char_action` from `handle_visual` in `keybindings.rs` — reduces `handle_visual` cognitive complexity 16→8; add 4 tests
 - extract free helper functions from `renderer/text.rs` into new `renderer/draw_fns.rs` module — reduces `text.rs` by ~360 LOC; no behavior change
 - extract `collect_pane_views`, `build_tab_titles` from `main.rs` into `src/views.rs`; extract `build_saved_session`, `restore_session` into `src/restore.rs` — reduces `main.rs` by ~200 LOC

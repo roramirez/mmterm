@@ -19,7 +19,11 @@ pub(crate) fn apply_pwd_token(result: &mut String, cwd: Option<&str>) {
     }
 }
 
-pub(crate) fn apply_date_token<'a>(result: &mut String, inner: &'a str, now: &DateTime<Local>) -> &'a str {
+pub(crate) fn apply_date_token<'a>(
+    result: &mut String,
+    inner: &'a str,
+    now: &DateTime<Local>,
+) -> &'a str {
     if let Some(close) = inner.find('}') {
         result.push_str(&now.format(&inner[..close]).to_string());
         &inner[close + 1..]
