@@ -1009,7 +1009,18 @@ impl App {
         self.reseed_pane_palettes();
         new_cfg.save();
         window.set_title(&new_cfg.window.title);
+
+        if self.state.config.font.family != new_cfg.font.family {
+            self.renderer.reload_font_family(&new_cfg.font.family);
+            for tab in &mut self.state.tabs {
+                let current_px = tab.metrics.font_px;
+                tab.metrics = self.renderer.make_metrics(current_px);
+            }
+        }
+
         self.state.config = new_cfg;
+        self.sync_all_pane_sizes();
+        window.request_redraw();
         self.state.config_panel = None;
     }
 

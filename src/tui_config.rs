@@ -333,7 +333,7 @@ impl ConfigPanel {
         }
         match self.build_config() {
             Ok(cfg) => {
-                self.status = Some("Saved. Font/color changes apply on restart.".into());
+                self.status = Some("Saved.".into());
                 ConfigAction::Save(Box::new(cfg))
             }
             Err(e) => {
