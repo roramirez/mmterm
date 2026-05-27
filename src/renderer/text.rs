@@ -88,6 +88,10 @@ impl Renderer {
         }
     }
 
+    pub fn reload_font_family(&mut self, family: &str) {
+        self.glyphs = GlyphCache::new(family);
+    }
+
     /// Compute metrics for a given font size using the shared glyph cache.
     pub fn make_metrics(&mut self, font_px: f32) -> FontMetrics {
         FontMetrics::compute(&mut self.glyphs, font_px)
