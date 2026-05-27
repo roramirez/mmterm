@@ -5,17 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-26
+
 ### Added
-- `--version` / `-V` flag: prints `mmterm <version>` and exits; local builds include the git short hash (`0.3.0+abc1234`)
+- `--version` / `-V` flag: prints `mmterm <version>` and exits; local builds include the git short hash (`0.4.0+abc1234`)
 - `--help` / `-h` flag: prints usage and all supported options, then exits
+- session persistence: tabs, splits, and pane CWDs are saved on quit and restored on next launch; quitting shows a prompt `[s] save and quit  [q] quit  [Esc] cancel`; configurable via `[general] restore_session`
+- command palette (`Ctrl+Shift+P`): overlay to fuzzy-filter and execute any action by name; navigate with ↑/↓, confirm with Enter, dismiss with Esc
+- DCS sequence dispatch: `hook()`, `put()`, and `unhook()` now route sixel graphics (`DCS...q...ST`) to a self-contained decoder; unknown DCS sequences are silently discarded
+- sixel graphics: images decoded into RGBA pixel buffers and blitted as a post-pass overlay in the renderer, anchored to the cursor position at emission time; palette define (`#n;2;r;g;b`, `#n;1;h;l;s`), RLE (`!count<byte>`), carriage-return (`$`), and band-linefeed (`-`) are all supported
+- RIS (`ESC c`): full terminal reset — clears screen, scrollback, SGR, scroll region, cursor, and all mode flags
+- focus reporting (`?1004h/l`): send `\e[I` on focus-in and `\e[O` on focus-out; covers OS window focus, tab switches, and pane switches
+- autowrap mode toggle (`?7h/l`, DECAWM): when disabled, characters at the right margin overwrite the last cell instead of wrapping to the next line
+- DEC Special Graphics character set (`ESC ( 0` / `ESC ( B`): box-drawing characters for ncurses apps (`dialog`, `nmtui`, `mutt`, etc.)
+- auto-split pane with `Ctrl+W a`: splits along the longest dimension (horizontal if wider, vertical if taller)
+- resizable pane splits by dragging the separator line between panes; cursor changes to a resize icon on hover
+- keyboard pane resizing with `Ctrl+Shift+Arrow` keys (Right/Left grow/shrink horizontally, Down/Up grow/shrink vertically); minimum pane size is 10% of the parent region
+- `AppState` struct extracts all action-dispatch logic from `App` into a pure, winit-free type; `dispatch_action` returns `Vec<AppEffect>` allowing full unit-test coverage of every action without an event loop
+- 6 VT integration scenario tests covering bash prompt sequences, alternate screen, SGR attributes, scrollback search, mouse reporting, and OSC 8 hyperlinks
+- headless `App` constructor using `EventLoopBuilderExtX11::with_any_thread(true)` enabling `App`-level tests in CI without a display
 
 ### Fixed
 - reap child shell processes with a dedicated `wait()` thread to prevent zombie processes accumulating on tab open and pane split
+- clipboard `get_or_insert_with` panic in headless CI: replace `.expect()` with `.ok()` so Copy and VisualYankLine actions degrade gracefully when no display is available
 
-### Documentation
-- add kimun code quality gates to workflow: `.kimun.toml` config and `doc/LLMs.md` section
+### Performance
+- replace `scroll_up`/`scroll_down` double-loop clones with `rotate_left`/`rotate_right`; reduces cost per scroll line ~3.3× (49 µs → 15 µs for 220×50); `seq 1 100000` drops from 4.4 s to 1.4 s
+- drive a vsync-style render loop at ~60 fps while PTY data is flowing so output appears progressively instead of in large batches
 
 ### Changed
+- status bar `right` config option is now a format string (e.g. `"%pwd  %date{%H:%M}"`) instead of an array; spaces and literal text between tokens are preserved as-is
 - extract `field_value_display`, `draw_hex_color_swatch`, `badge_pixel` helpers from `renderer/overlays.rs`; use `self.request_redraw()` in `about_to_wait` — reduces `draw_config_field_row` complexity 12→7; add 8 unit tests covering both helpers
 - extract `scrollback_char_at`, `row_col_range` from `terminal/grid.rs`; `cell_char_at` made `pub(crate)` — simplifies `selected_text` and `motion::char_at`
 - extract `scrollback_cell` from `geometry.rs`; `cell_url_at_scroll` simplified to 2 lines
@@ -65,31 +84,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - extract `ctrl_special_char_action`, `shift_scroll_action` from `handle_global_shortcuts()` in `input/keybindings.rs` — reduces complexity from 25 (extreme) → 20 (very complex)
 - update `.kimun.toml` fail_below to "B" now that score reached 80.1
 
-### Performance
-- replace `scroll_up`/`scroll_down` double-loop clones with `rotate_left`/`rotate_right`; reduces cost per scroll line ~3.3× (49 µs → 15 µs for 220×50); `seq 1 100000` drops from 4.4 s to 1.4 s
-- drive a vsync-style render loop at ~60 fps while PTY data is flowing so output appears progressively instead of in large batches
-
-### Fixed
-- clipboard `get_or_insert_with` panic in headless CI: replace `.expect()` with `.ok()` so Copy and VisualYankLine actions degrade gracefully when no display is available
-
-### Added
-- session persistence: tabs, splits, and pane CWDs are saved on quit and restored on next launch; quitting shows a prompt `[s] save and quit  [q] quit  [Esc] cancel`; configurable via `[general] restore_session`
-- command palette (`Ctrl+Shift+P`): overlay to fuzzy-filter and execute any action by name; navigate with ↑/↓, confirm with Enter, dismiss with Esc
-- DCS sequence dispatch: `hook()`, `put()`, and `unhook()` now route sixel graphics (`DCS...q...ST`) to a self-contained decoder; unknown DCS sequences are silently discarded
-- sixel graphics: images decoded into RGBA pixel buffers and blitted as a post-pass overlay in the renderer, anchored to the cursor position at emission time; palette define (`#n;2;r;g;b`, `#n;1;h;l;s`), RLE (`!count<byte>`), carriage-return (`$`), and band-linefeed (`-`) are all supported
-- RIS (`ESC c`): full terminal reset — clears screen, scrollback, SGR, scroll region, cursor, and all mode flags
-- focus reporting (`?1004h/l`): send `\e[I` on focus-in and `\e[O` on focus-out; covers OS window focus, tab switches, and pane switches
-- autowrap mode toggle (`?7h/l`, DECAWM): when disabled, characters at the right margin overwrite the last cell instead of wrapping to the next line
-- DEC Special Graphics character set (`ESC ( 0` / `ESC ( B`): box-drawing characters for ncurses apps (`dialog`, `nmtui`, `mutt`, etc.)
-- auto-split pane with `Ctrl+W a`: splits along the longest dimension (horizontal if wider, vertical if taller)
-- resizable pane splits by dragging the separator line between panes; cursor changes to a resize icon on hover
-- keyboard pane resizing with `Ctrl+Shift+Arrow` keys (Right/Left grow/shrink horizontally, Down/Up grow/shrink vertically); minimum pane size is 10% of the parent region
-- `AppState` struct extracts all action-dispatch logic from `App` into a pure, winit-free type; `dispatch_action` returns `Vec<AppEffect>` allowing full unit-test coverage of every action without an event loop
-- 6 VT integration scenario tests covering bash prompt sequences, alternate screen, SGR attributes, scrollback search, mouse reporting, and OSC 8 hyperlinks
-- headless `App` constructor using `EventLoopBuilderExtX11::with_any_thread(true)` enabling `App`-level tests in CI without a display
-
-### Changed
-- status bar `right` config option is now a format string (e.g. `"%pwd  %date{%H:%M}"`) instead of an array; spaces and literal text between tokens are preserved as-is
+### Documentation
+- add kimun code quality gates to workflow: `.kimun.toml` config and `doc/LLMs.md` section
 
 ## [0.3.0] - 2026-05-16
 
@@ -131,18 +127,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - renderer tests covering visual selection, search match highlighting, inactive pane dimming, underline, strikethrough, dim, reverse-video, cursor, and scrollbar rendering paths
 - glyph cache tests for embedded fallback font (regular and bold) and fallback chain for unknown font families
 - PTY session tests for spawn-with-cwd, default SHELL spawn, and cwd() readback
-
 - theme system: 9 built-in themes (default, catppuccin-mocha, dracula, gruvbox-dark, monokai, nord, one-dark, solarized-dark, tokyo-night) installed to `~/.config/mmterm/themes/` on first launch
 - theme selector in the config panel (← / → to cycle with live preview)
 - `[theme] name` field in `config.toml`; custom themes can be added as `.toml` files in `~/.config/mmterm/themes/`
 - tab bar, status bar, scrollbar, search highlights, and pane separators now use theme colors
 
 ### Performance
-
 - cap PTY bytes parsed per frame to 256 KB and coalesce wakeup events so high-throughput commands (e.g. `find .`) render progressively in both normal and maximized windows
 
 ### Fixed
-
 - copy selection now reads the correct content when scrolled into scrollback
 - cursor is now always visible in Insert mode regardless of `?25l` sent by TUI apps (Ink, Claude Code); apps that hide the terminal cursor during rendering no longer leave it permanently invisible
 - `cursor_visible` state is now saved and restored when entering/exiting the alternate screen
@@ -152,10 +145,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - inactive split panes no longer shift the background color: only foreground text is dimmed; gutter pixels now correctly match the pane background
 
 ### Documentation
-
 - add animated demo GIF to README showcasing split panes, tabs, tab rename, search, zoom, and 256-color output
 - document session logging, `inactive_dim`, `detect_urls`, `Ctrl+Shift+L`, and `Ctrl+W z` in README and SPEC
-
 
 ## [0.1.0] - 2026-05-09
 
@@ -231,5 +222,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - App icon with MM branding
 - event loop yields on idle to eliminate CPU busy-loop during quiescent periods
 
-[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/roramirez/mmterm/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/roramirez/mmterm/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/roramirez/mmterm/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/roramirez/mmterm/releases/tag/v0.1.0
