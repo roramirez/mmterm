@@ -5,7 +5,7 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::CursorIcon;
 
 use crate::config::Config;
-use crate::input::{InputMode, handle_ctrl_w, handle_key};
+use crate::input::{InputMode, handle_ctrl_w, handle_key, handle_key_passthrough};
 use crate::theme::{load_theme, themes_dir};
 use crate::tui_config::ConfigAction;
 use crate::ui::{SplitDir, layout::SeparatorHandle};
@@ -316,12 +316,9 @@ impl App {
         event_loop: &ActiveEventLoop,
     ) {
         use std::time::Instant;
+        use winit::event::ElementState;
         self.state.cursor_blink = true;
         self.state.blink_last = Instant::now();
-
-        if self.try_dispatch_overlay_key(&event, event_loop) {
-            return;
-        }
 
         let (grid_cols, grid_rows, app_cursor) = {
             let tab = self.tab();
@@ -336,6 +333,28 @@ impl App {
                 })
                 .unwrap_or((80, 24, false))
         };
+
+        // Passthrough mode: Ctrl+B exits, everything else goes straight to the PTY.
+        if self.tab().passthrough {
+            if event.state == ElementState::Pressed
+                && self.modifiers.state().control_key()
+                && event.logical_key == Key::Character("b".into())
+            {
+                self.tab_mut().passthrough = false;
+                self.request_redraw();
+            } else {
+                let action = handle_key_passthrough(&event, &self.modifiers, app_cursor);
+                if let crate::input::keybindings::Action::SendToPty(bytes) = action {
+                    self.do_send_to_pty(bytes);
+                }
+            }
+            return;
+        }
+
+        if self.try_dispatch_overlay_key(&event, event_loop) {
+            return;
+        }
+
         let action = handle_key(
             &event,
             &self.modifiers,

@@ -109,9 +109,11 @@ fn get_cell_scrollback_col_out_of_bounds_returns_blank() {
 #[test]
 fn mode_style_returns_badge_for_each_mode() {
     let theme = default_theme();
-    let (label, _) = mode_style(&InputMode::Insert, &theme);
+    let (label, _) = mode_style(&InputMode::Insert, false, &theme);
     assert_eq!(label, "INSERT");
-    let (label, _) = mode_style(&InputMode::Normal, &theme);
+    let (label, _) = mode_style(&InputMode::Insert, true, &theme);
+    assert_eq!(label, "INSERT PASS");
+    let (label, _) = mode_style(&InputMode::Normal, false, &theme);
     assert_eq!(label, "NORMAL");
     let (label, _) = mode_style(
         &InputMode::Visual {
@@ -121,15 +123,17 @@ fn mode_style_returns_badge_for_each_mode() {
             cur_row: 0,
             anchored: false,
         },
+        false,
         &theme,
     );
     assert_eq!(label, "VISUAL");
-    let (label, _) = mode_style(&InputMode::RenameTab { buf: String::new() }, &theme);
+    let (label, _) = mode_style(&InputMode::RenameTab { buf: String::new() }, false, &theme);
     assert_eq!(label, "RENAME");
     let (label, _) = mode_style(
         &InputMode::Search {
             query: String::new(),
         },
+        false,
         &theme,
     );
     assert_eq!(label, "SEARCH");
@@ -148,6 +152,7 @@ fn draw_empty_buffer_does_not_panic() {
         &[],
         &[],
         &InputMode::Insert,
+        false,
         &[],
         &m,
         0,
@@ -188,6 +193,7 @@ fn draw_pane_fills_background_color() {
         &[pane],
         &[],
         &InputMode::Insert,
+        false,
         &[("shell".to_string(), true, false)],
         &m,
         0,
@@ -215,6 +221,7 @@ fn draw_tab_bar_renders_without_panic() {
         &[],
         &[],
         &InputMode::Normal,
+        false,
         &[
             ("tab1".to_string(), true, false),
             ("tab2".to_string(), false, true),
@@ -246,6 +253,7 @@ fn draw_status_bar_renders_without_panic() {
         &InputMode::Search {
             query: "hello".to_string(),
         },
+        false,
         &[],
         &m,
         3,
@@ -274,6 +282,7 @@ fn draw_status_bar_pane_title_centered() {
         &[],
         &[],
         &InputMode::Normal,
+        false,
         &[],
         &m,
         0,
@@ -294,6 +303,7 @@ fn draw_status_bar_pane_title_centered() {
         &[],
         &[],
         &InputMode::Normal,
+        false,
         &[],
         &m,
         0,
@@ -329,6 +339,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &InputMode::Search {
             query: String::new(),
         },
+        false,
         &[],
         &m,
         0,
@@ -351,6 +362,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &InputMode::Search {
             query: String::new(),
         },
+        false,
         &[],
         &m,
         0,
@@ -409,6 +421,7 @@ fn draw_with_bell_flash_does_not_panic() {
         &[],
         &[],
         &InputMode::Insert,
+        false,
         &[],
         &m,
         0,
@@ -436,6 +449,7 @@ fn draw_with_separator_does_not_panic() {
         &[],
         &sep,
         &InputMode::Insert,
+        false,
         &[],
         &m,
         0,
@@ -535,6 +549,7 @@ fn do_draw(
         panes,
         &[],
         mode,
+        false,
         &[("t".to_string(), true, false)],
         m,
         0,
@@ -698,6 +713,7 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         &[pane],
         &[],
         &InputMode::Insert,
+        false,
         &[("t".to_string(), true, false)],
         &m,
         0,
@@ -788,6 +804,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         &[pane],
         &[],
         &InputMode::Insert,
+        false,
         &[("t".to_string(), true, false)],
         &m,
         0,
@@ -1008,6 +1025,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         &InputMode::Search {
             query: String::new(),
         },
+        false,
         &[],
         &m,
         0,
@@ -1037,6 +1055,7 @@ fn draw_status_bar_search_no_matches_shows_label() {
         &InputMode::Search {
             query: "xyz".to_string(),
         },
+        false,
         &[],
         &m,
         0, // search_total = 0
@@ -1208,6 +1227,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         &[pane],
         &[],
         &InputMode::Insert,
+        false,
         &[("t".to_string(), true, false)],
         &m,
         0,

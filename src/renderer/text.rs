@@ -116,6 +116,7 @@ impl Renderer {
         panes: &[PaneView],
         separators: &[[u32; 4]],
         mode: &InputMode,
+        passthrough: bool,
         tab_titles: &[(String, bool, bool)],
         metrics: &FontMetrics,
         search_total: usize,
@@ -153,6 +154,7 @@ impl Renderer {
             buf_width,
             buf_height,
             mode,
+            passthrough,
             search_total,
             search_current,
             right_text,
@@ -528,6 +530,7 @@ impl Renderer {
         width: u32,
         height: u32,
         mode: &InputMode,
+        passthrough: bool,
         search_total: usize,
         search_current: usize,
         right_text: Option<&str>,
@@ -544,7 +547,7 @@ impl Renderer {
             fill_rect(buf, width, 0, bar_y, width, 1, sep_color);
         }
 
-        let (label, badge_color) = mode_style(mode, theme);
+        let (label, badge_color) = mode_style(mode, passthrough, theme);
         let badge_fg = BADGE_FG;
         let px = self.status_font_px;
         let char_w = self.glyphs.rasterize('M', px, true).1;

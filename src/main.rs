@@ -229,6 +229,7 @@ impl App {
             zoomed: false,
             has_activity: false,
             bell_flash_until: None,
+            passthrough: false,
         });
         let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
         self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
@@ -796,6 +797,7 @@ impl App {
             &views,
             draw_separators,
             &self.state.mode,
+            self.state.tabs[self.state.active_tab].passthrough,
             &tab_titles,
             &metrics,
             self.state.search_matches.len(),

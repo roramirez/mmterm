@@ -20,6 +20,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Focus reporting** — `?1004h/l` sends `\e[I`/`\e[O` on window, tab, and pane focus changes; neovim `autoread` and tmux work correctly
 - **DEC line drawing** — box-drawing characters for ncurses TUI apps (`dialog`, `nmtui`, `mutt`)
 - **Pane zoom** — full-window focus for the active pane
+- **Passthrough mode** — `Ctrl+B` forwards all keystrokes directly to the PTY, bypassing mmterm shortcuts; useful when running vim, tmux, or other apps that share keybindings; status bar shows `INSERT PASS`; press `Ctrl+B` again to exit
 - **Session logging** — capture PTY output per-pane to `~/.mmterm/` with `Ctrl+Shift+L`
 - **Color emoji** — rendered via FreeType CBDT/CBLC
 - **Session persistence** — tabs, splits, and per-pane CWDs are saved on quit and restored on next launch; a centered dialog asks `[s] Save and quit / [q] Quit / [Esc] Cancel`; toggle with `restore_session` in `[general]`

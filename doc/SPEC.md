@@ -278,7 +278,7 @@ theme files.
 ### Status Bar
 
 The status bar (22 px, bottom of window) shows:
-- **Left** — current input mode badge (`INSERT` / `NORMAL` / `VISUAL` / `SEARCH`).
+- **Left** — current input mode badge (`INSERT` / `INSERT PASS` / `NORMAL` / `VISUAL` / `SEARCH`); `INSERT PASS` indicates passthrough mode is active.
 - **Center** — active pane OSC title (set via `\e]0;title\e\\` or `\e]2;...`);
   suppressed during Search mode (which shows the query and match count instead).
 - **Right** — configurable segments via `[status_bar] right` in config.
@@ -419,6 +419,7 @@ writing a file.
 | `Shift+PgUp/PgDn` | Scroll half screen |
 | `Ctrl+.` | Cycle mode (Insert → Normal → Visual → Insert) |
 | `Ctrl+\` | Enter Normal mode |
+| `Ctrl+B` | Toggle passthrough mode (see below) |
 
 ### Pane Management (`Ctrl+W` prefix)
 
@@ -482,6 +483,29 @@ actions shift the anchor coordinates so the selected content stays stable.
 Word boundary detection (`w`/`b`/`e`) is implemented in `src/motion.rs`.
 A character is a word char if it is alphanumeric or `_`; everything else is
 punctuation or whitespace.
+
+### Passthrough Mode
+
+Passthrough mode suspends all mmterm keybindings and forwards every keystroke
+directly to the PTY. It solves the conflict where mmterm intercepts shortcuts
+(e.g. `Ctrl+W`) before they reach a program running inside the terminal (vim,
+tmux, another terminal multiplexer).
+
+| Key | Action |
+|---|---|
+| `Ctrl+B` | Toggle passthrough on / off |
+
+**Behaviour:**
+- Active only in `Insert` mode (the mode where keystrokes normally go to the PTY anyway).
+- While active the status bar badge changes from `INSERT` to `INSERT PASS`.
+- `Ctrl+B` is the only key mmterm intercepts while passthrough is active; all other keys, including `Ctrl+W` chords, are forwarded as raw bytes.
+- Passthrough state is per-tab and session-only — it resets to off on tab close or restart.
+- The flag lives on `TabState.passthrough` and is never persisted to config or session files.
+
+**Implementation:** `handle_keyboard_input` in `src/app_event.rs` checks
+`tab.passthrough` before the normal dispatch path. If active, `Ctrl+B` clears
+the flag; all other pressed events are encoded by `handle_key_passthrough`
+(Insert-mode encoding, bypassing global shortcuts) and sent to the PTY.
 
 ---
 

@@ -53,10 +53,17 @@ pub(super) fn get_cell(grid: &Grid, scroll_offset: usize, row: usize, col: usize
     }
 }
 
-pub(super) fn mode_style(mode: &InputMode, theme: &ResolvedTheme) -> (&'static str, u32) {
+pub(super) fn mode_style(
+    mode: &InputMode,
+    passthrough: bool,
+    theme: &ResolvedTheme,
+) -> (&'static str, u32) {
     match mode {
         InputMode::Normal => ("NORMAL", color_u32(theme.palette[4])),
-        InputMode::Insert => ("INSERT", color_u32(theme.palette[2])),
+        InputMode::Insert => {
+            let label = if passthrough { "INSERT PASS" } else { "INSERT" };
+            (label, color_u32(theme.palette[2]))
+        }
         InputMode::Visual { .. } => ("VISUAL", color_u32(theme.palette[5])),
         InputMode::RenameTab { .. } => ("RENAME", color_u32(theme.palette[3])),
         InputMode::Search { .. } => ("SEARCH", color_u32(theme.palette[3])),

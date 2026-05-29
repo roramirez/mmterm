@@ -214,6 +214,7 @@ fn next_bell_wakeup_no_active_bell_returns_default() {
         zoomed: false,
         has_activity: false,
         bell_flash_until: None,
+        passthrough: false,
     };
     let default = Instant::now() + Duration::from_secs(10);
     let result = next_bell_wakeup(&[tab], default);
@@ -240,6 +241,7 @@ fn next_bell_wakeup_active_bell_returns_earlier() {
         zoomed: false,
         has_activity: false,
         bell_flash_until: Some(bell_expiry),
+        passthrough: false,
     };
     let default = Instant::now() + Duration::from_secs(10);
     let result = next_bell_wakeup(&[tab], default);
@@ -270,6 +272,7 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
         zoomed: false,
         has_activity: false,
         bell_flash_until: expiry,
+        passthrough: false,
     };
 
     let tab1 = make_tab(Some(expiry1), metrics.clone());

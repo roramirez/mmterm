@@ -37,6 +37,7 @@ pub struct TabState {
     pub zoomed: bool,
     pub has_activity: bool,
     pub bell_flash_until: Option<Instant>,
+    pub passthrough: bool,
 }
 
 // ── Side-effects reported back to the winit App ──────────────────────────────
@@ -683,6 +684,12 @@ impl AppState {
                 delta: -crate::ui::layout::NUDGE_STEP,
             }],
 
+            // ── Passthrough ──────────────────────────────────────────────────
+            Action::TogglePassthrough => {
+                self.tab_mut().passthrough = !self.tab_mut().passthrough;
+                vec![AppEffect::Redraw]
+            }
+
             // ── Logging ──────────────────────────────────────────────────────
             Action::ToggleLog => vec![AppEffect::ToggleLog],
 
@@ -881,6 +888,7 @@ impl AppState {
             zoomed: false,
             has_activity: false,
             bell_flash_until: None,
+            passthrough: false,
         });
         self.active_tab = self.tabs.len() - 1;
     }

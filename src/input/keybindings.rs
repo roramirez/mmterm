@@ -51,6 +51,7 @@ pub enum Action {
     VisualYankLine,
     ClearScrollback,
     ToggleLog,
+    TogglePassthrough,
     OpenCommandPalette,
     ResizePaneRight,
     ResizePaneLeft,
@@ -180,6 +181,7 @@ fn ctrl_char_key_action(s: &str) -> Option<Action> {
         "q" => Some(Action::Quit),
         "," => Some(Action::OpenConfig),
         "t" => Some(Action::NewTab),
+        "b" => Some(Action::TogglePassthrough),
         "+" | "=" => Some(Action::IncreaseFontSize),
         "-" => Some(Action::DecreaseFontSize),
         "0" => Some(Action::ResetFontSize),
@@ -310,6 +312,29 @@ pub(crate) fn ctrl_w_action(key: &Key) -> Action {
         Key::Named(NamedKey::ArrowDown) => Action::FocusDown,
         _ => Action::None,
     }
+}
+
+/// Bypasses all mmterm shortcuts and encodes the key as raw PTY bytes (Insert mode encoding).
+/// Used when passthrough mode is active. Ctrl+B is NOT handled here — the caller must
+/// intercept it to exit passthrough before calling this.
+pub fn handle_key_passthrough(
+    event: &KeyEvent,
+    modifiers: &Modifiers,
+    application_cursor_keys: bool,
+) -> Action {
+    if event.state != ElementState::Pressed {
+        return Action::None;
+    }
+    let ctrl = modifiers.state().control_key();
+    let shift = modifiers.state().shift_key();
+    let alt = modifiers.state().alt_key();
+    handle_insert(
+        &event.logical_key,
+        ctrl,
+        shift,
+        alt,
+        application_cursor_keys,
+    )
 }
 
 // ── Insert mode sub-handlers ─────────────────────────────────────────────────

@@ -2328,3 +2328,38 @@ fn screenshot_ctrl_shift_arrow_resizes_pane_not_screenshot() {
     );
     assert!(matches!(a, Action::ResizePaneRight));
 }
+
+// ── TogglePassthrough (Ctrl+B) ────────────────────────────────────────────────
+
+#[test]
+fn ctrl_b_in_insert_toggles_passthrough() {
+    let a = handle_key_inner(&char_key("b"), true, false, false, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::TogglePassthrough));
+}
+
+#[test]
+fn ctrl_b_in_normal_toggles_passthrough() {
+    // Global shortcut fires regardless of mode.
+    let a = handle_key_inner(&char_key("b"), true, false, false, &normal(), 80, 24, false);
+    assert!(matches!(a, Action::TogglePassthrough));
+}
+
+#[test]
+fn ctrl_b_in_visual_toggles_passthrough() {
+    let a = handle_key_inner(&char_key("b"), true, false, false, &visual(), 80, 24, false);
+    assert!(matches!(a, Action::TogglePassthrough));
+}
+
+#[test]
+fn ctrl_shift_b_does_not_toggle_passthrough() {
+    // Ctrl+Shift+B is not a bound shortcut, should not toggle passthrough.
+    let a = handle_key_inner(&char_key("b"), true, true, false, &insert(), 80, 24, false);
+    assert!(!matches!(a, Action::TogglePassthrough));
+}
+
+#[test]
+fn ctrl_alt_b_also_toggles_passthrough() {
+    // Ctrl takes priority over Alt for char keys — consistent with Ctrl+Alt+T → NewTab.
+    let a = handle_key_inner(&char_key("b"), true, false, true, &insert(), 80, 24, false);
+    assert!(matches!(a, Action::TogglePassthrough));
+}

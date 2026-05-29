@@ -64,6 +64,7 @@ impl App {
                 zoomed: false,
                 has_activity: false,
                 bell_flash_until: None,
+                passthrough: false,
             });
             let rect = [
                 0,
