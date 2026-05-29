@@ -62,6 +62,7 @@ pub(super) fn mode_style(mode: &InputMode, theme: &ResolvedTheme) -> (&'static s
         InputMode::Search { .. } => ("SEARCH", color_u32(theme.palette[3])),
         InputMode::CommandPalette { .. } => ("PALETTE", color_u32(theme.palette[6])),
         InputMode::QuitSave => ("INSERT", color_u32(theme.palette[2])),
+        InputMode::Screenshot { .. } => ("SHOT", color_u32(theme.palette[3])),
     }
 }
 

@@ -2128,3 +2128,203 @@ fn ctrl_char_key_equals_increases_font() {
 fn ctrl_char_key_unknown_returns_none() {
     assert!(ctrl_char_key_action("z").is_none());
 }
+
+// ── Screenshot keybindings ───────────────────────────────────────────────────
+
+fn screenshot_mode() -> InputMode {
+    InputMode::Screenshot {
+        cx: 400,
+        cy: 300,
+        half_w: 100,
+        half_h: 100,
+    }
+}
+
+#[test]
+fn ctrl_w_p_opens_screenshot() {
+    assert!(matches!(
+        ctrl_w_action(&char_key("p")),
+        Action::ScreenshotOpen
+    ));
+}
+
+#[test]
+fn screenshot_arrow_right_grows_width() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotResize(1, 0)));
+}
+
+#[test]
+fn screenshot_arrow_left_shrinks_width() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotResize(-1, 0)));
+}
+
+#[test]
+fn screenshot_arrow_down_grows_height() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotResize(0, 1)));
+}
+
+#[test]
+fn screenshot_arrow_up_shrinks_height() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotResize(0, -1)));
+}
+
+#[test]
+fn screenshot_shift_up_moves_up() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(0, -20)));
+}
+
+#[test]
+fn screenshot_shift_down_moves_down() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(0, 20)));
+}
+
+#[test]
+fn screenshot_shift_left_moves_left() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(-20, 0)));
+}
+
+#[test]
+fn screenshot_shift_right_moves_right() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(20, 0)));
+}
+
+#[test]
+fn screenshot_enter_captures() {
+    let a = handle_key_inner(
+        &named(NamedKey::Enter),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotCapture));
+}
+
+#[test]
+fn screenshot_space_captures() {
+    let a = handle_key_inner(
+        &named(NamedKey::Space),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotCapture));
+}
+
+#[test]
+fn screenshot_esc_exits_to_insert() {
+    let a = handle_key_inner(
+        &named(NamedKey::Escape),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SetMode(InputMode::Insert)));
+}
+
+#[test]
+fn screenshot_ctrl_shift_arrow_resizes_pane_not_screenshot() {
+    // Global shortcuts still fire even in Screenshot mode — Ctrl+Shift+Arrow resizes panes.
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        true,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ResizePaneRight));
+}

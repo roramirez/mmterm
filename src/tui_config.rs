@@ -25,6 +25,7 @@ const F_COLOR_SEL: usize = 16;
 const F_PALETTE: usize = 17; // F_PALETTE + 0..15
 const F_STATUS_BAR_RIGHT: usize = 33;
 const F_RESTORE_SESSION: usize = 34;
+const F_SCREENSHOT_DIR: usize = 35;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -245,6 +246,13 @@ impl ConfigPanel {
             value: cfg.general.restore_session.to_string(),
             kind: FieldKind::Bool,
             section: Some("General"),
+        });
+        fields.push(Field {
+            label: "Screenshot Dir",
+            hint: "directory for screenshots; ~ expands to home (e.g. ~/mmterm/shot)",
+            value: cfg.general.screenshot_dir.clone(),
+            kind: FieldKind::OptText,
+            section: None,
         });
 
         Self {
@@ -479,6 +487,8 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid restore_session — use true or false")?;
 
+        let screenshot_dir = get(F_SCREENSHOT_DIR);
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -503,7 +513,10 @@ impl ConfigPanel {
             status_bar: StatusBarConfig {
                 right: status_bar_right,
             },
-            general: GeneralConfig { restore_session },
+            general: GeneralConfig {
+                restore_session,
+                screenshot_dir,
+            },
         })
     }
 

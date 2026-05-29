@@ -26,4 +26,12 @@ pub enum InputMode {
     },
     /// Quit was triggered; waiting for save-session decision.
     QuitSave,
+    /// Screenshot region selector: rectangle centered at (cx, cy).
+    /// `half_w`/`half_h` are half the width and height of the selection.
+    Screenshot {
+        cx: u32,
+        cy: u32,
+        half_w: u32,
+        half_h: u32,
+    },
 }

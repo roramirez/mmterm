@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - pane rotation: `Ctrl-W r` rotates panes forward (last → first slot) and `Ctrl-W R` rotates backward, like tmux
+- screenshot mode (`Ctrl+W p`): interactive square region selector; arrow keys resize the square, `Shift+Arrow` moves it; `Enter` captures and saves a PNG to the configured directory (default `~/mmterm/shot`); configurable via `[general] screenshot_dir`
 
 ## [0.4.1] - 2026-05-27
 

@@ -160,9 +160,24 @@ You can also edit settings live with `Ctrl+,`.
 | `Ctrl+W w` | Cycle focus |
 | `Ctrl+W q` | Close pane |
 | `Ctrl+W z` | Toggle pane zoom |
+| `Ctrl+W p` | Enter screenshot mode |
 | `Ctrl+Shift+←/→` | Grow/shrink active pane horizontally |
 | `Ctrl+Shift+↑/↓` | Grow/shrink active pane vertically |
 | drag separator | Drag the 1 px separator line to resize |
+
+### Screenshot Mode (`Ctrl+W p`)
+
+A rectangular selection overlay appears centered on the screen.
+
+| Binding | Action |
+|---|---|
+| `←` / `→` | Shrink / grow selection width |
+| `↑` / `↓` | Shrink / grow selection height |
+| `Shift+←/→/↑/↓` | Move the selection center |
+| `Enter` / `Space` | Capture and save PNG |
+| `Esc` | Cancel |
+
+The file is saved as `mmterm-YYYYMMDDTHHMMSS.png` in the directory set by `[general] screenshot_dir` (default `~/mmterm/shot`).
 
 ### Scrollback
 

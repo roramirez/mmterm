@@ -11,6 +11,14 @@ use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
 use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
 
+// ── Screenshot helpers ───────────────────────────────────────────────────────
+
+/// Adjust `half` by `delta` steps where each step is 5 % of current size (min 4 px).
+fn nudge_half(half: u32, delta: i32) -> u32 {
+    let step = ((half as f32 * 0.05) as i32).max(4);
+    (half as i32 + delta * step).max(0) as u32
+}
+
 // ── Re-exports so main.rs can still use these types ─────────────────────────
 
 pub struct PaneEntry {
@@ -50,9 +58,19 @@ pub enum AppEffect {
     ToggleLog,
     SendToPty(Vec<u8>),
     Paste,
-    ResizePane { split_h: bool, delta: f32 },
+    ResizePane {
+        split_h: bool,
+        delta: f32,
+    },
     RotatePanes(bool),
     SaveSessionAndQuit,
+    ScreenshotOpen,
+    TakeScreenshot {
+        cx: u32,
+        cy: u32,
+        half_w: u32,
+        half_h: u32,
+    },
 }
 
 // ── AppState ─────────────────────────────────────────────────────────────────
@@ -693,6 +711,16 @@ impl AppState {
                 self.tabs[self.active_tab].zoomed = false;
                 vec![AppEffect::RotatePanes(false)]
             }
+            Action::ScreenshotOpen => vec![AppEffect::ScreenshotOpen],
+            Action::ScreenshotResize(dw, dh) => {
+                self.do_screenshot_resize(dw, dh);
+                vec![AppEffect::Redraw]
+            }
+            Action::ScreenshotMove(dx, dy) => {
+                self.do_screenshot_move(dx, dy);
+                vec![AppEffect::Redraw]
+            }
+            Action::ScreenshotCapture => self.do_screenshot_capture(),
             Action::Quit => self.do_quit(),
             Action::QuitSaveSession => vec![AppEffect::SaveSessionAndQuit],
             Action::QuitNoSave => vec![AppEffect::Quit],
@@ -758,6 +786,63 @@ impl AppState {
             };
             self.scroll_to_match(prev);
         }
+    }
+
+    fn do_screenshot_resize(&mut self, dw: i32, dh: i32) {
+        let InputMode::Screenshot {
+            cx,
+            cy,
+            half_w,
+            half_h,
+        } = self.mode
+        else {
+            return;
+        };
+        const MIN_HALF: u32 = 20;
+        let new_half_w = nudge_half(half_w, dw).max(MIN_HALF);
+        let new_half_h = nudge_half(half_h, dh).max(MIN_HALF);
+        self.mode = InputMode::Screenshot {
+            cx,
+            cy,
+            half_w: new_half_w,
+            half_h: new_half_h,
+        };
+    }
+
+    fn do_screenshot_move(&mut self, dx: i32, dy: i32) {
+        let InputMode::Screenshot {
+            cx,
+            cy,
+            half_w,
+            half_h,
+        } = self.mode
+        else {
+            return;
+        };
+        self.mode = InputMode::Screenshot {
+            cx: (cx as i32 + dx).max(0) as u32,
+            cy: (cy as i32 + dy).max(0) as u32,
+            half_w,
+            half_h,
+        };
+    }
+
+    fn do_screenshot_capture(&self) -> Vec<AppEffect> {
+        let InputMode::Screenshot {
+            cx,
+            cy,
+            half_w,
+            half_h,
+        } = self.mode
+        else {
+            return vec![];
+        };
+        vec![AppEffect::TakeScreenshot {
+            cx,
+            cy,
+            half_w,
+            half_h,
+        }]
     }
 
     fn do_quit(&mut self) -> Vec<AppEffect> {

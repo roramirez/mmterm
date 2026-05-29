@@ -66,6 +66,8 @@ struct App {
     /// Timestamp of the last frame where PTY data was actually consumed.
     /// Used to drive a vsync-style render loop while output is flowing.
     last_pty_data: Option<Instant>,
+    /// Pending screenshot crop [x, y, w, h]; captured in redraw() before overlays are drawn.
+    pending_screenshot: Option<[u32; 4]>,
 }
 
 fn bracketed_paste_encode(text: &str, bracketed: bool) -> Vec<u8> {
@@ -101,6 +103,7 @@ impl App {
             surface_size: (0, 0),
             wakeup_pending,
             last_pty_data: None,
+            pending_screenshot: None,
         }
     }
 
@@ -545,6 +548,32 @@ impl App {
                 AppEffect::SendToPty(bytes) => self.do_send_to_pty(bytes),
                 AppEffect::Paste => self.do_paste(),
                 AppEffect::RotatePanes(forward) => self.do_rotate_panes(forward),
+                AppEffect::ScreenshotOpen => {
+                    let (w, h) = self.surface_size;
+                    let half = w.min(h) / 4;
+                    self.state.mode = InputMode::Screenshot {
+                        cx: w / 2,
+                        cy: h / 2,
+                        half_w: half,
+                        half_h: half,
+                    };
+                    self.request_redraw();
+                }
+                AppEffect::TakeScreenshot {
+                    cx,
+                    cy,
+                    half_w,
+                    half_h,
+                } => {
+                    let (w, h) = self.surface_size;
+                    let x = cx.saturating_sub(half_w);
+                    let y = cy.saturating_sub(half_h);
+                    let sw = (half_w * 2).min(w.saturating_sub(x));
+                    let sh = (half_h * 2).min(h.saturating_sub(y));
+                    self.pending_screenshot = Some([x, y, sw, sh]);
+                    self.state.mode = InputMode::Insert;
+                    self.request_redraw();
+                }
             }
         }
         let focus_after = (
@@ -779,6 +808,20 @@ impl App {
             &self.state.theme,
         );
 
+        if let Some([px, py, pw, ph]) = self.pending_screenshot.take()
+            && let Err(e) = save_screenshot(
+                pixels,
+                w,
+                px,
+                py,
+                pw,
+                ph,
+                &self.state.config.general.screenshot_dir,
+            )
+        {
+            log::warn!("screenshot save failed: {e}");
+        }
+
         draw_overlays(&mut self.renderer, &self.state, pixels, w, h);
         buf.present().unwrap();
     }
@@ -829,6 +872,63 @@ fn draw_overlays(renderer: &mut Renderer, state: &AppState, pixels: &mut [u32], 
     if matches!(state.mode, InputMode::QuitSave) {
         renderer.draw_save_session_confirm(pixels, w, h, &state.theme);
     }
+    if let InputMode::Screenshot {
+        cx,
+        cy,
+        half_w,
+        half_h,
+    } = state.mode
+    {
+        renderer.draw_screenshot_selector(pixels, w, h, cx, cy, half_w, half_h);
+    }
+}
+
+fn expand_tilde(path: &str) -> std::path::PathBuf {
+    match path.strip_prefix("~/") {
+        Some(rest) => dirs_next::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join(rest),
+        None => std::path::PathBuf::from(path),
+    }
+}
+
+fn pixel_to_rgb(p: u32) -> [u8; 3] {
+    [
+        ((p >> 16) & 0xff) as u8,
+        ((p >> 8) & 0xff) as u8,
+        (p & 0xff) as u8,
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn save_screenshot(
+    buf: &[u32],
+    buf_width: u32,
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+    dir: &str,
+) -> anyhow::Result<()> {
+    let dir = expand_tilde(dir);
+    use anyhow::Context as _;
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("cannot create screenshot directory {}", dir.display()))?;
+
+    let rgb: Vec<u8> = (y..y + h)
+        .flat_map(|row| (x..x + w).map(move |col| (row * buf_width + col) as usize))
+        .flat_map(|idx| pixel_to_rgb(buf.get(idx).copied().unwrap_or(0)))
+        .collect();
+
+    let timestamp = chrono::Local::now().format("%Y%m%dT%H%M%S");
+    let filename = format!("mmterm-{timestamp}.png");
+    let path = dir.join(&filename);
+    let img = image::RgbImage::from_raw(w, h, rgb)
+        .ok_or_else(|| anyhow::anyhow!("invalid image dimensions {w}x{h}"))?;
+    img.save(&path)
+        .with_context(|| format!("cannot write PNG to {}", path.display()))?;
+    log::info!("screenshot saved: {}", path.display());
+    Ok(())
 }
 
 impl App {

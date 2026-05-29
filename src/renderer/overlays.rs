@@ -5,6 +5,47 @@ use super::text::{
     Renderer, STATUS_BAR_H, blend, color_u32, dim_buffer, draw_rect_border, fill_rect,
 };
 
+// ── Screenshot helpers ───────────────────────────────────────────────────────
+
+fn dim_row_range(buf: &mut [u32], bw: u32, row: u32, col_start: u32, col_end: u32) {
+    const VEIL: u32 = 0x99_00_00_00;
+    for col in col_start..col_end {
+        let idx = (row * bw + col) as usize;
+        if idx < buf.len() {
+            buf[idx] = blend(buf[idx], VEIL, 0x99);
+        }
+    }
+}
+
+fn dim_outside_rect(
+    buf: &mut [u32],
+    bw: u32,
+    bh: u32,
+    left: u32,
+    top: u32,
+    right: u32,
+    bottom: u32,
+) {
+    for row in 0..bh {
+        if row < top || row >= bottom {
+            dim_row_range(buf, bw, row, 0, bw);
+        } else {
+            dim_row_range(buf, bw, row, 0, left);
+            dim_row_range(buf, bw, row, right, bw);
+        }
+    }
+}
+
+fn hint_text_y(top: u32, bottom: u32, line_h: u32, bh: u32) -> u32 {
+    if bottom + 4 + line_h <= bh {
+        bottom + 4
+    } else if top >= line_h + 4 {
+        top - line_h - 4
+    } else {
+        bh.saturating_sub(line_h + 4)
+    }
+}
+
 struct FieldRowLayout {
     px: u32,
     panel_w: u32,
@@ -417,6 +458,79 @@ impl Renderer {
             false,
             0xff_58_5b_70,
         );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_screenshot_selector(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        cx: u32,
+        cy: u32,
+        half_w: u32,
+        half_h: u32,
+    ) {
+        let left = cx.saturating_sub(half_w);
+        let top = cy.saturating_sub(half_h);
+        let right = (cx + half_w).min(bw);
+        let bottom = (cy + half_h).min(bh);
+        let sel_w = right.saturating_sub(left);
+        let sel_h = bottom.saturating_sub(top);
+
+        dim_outside_rect(buf, bw, bh, left, top, right, bottom);
+        self.draw_selection_border(buf, bw, left, top, sel_w, sel_h);
+        self.draw_selector_hint(buf, bw, bh, left, top, bottom, sel_w);
+    }
+
+    fn draw_selection_border(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        left: u32,
+        top: u32,
+        sel_w: u32,
+        sel_h: u32,
+    ) {
+        if sel_w == 0 || sel_h == 0 {
+            return;
+        }
+        draw_rect_border(buf, bw, left, top, sel_w, sel_h, 0xFF_FF_FF_FF);
+        if sel_w > 2 && sel_h > 2 {
+            draw_rect_border(
+                buf,
+                bw,
+                left + 1,
+                top + 1,
+                sel_w - 2,
+                sel_h - 2,
+                0xFF_FF_FF_FF,
+            );
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_selector_hint(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        left: u32,
+        top: u32,
+        bottom: u32,
+        sel_w: u32,
+    ) {
+        let hint = "\u{2191}\u{2193}\u{2190}\u{2192} resize   Shift+\u{2191}\u{2193}\u{2190}\u{2192} move   Enter capture   Esc cancel";
+        let fp = self.status_font_px;
+        let cw = self.glyphs.rasterize('M', fp, false).1;
+        let line_h = (fp * 1.6) as u32;
+        let text_y = hint_text_y(top, bottom, line_h, bh);
+        let text_w = hint.chars().count() as u32 * cw;
+        let text_x = left
+            .saturating_add(sel_w / 2)
+            .saturating_sub(text_w / 2)
+            .min(bw.saturating_sub(text_w));
+        self.draw_str(buf, bw, bh, text_x, text_y, hint, fp, false, 0xFF_FF_FF_FF);
     }
 
     pub fn draw_quit_confirm(&mut self, buf: &mut [u32], bw: u32, bh: u32, theme: &ResolvedTheme) {

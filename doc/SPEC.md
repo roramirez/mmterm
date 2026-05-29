@@ -135,6 +135,16 @@ vim-style modal input, split panes, and multi-tab sessions.
 - Keyboard resize: `Ctrl+Shift+←/→` (horizontal) and `Ctrl+Shift+↑/↓` (vertical) move the nearest separator by 5% per keypress.
 - Minimum pane size is 10% of the parent region (ratio clamped to 0.1–0.9).
 
+### Screenshot Mode
+- Entered with `Ctrl+W p`; exits to Insert mode on capture or `Esc`.
+- `InputMode::Screenshot { cx, cy, half_w, half_h }` — rectangle centered at `(cx, cy)` with independent half-extents.
+- `←`/`→` grow or shrink width; `↑`/`↓` grow or shrink height; each step is 5% of the current half-extent (min 4 px).
+- `Shift+Arrow` moves the selection center 20 px in the given direction.
+- `Enter`/`Space` → `AppEffect::TakeScreenshot`; capture is taken from the raw pixel buffer **before** overlays are drawn (no selector border in output).
+- PNG saved as `mmterm-YYYYMMDDTHHMMSS.png` to `config.general.screenshot_dir` (default `~/mmterm/shot`); `~` is expanded to `$HOME`.
+- Overlay: pixels outside the rectangle are darkened (60 % veil); a 2-px white border frames the selection; a hint line shows key bindings.
+- Status bar badge: `SHOT` (yellow) while the mode is active.
+
 ### Tabs
 - `Ctrl+T` — new tab.
 - `Ctrl+PageUp` / `Ctrl+PageDown` — previous / next tab.
@@ -424,6 +434,7 @@ writing a file.
 | `Ctrl+W w` | Cycle focus to next pane |
 | `Ctrl+W q` | Close active pane |
 | `Ctrl+W z` | Toggle pane zoom (full-window focus) |
+| `Ctrl+W p` | Enter screenshot mode |
 | `Ctrl+Shift+←/→` | Resize active pane horizontally (5% step) |
 | `Ctrl+Shift+↑/↓` | Resize active pane vertically (5% step) |
 | drag separator | Drag the 1 px line between panes to resize |

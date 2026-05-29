@@ -43,16 +43,23 @@ fn default_true() -> bool {
     true
 }
 
+fn default_screenshot_dir() -> String {
+    "~/mmterm/shot".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralConfig {
     #[serde(default = "default_true")]
     pub restore_session: bool,
+    #[serde(default = "default_screenshot_dir")]
+    pub screenshot_dir: String,
 }
 
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             restore_session: default_true(),
+            screenshot_dir: default_screenshot_dir(),
         }
     }
 }
