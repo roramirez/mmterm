@@ -143,3 +143,121 @@ fn draw_hex_color_swatch_without_hash_prefix_also_works() {
     let idx = (swatch_y * bw + swatch_x) as usize;
     assert_eq!(buf[idx], expected_color);
 }
+
+// ── hint_text_y ───────────────────────────────────────────────────────────────
+
+#[test]
+fn hint_text_y_places_below_rect_when_room() {
+    // bottom + 4 + line_h <= bh → use bottom + 4
+    let y = hint_text_y(100, 200, 20, 400);
+    assert_eq!(y, 204);
+}
+
+#[test]
+fn hint_text_y_places_above_rect_when_below_clips() {
+    // bottom=380, line_h=20, bh=400 → below clips (380+4+20=404 > 400)
+    // top=10 >= line_h+4=24 → above: 10 - 20 - 4 < 0, so check: top(10) >= 24? No.
+    // Fallback: bh.saturating_sub(line_h + 4) = 400-24 = 376
+    // Actually: top=50 >= 24 → above = 50 - 20 - 4 = 26
+    let y = hint_text_y(50, 380, 20, 400);
+    assert_eq!(y, 26);
+}
+
+#[test]
+fn hint_text_y_fallback_when_neither_above_nor_below_fits() {
+    // bottom=390, line_h=20, bh=400 → below clips (414 > 400)
+    // top=5, line_h+4=24 → top(5) < 24, so above doesn't fit
+    // fallback: 400 - 24 = 376
+    let y = hint_text_y(5, 390, 20, 400);
+    assert_eq!(y, 376);
+}
+
+// ── Renderer overlay methods ──────────────────────────────────────────────────
+
+fn make_renderer() -> crate::renderer::Renderer {
+    crate::renderer::Renderer::new("JetBrainsMono", 16.0)
+}
+
+#[test]
+fn draw_command_palette_empty_entries_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    r.draw_command_palette(&mut buf, 800, 600, "", &[], 0);
+}
+
+#[test]
+fn draw_command_palette_with_entries_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    let entries = vec![
+        ("Split Vertical", "Ctrl+W s"),
+        ("New Tab", "Ctrl+T"),
+        ("Quit", "Ctrl+Q"),
+    ];
+    r.draw_command_palette(&mut buf, 800, 600, "sp", &entries, 0);
+    assert!(buf.iter().any(|&p| p != 0));
+}
+
+#[test]
+fn draw_command_palette_selected_entry_differs_from_unselected() {
+    let mut r = make_renderer();
+    let entries = vec![("Split Vertical", "Ctrl+W s"), ("New Tab", "Ctrl+T")];
+
+    let mut buf_sel0 = vec![0u32; 800 * 600];
+    r.draw_command_palette(&mut buf_sel0, 800, 600, "", &entries, 0);
+
+    let mut buf_sel1 = vec![0u32; 800 * 600];
+    r.draw_command_palette(&mut buf_sel1, 800, 600, "", &entries, 1);
+
+    assert_ne!(
+        buf_sel0, buf_sel1,
+        "selected row should produce different pixels"
+    );
+}
+
+#[test]
+fn draw_screenshot_selector_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    r.draw_screenshot_selector(&mut buf, 800, 600, 400, 300, 100, 80);
+}
+
+#[test]
+fn draw_screenshot_selector_dims_outside_rect() {
+    let mut r = make_renderer();
+    // Fill with white; after draw the outside should be dimmed.
+    let mut buf = vec![0xff_ff_ff_ffu32; 800 * 600];
+    r.draw_screenshot_selector(&mut buf, 800, 600, 400, 300, 50, 50);
+    // Pixel at top-left corner (0, 0) is outside the selection → dimmed
+    let top_left = buf[0];
+    assert!(
+        (top_left >> 16) & 0xFF < 0xFF,
+        "outside pixel must be dimmed"
+    );
+}
+
+#[test]
+fn draw_screenshot_selector_zero_size_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    // half_w=0, half_h=0 → sel_w=0, sel_h=0 → draw_selection_border exits early
+    r.draw_screenshot_selector(&mut buf, 800, 600, 400, 300, 0, 0);
+}
+
+#[test]
+fn draw_save_session_confirm_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = crate::theme::default_theme();
+    r.draw_save_session_confirm(&mut buf, 800, 600, &theme);
+    assert!(buf.iter().any(|&p| p != 0));
+}
+
+#[test]
+fn draw_save_session_confirm_dims_background() {
+    let mut r = make_renderer();
+    let theme = crate::theme::default_theme();
+    let mut buf = vec![0xff_80_80_80u32; 800 * 600];
+    r.draw_save_session_confirm(&mut buf, 800, 600, &theme);
+    assert!(buf.iter().any(|&p| ((p >> 16) & 0xFF) < 0x80));
+}

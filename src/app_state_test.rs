@@ -733,3 +733,341 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
         panic!("expected Visual mode");
     }
 }
+
+// ── nudge_half ────────────────────────────────────────────────────────────────
+
+#[test]
+fn nudge_half_grows_with_positive_delta() {
+    let result = super::nudge_half(100, 1);
+    assert!(result > 100, "positive delta should grow half");
+}
+
+#[test]
+fn nudge_half_shrinks_with_negative_delta() {
+    let result = super::nudge_half(100, -1);
+    assert!(result < 100, "negative delta should shrink half");
+}
+
+#[test]
+fn nudge_half_clamps_at_zero_for_large_negative() {
+    let result = super::nudge_half(10, -10000);
+    assert_eq!(result, 0);
+}
+
+#[test]
+fn nudge_half_minimum_step_is_4() {
+    // For a very small half (e.g. 1), step = max(0, 4) = 4.
+    let result = super::nudge_half(1, 1);
+    assert_eq!(result, 5);
+}
+
+// ── Delegated simple effects ──────────────────────────────────────────────────
+
+#[test]
+fn dispatch_paste_returns_paste_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::Paste);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Paste)));
+}
+
+#[test]
+fn dispatch_close_pane_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ClosePane);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::ClosePane)));
+}
+
+#[test]
+fn dispatch_close_tab_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::CloseTab);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::CloseTab)));
+}
+
+#[test]
+fn dispatch_split_v_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::SplitV);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::SplitPane(SplitDir::V)))
+    );
+}
+
+#[test]
+fn dispatch_decrease_font_size_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::DecreaseFontSize);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ChangeFontSize(f) if *f == -1.0))
+    );
+}
+
+#[test]
+fn dispatch_reset_font_size_returns_change_effect() {
+    let mut s = make_state_with_tabs(1);
+    let effects = s.dispatch_action(Action::ResetFontSize);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ChangeFontSize(_)))
+    );
+}
+
+#[test]
+fn dispatch_resize_pane_right_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ResizePaneRight);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ResizePane { split_h: true, .. }))
+    );
+}
+
+#[test]
+fn dispatch_resize_pane_left_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ResizePaneLeft);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ResizePane { split_h: true, .. }))
+    );
+}
+
+#[test]
+fn dispatch_resize_pane_down_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ResizePaneDown);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ResizePane { split_h: false, .. }))
+    );
+}
+
+#[test]
+fn dispatch_resize_pane_up_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ResizePaneUp);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ResizePane { split_h: false, .. }))
+    );
+}
+
+#[test]
+fn dispatch_toggle_log_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ToggleLog);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::ToggleLog)));
+}
+
+#[test]
+fn dispatch_open_command_palette_sets_mode() {
+    let mut s = make_state();
+    s.dispatch_action(Action::OpenCommandPalette);
+    assert!(
+        matches!(s.mode, InputMode::CommandPalette { .. }),
+        "mode should be CommandPalette"
+    );
+}
+
+// ── Focus directions ──────────────────────────────────────────────────────────
+
+#[test]
+fn dispatch_focus_left_returns_redraw() {
+    let mut s = make_state_with_tabs(1);
+    let effects = s.dispatch_action(Action::FocusLeft);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
+}
+
+#[test]
+fn dispatch_focus_right_returns_redraw() {
+    let mut s = make_state_with_tabs(1);
+    let effects = s.dispatch_action(Action::FocusRight);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
+}
+
+#[test]
+fn dispatch_focus_up_returns_redraw() {
+    let mut s = make_state_with_tabs(1);
+    let effects = s.dispatch_action(Action::FocusUp);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
+}
+
+#[test]
+fn dispatch_focus_down_returns_redraw() {
+    let mut s = make_state_with_tabs(1);
+    let effects = s.dispatch_action(Action::FocusDown);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
+}
+
+// ── Rotate panes ──────────────────────────────────────────────────────────────
+
+#[test]
+fn dispatch_rotate_panes_forward_returns_effect() {
+    let mut s = make_state_with_tabs(1);
+    s.tabs[0].zoomed = true;
+    let effects = s.dispatch_action(Action::RotatePanesForward);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::RotatePanes(true)))
+    );
+    assert!(!s.tabs[0].zoomed, "rotate should clear zoomed flag");
+}
+
+#[test]
+fn dispatch_rotate_panes_backward_returns_effect() {
+    let mut s = make_state_with_tabs(1);
+    s.tabs[0].zoomed = true;
+    let effects = s.dispatch_action(Action::RotatePanesBackward);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::RotatePanes(false)))
+    );
+    assert!(!s.tabs[0].zoomed);
+}
+
+// ── Screenshot mode ───────────────────────────────────────────────────────────
+
+#[test]
+fn dispatch_screenshot_open_returns_effect() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ScreenshotOpen);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::ScreenshotOpen))
+    );
+}
+
+#[test]
+fn dispatch_screenshot_resize_updates_half_dimensions() {
+    let mut s = make_state();
+    s.mode = InputMode::Screenshot {
+        cx: 400,
+        cy: 300,
+        half_w: 100,
+        half_h: 80,
+    };
+    s.dispatch_action(Action::ScreenshotResize(1, 1));
+    if let InputMode::Screenshot { half_w, half_h, .. } = s.mode {
+        assert!(half_w > 100, "half_w should grow");
+        assert!(half_h > 80, "half_h should grow");
+    } else {
+        panic!("expected Screenshot mode");
+    }
+}
+
+#[test]
+fn dispatch_screenshot_resize_in_non_screenshot_mode_is_noop() {
+    let mut s = make_state();
+    s.dispatch_action(Action::ScreenshotResize(1, 1));
+    assert!(matches!(s.mode, InputMode::Insert));
+}
+
+#[test]
+fn dispatch_screenshot_move_updates_center() {
+    let mut s = make_state();
+    s.mode = InputMode::Screenshot {
+        cx: 400,
+        cy: 300,
+        half_w: 100,
+        half_h: 80,
+    };
+    s.dispatch_action(Action::ScreenshotMove(10, -5));
+    if let InputMode::Screenshot { cx, cy, .. } = s.mode {
+        assert_eq!(cx, 410);
+        assert_eq!(cy, 295);
+    } else {
+        panic!("expected Screenshot mode");
+    }
+}
+
+#[test]
+fn dispatch_screenshot_move_clamps_at_zero() {
+    let mut s = make_state();
+    s.mode = InputMode::Screenshot {
+        cx: 5,
+        cy: 3,
+        half_w: 50,
+        half_h: 50,
+    };
+    s.dispatch_action(Action::ScreenshotMove(-1000, -1000));
+    if let InputMode::Screenshot { cx, cy, .. } = s.mode {
+        assert_eq!(cx, 0);
+        assert_eq!(cy, 0);
+    } else {
+        panic!("expected Screenshot mode");
+    }
+}
+
+#[test]
+fn dispatch_screenshot_capture_returns_take_screenshot_effect() {
+    let mut s = make_state();
+    s.mode = InputMode::Screenshot {
+        cx: 400,
+        cy: 300,
+        half_w: 100,
+        half_h: 80,
+    };
+    let effects = s.dispatch_action(Action::ScreenshotCapture);
+    assert!(
+        effects
+            .iter()
+            .any(|e| matches!(e, AppEffect::TakeScreenshot { .. }))
+    );
+}
+
+#[test]
+fn dispatch_screenshot_capture_in_non_screenshot_mode_is_empty() {
+    let mut s = make_state();
+    let effects = s.dispatch_action(Action::ScreenshotCapture);
+    assert!(effects.is_empty());
+}
+
+// ── Search with actual matches ────────────────────────────────────────────────
+
+#[test]
+fn dispatch_search_next_with_matches_advances_current() {
+    let mut s = make_state_with_pane();
+    s.search_matches = vec![(0, 0, 3), (1, 0, 3), (2, 0, 3)];
+    s.search_current = 0;
+    s.dispatch_action(Action::SearchNext);
+    assert_eq!(s.search_current, 1);
+}
+
+#[test]
+fn dispatch_search_next_wraps_at_end() {
+    let mut s = make_state_with_pane();
+    s.search_matches = vec![(0, 0, 3), (1, 0, 3)];
+    s.search_current = 1;
+    s.dispatch_action(Action::SearchNext);
+    assert_eq!(s.search_current, 0);
+}
+
+#[test]
+fn dispatch_search_prev_with_matches_goes_backward() {
+    let mut s = make_state_with_pane();
+    s.search_matches = vec![(0, 0, 3), (1, 0, 3), (2, 0, 3)];
+    s.search_current = 2;
+    s.dispatch_action(Action::SearchPrev);
+    assert_eq!(s.search_current, 1);
+}
+
+#[test]
+fn dispatch_search_prev_wraps_at_zero() {
+    let mut s = make_state_with_pane();
+    s.search_matches = vec![(0, 0, 3), (1, 0, 3), (2, 0, 3)];
+    s.search_current = 0;
+    s.dispatch_action(Action::SearchPrev);
+    assert_eq!(s.search_current, 2);
+}

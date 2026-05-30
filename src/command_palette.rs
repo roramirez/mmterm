@@ -187,4 +187,11 @@ mod tests {
             assert!(!entry_code(i).is_empty());
         }
     }
+
+    #[test]
+    fn all_entry_actions_can_be_constructed() {
+        for i in 0..total() {
+            let _ = entry_action(i);
+        }
+    }
 }
