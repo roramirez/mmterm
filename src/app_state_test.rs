@@ -545,6 +545,49 @@ fn dispatch_copy_with_anchored_selection_exits_visual() {
 }
 
 #[test]
+fn visual_boundary_up_start_row_grows_beyond_one_page() {
+    // Regression: previously start_row was clamped to grid_rows-1, limiting
+    // selection to at most one viewport regardless of how many pages were scrolled.
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    let grid_rows = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| e.pane.parser.grid.rows)
+        .unwrap_or(1);
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..(grid_rows * 3) {
+            e.pane.parser.grid.scroll_up(1);
+        }
+    }
+    s.mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+    };
+    // Scroll up two full pages via boundary scroll
+    s.dispatch_action(Action::VisualBoundaryUp(grid_rows));
+    s.dispatch_action(Action::VisualBoundaryUp(grid_rows));
+    if let InputMode::Visual {
+        start_row, cur_row, ..
+    } = s.mode
+    {
+        // start_row must track both pages; cur_row stays at 0
+        assert_eq!(cur_row, 0);
+        assert_eq!(
+            start_row,
+            grid_rows * 2,
+            "start_row should grow past grid_rows-1"
+        );
+    } else {
+        panic!("expected Visual mode");
+    }
+}
+
+#[test]
 fn dispatch_visual_boundary_up_scrolls_pane() {
     let mut s = make_state_with_pane();
     let active = s.tab().active;

@@ -541,6 +541,8 @@ fn handle_visual(
         Key::Named(NamedKey::ArrowDown) => visual_down_action(cur_col, cur_row, rows, &move_to),
         Key::Named(NamedKey::Home) => move_to(0, cur_row),
         Key::Named(NamedKey::End) => move_to(cols, cur_row),
+        Key::Named(NamedKey::PageUp) => Action::VisualBoundaryUp(rows + 1),
+        Key::Named(NamedKey::PageDown) => Action::VisualBoundaryDown(rows + 1),
         Key::Character(s) => visual_char_action(s, cur_col, cur_row, cols, rows, &move_to),
         _ => Action::None,
     }
