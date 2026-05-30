@@ -309,16 +309,10 @@ impl Renderer {
             if draw_y + row_h > clip_y {
                 break;
             }
-            if let Some(sec) = panel.fields[i].section {
-                match self
-                    .draw_config_section_header(buf, bw, bh, panel, sec, i, draw_y, clip_y, &layout)
-                {
-                    Some(new_y) => draw_y = new_y,
-                    None => break,
-                }
+            match self.draw_config_panel_row(buf, bw, bh, panel, i, draw_y, clip_y, &layout) {
+                Some(new_y) => draw_y = new_y,
+                None => break,
             }
-            self.draw_config_field_row(buf, bw, bh, panel, i, draw_y, &layout);
-            draw_y += row_h;
         }
 
         self.draw_config_panel_footer(
@@ -380,6 +374,58 @@ impl Renderer {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
+    fn draw_config_panel_row(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        panel: &ConfigPanel,
+        i: usize,
+        draw_y: u32,
+        clip_y: u32,
+        l: &FieldRowLayout,
+    ) -> Option<u32> {
+        if let Some(sec) = panel.fields[i].section {
+            let new_y =
+                self.draw_config_section_header(buf, bw, bh, panel, sec, i, draw_y, clip_y, l)?;
+            self.draw_config_field_row(buf, bw, bh, panel, i, new_y, l);
+            Some(new_y + l.row_h)
+        } else {
+            self.draw_config_field_row(buf, bw, bh, panel, i, draw_y, l);
+            Some(draw_y + l.row_h)
+        }
+    }
+
+    fn draw_editing_badge(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        l: &FieldRowLayout,
+        y: u32,
+    ) {
+        let ex = l.px + l.panel_w - l.cw * 7 - l.pad;
+        self.draw_str(buf, bw, bh, ex, y + 2, "[editing]", l.fp, false, C_EDITING);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_section_collapse_badge(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        sec: &'static str,
+        panel: &ConfigPanel,
+        l: &FieldRowLayout,
+        y: u32,
+    ) {
+        let ind = collapse_indicator(panel.collapsed.contains(sec));
+        let bx = l.px + l.panel_w - l.cw * ind.len() as u32 - l.pad;
+        self.draw_str(buf, bw, bh, bx, y + 2, ind, l.fp, false, C_LABEL_SEL);
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn draw_config_field_row(
         &mut self,
         buf: &mut [u32],
@@ -419,26 +465,13 @@ impl Renderer {
         );
 
         if is_editing {
-            let ex = l.px + l.panel_w - l.cw * 7 - l.pad;
-            self.draw_str(
-                buf,
-                bw,
-                bh,
-                ex,
-                draw_y + 2,
-                "[editing]",
-                l.fp,
-                false,
-                C_EDITING,
-            );
+            self.draw_editing_badge(buf, bw, bh, l, draw_y);
         }
 
         // For section-header fields show [+]/[-] badge on the row itself so the
         // collapse affordance is visible on the highlighted row, not just above it.
         if let Some(sec) = field.section.filter(|_| is_sel) {
-            let ind = collapse_indicator(panel.collapsed.contains(sec));
-            let bx = l.px + l.panel_w - l.cw * ind.len() as u32 - l.pad;
-            self.draw_str(buf, bw, bh, bx, draw_y + 2, ind, l.fp, false, C_LABEL_SEL);
+            self.draw_section_collapse_badge(buf, bw, bh, sec, panel, l, draw_y);
         }
     }
 

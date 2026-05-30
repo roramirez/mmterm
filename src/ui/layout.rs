@@ -434,6 +434,10 @@ impl Layout {
     }
 }
 
+fn in_target_direction(ddx: i32, ddy: i32, dx: i32, dy: i32) -> bool {
+    (dx == 0 || ddx.signum() == dx) && (dy == 0 || ddy.signum() == dy)
+}
+
 fn best_dir_candidate(
     id: usize,
     rect: &[u32; 4],
@@ -447,10 +451,7 @@ fn best_dir_candidate(
     let cy = (rect[1] + rect[3] / 2) as i32;
     let ddx = cx - from_cx;
     let ddy = cy - from_cy;
-    if dx != 0 && ddx.signum() != dx {
-        return current;
-    }
-    if dy != 0 && ddy.signum() != dy {
+    if !in_target_direction(ddx, ddy, dx, dy) {
         return current;
     }
     let dist = ddx.abs() + ddy.abs();

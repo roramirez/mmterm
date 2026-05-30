@@ -93,29 +93,24 @@ impl Performer<'_> {
         }
     }
 
+    fn erase_partial_row(&mut self, row: usize, col_start: usize, col_end: usize) {
+        let cols = self.grid.cols;
+        let blank = self.grid.erase_cell();
+        self.grid.cells[row * cols + col_start..row * cols + col_end].fill(blank);
+    }
+
     fn handle_erase_display(&mut self, p0: u16) {
+        let row = self.grid.cursor_row;
+        let col = self.grid.cursor_col;
         match p0 {
             0 => {
-                let row = self.grid.cursor_row;
-                let col = self.grid.cursor_col;
-                let cols = self.grid.cols;
-                let rows = self.grid.rows;
-                let blank = self.grid.erase_cell();
-                for c in col..cols {
-                    self.grid.cells[row * cols + c] = blank.clone();
-                }
-                for r in (row + 1)..rows {
+                self.erase_partial_row(row, col, self.grid.cols);
+                for r in (row + 1)..self.grid.rows {
                     self.grid.clear_line(r);
                 }
             }
             1 => {
-                let row = self.grid.cursor_row;
-                let col = self.grid.cursor_col;
-                let cols = self.grid.cols;
-                let blank = self.grid.erase_cell();
-                for c in 0..=col {
-                    self.grid.cells[row * cols + c] = blank.clone();
-                }
+                self.erase_partial_row(row, 0, col + 1);
                 for r in 0..row {
                     self.grid.clear_line(r);
                 }
@@ -125,22 +120,28 @@ impl Performer<'_> {
         }
     }
 
+    fn handle_insert_line(&mut self, n: usize) {
+        let saved_top = self.grid.scroll_top;
+        self.grid.scroll_top = self.grid.cursor_row;
+        self.grid.scroll_down(n);
+        self.grid.scroll_top = saved_top;
+        self.grid.cursor_col = 0;
+    }
+
+    fn handle_delete_line(&mut self, n: usize) {
+        let saved_top = self.grid.scroll_top;
+        self.grid.scroll_top = self.grid.cursor_row;
+        self.grid.scroll_up(n);
+        self.grid.scroll_top = saved_top;
+        self.grid.cursor_col = 0;
+    }
+
     fn handle_erase_line(&mut self, p0: u16) {
         let row = self.grid.cursor_row;
         let col = self.grid.cursor_col;
-        let cols = self.grid.cols;
-        let blank = self.grid.erase_cell();
         match p0 {
-            0 => {
-                for c in col..cols {
-                    self.grid.cells[row * cols + c] = blank.clone();
-                }
-            }
-            1 => {
-                for c in 0..=col {
-                    self.grid.cells[row * cols + c] = blank.clone();
-                }
-            }
+            0 => self.erase_partial_row(row, col, self.grid.cols),
+            1 => self.erase_partial_row(row, 0, col + 1),
             2 => self.grid.clear_line(row),
             _ => {}
         }
@@ -287,23 +288,9 @@ impl Perform for Performer<'_> {
             'S' => self.grid.scroll_up(param_or_one(p0)),
             'T' => self.grid.scroll_down(param_or_one(p0)),
             // Insert Line
-            'L' => {
-                let n = param_or_one(p0);
-                let saved_top = self.grid.scroll_top;
-                self.grid.scroll_top = self.grid.cursor_row;
-                self.grid.scroll_down(n);
-                self.grid.scroll_top = saved_top;
-                self.grid.cursor_col = 0;
-            }
+            'L' => self.handle_insert_line(param_or_one(p0)),
             // Delete Line
-            'M' => {
-                let n = param_or_one(p0);
-                let saved_top = self.grid.scroll_top;
-                self.grid.scroll_top = self.grid.cursor_row;
-                self.grid.scroll_up(n);
-                self.grid.scroll_top = saved_top;
-                self.grid.cursor_col = 0;
-            }
+            'M' => self.handle_delete_line(param_or_one(p0)),
             'P' | '@' | 'X' => self.handle_char_ops(action, p0),
             // CHA: cursor horizontal absolute (1-indexed)
             'G' => self.grid.cursor_col = (p0.saturating_sub(1) as usize).min(self.grid.max_col()),
