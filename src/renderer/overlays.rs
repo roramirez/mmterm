@@ -413,6 +413,54 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn draw_palette_entry(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        px: u32,
+        panel_w: u32,
+        pad: u32,
+        cw: u32,
+        fp: f32,
+        row_h: u32,
+        row_y: u32,
+        label: &str,
+        shortcut: &str,
+        is_sel: bool,
+    ) {
+        let row_bg = if is_sel { C_ROW_SEL_BG } else { C_PANEL_BG };
+        fill_rect(buf, bw, px + 1, row_y, panel_w - 2, row_h, row_bg);
+        if is_sel {
+            fill_rect(buf, bw, px + 1, row_y, 1, row_h, C_BORDER);
+        }
+        let label_color = if is_sel { C_LABEL_SEL } else { C_LABEL_UNSEL };
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            px + pad + 4,
+            row_y + 2,
+            label,
+            fp,
+            is_sel,
+            label_color,
+        );
+        let shortcut_x = px + panel_w - cw * shortcut.len() as u32 - pad;
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            shortcut_x,
+            row_y + 2,
+            shortcut,
+            fp,
+            false,
+            C_DIM,
+        );
+    }
+
     /// `entries` is a slice of `(label, shortcut)` pairs — e.g. `("Split Vertical", "Ctrl+W s")`.
     pub fn draw_command_palette(
         &mut self,
@@ -466,48 +514,27 @@ impl Renderer {
         let scroll_start = selected.saturating_sub(MAX_VISIBLE - 1);
 
         let content_y = py + row_h + 1;
-        for (list_i, &(label, code)) in entries
+        for (list_i, &(label, shortcut)) in entries
             .iter()
             .enumerate()
             .skip(scroll_start)
             .take(MAX_VISIBLE)
         {
             let row_y = content_y + (list_i - scroll_start) as u32 * row_h;
-            let is_sel = list_i == selected;
-
-            let row_bg = if is_sel { C_ROW_SEL_BG } else { C_PANEL_BG };
-            fill_rect(buf, bw, px + 1, row_y, panel_w - 2, row_h, row_bg);
-            if is_sel {
-                fill_rect(buf, bw, px + 1, row_y, 1, row_h, C_BORDER);
-            }
-
-            // Label (left, bold when selected)
-            let label_color = if is_sel { C_LABEL_SEL } else { C_LABEL_UNSEL };
-            self.draw_str(
+            self.draw_palette_entry(
                 buf,
                 bw,
                 bh,
-                px + pad + 4,
-                row_y + 2,
+                px,
+                panel_w,
+                pad,
+                cw,
+                fp,
+                row_h,
+                row_y,
                 label,
-                fp,
-                is_sel,
-                label_color,
-            );
-
-            // Shortcut hint (right-aligned, dimmed)
-            let shortcut = code; // parameter name reused — holds the shortcut string
-            let shortcut_x = px + panel_w - cw * shortcut.len() as u32 - pad;
-            self.draw_str(
-                buf,
-                bw,
-                bh,
-                shortcut_x,
-                row_y + 2,
                 shortcut,
-                fp,
-                false,
-                C_DIM,
+                list_i == selected,
             );
         }
 

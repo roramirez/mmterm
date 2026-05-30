@@ -610,9 +610,6 @@ impl Grid {
 
     fn make_char_cell(&self, c: char, wide: bool) -> Cell {
         Cell {
-            c,
-            fg: self.fg,
-            bg: self.bg,
             bold: self.bold,
             dim: self.dim,
             italic: self.italic,
@@ -622,8 +619,8 @@ impl Grid {
             reverse: self.reverse,
             blink: self.blink,
             wide,
-            wide_cont: false,
             url: self.current_url.clone(),
+            ..cell_with_colors(c, self.fg, self.bg)
         }
     }
 
@@ -713,9 +710,7 @@ impl Grid {
             // Shift rows top..bot downward by one using a rotation.
             self.cells[top * cols..(bot + 1) * cols].rotate_right(cols);
             // Clear the top row (now holds stale content after rotation).
-            for cell in &mut self.cells[top * cols..(top + 1) * cols] {
-                *cell = blank.clone();
-            }
+            self.cells[top * cols..(top + 1) * cols].fill(blank.clone());
         }
     }
 
@@ -941,11 +936,7 @@ fn row_col_range(
     cols: usize,
 ) -> (usize, usize) {
     let col_start = if row == r0 { c0 } else { 0 };
-    let col_end = if row == r1 {
-        c1
-    } else {
-        cols.saturating_sub(1)
-    };
+    let col_end = if row == r1 { c1 } else { cols - 1 };
     (col_start, col_end)
 }
 

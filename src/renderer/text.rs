@@ -317,6 +317,10 @@ impl Renderer {
         let row_match_lo = pane
             .search_matches
             .partition_point(|&(r, _, _)| r < abs_row);
+        // Precompute row-invariant values used in the tight cell loop.
+        let cell_y = ry + PANE_PADDING + row as u32 * m.cell_height;
+        let base_x = rx + PANE_PADDING;
+        let cursor_color_u32 = color_u32(grid.cursor_color);
 
         let mut col = 0usize;
         while col < grid.cols {
@@ -329,8 +333,7 @@ impl Renderer {
 
             let cell_cols = if cell.wide { 2u32 } else { 1u32 };
             let draw_w = cell_cols * m.cell_width;
-            let cell_x = rx + PANE_PADDING + col as u32 * m.cell_width;
-            let cell_y = ry + PANE_PADDING + row as u32 * m.cell_height;
+            let cell_x = base_x + col as u32 * m.cell_width;
 
             if cell_out_of_pane_bounds(cell_x, cell_y, draw_w, m.cell_height, rx, ry, rw, rh) {
                 col += cell_cols as usize;
@@ -372,7 +375,7 @@ impl Renderer {
                 bg32,
                 fg,
                 m,
-                color_u32(grid.cursor_color),
+                cursor_color_u32,
                 dim_factor,
                 theme,
             );

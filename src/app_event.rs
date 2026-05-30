@@ -369,6 +369,29 @@ impl App {
         }
     }
 
+    fn active_grid_params(&self) -> (usize, usize, bool) {
+        let tab = self.tab();
+        tab.panes
+            .get(&tab.active)
+            .map(|e| {
+                (
+                    e.pane.parser.grid.cols,
+                    e.pane.parser.grid.rows,
+                    e.pane.parser.grid.application_cursor_keys,
+                )
+            })
+            .unwrap_or((80, 24, false))
+    }
+
+    fn separator_at_pixel(&self, px: u32, py: u32) -> Option<crate::ui::layout::SeparatorHandle> {
+        let tab = &self.state.tabs[self.state.active_tab];
+        if !tab.zoomed {
+            tab.layout.separator_at_pixel(px, py, 4)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn handle_keyboard_input(
         &mut self,
         event: winit::event::KeyEvent,
@@ -379,19 +402,7 @@ impl App {
         self.state.cursor_blink = true;
         self.state.blink_last = Instant::now();
 
-        let (grid_cols, grid_rows, app_cursor) = {
-            let tab = self.tab();
-            tab.panes
-                .get(&tab.active)
-                .map(|e| {
-                    (
-                        e.pane.parser.grid.cols,
-                        e.pane.parser.grid.rows,
-                        e.pane.parser.grid.application_cursor_keys,
-                    )
-                })
-                .unwrap_or((80, 24, false))
-        };
+        let (grid_cols, grid_rows, app_cursor) = self.active_grid_params();
 
         // Passthrough mode: Ctrl+B exits, everything else goes straight to the PTY.
         if self.tab().passthrough {
@@ -495,14 +506,7 @@ impl App {
             return;
         }
 
-        let hover_sep = {
-            let tab = &self.state.tabs[self.state.active_tab];
-            if !tab.zoomed {
-                tab.layout.separator_at_pixel(px as u32, py as u32, 4)
-            } else {
-                None
-            }
-        };
+        let hover_sep = self.separator_at_pixel(px as u32, py as u32);
 
         let url = self.url_at_pixel(px, py);
         let icon = cursor_icon_for_hover(hover_sep.as_ref(), url.is_some());
@@ -594,13 +598,7 @@ impl App {
     }
 
     fn try_start_separator_drag(&mut self, mx: f64, my: f64) -> bool {
-        let tab = &self.state.tabs[self.state.active_tab];
-        let sep = if !tab.zoomed {
-            tab.layout.separator_at_pixel(mx as u32, my as u32, 4)
-        } else {
-            None
-        };
-        if let Some(handle) = sep {
+        if let Some(handle) = self.separator_at_pixel(mx as u32, my as u32) {
             self.state.drag_separator = Some(handle);
             true
         } else {
