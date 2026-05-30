@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - visual mode selection spanning multiple pages now copies all selected lines; previously `start_row` was clamped to the viewport height, so only the last page of a multi-page selection was copied
 
 ### Changed
+- refactor: extract `collapse_indicator`, `config_panel_hint`, `panel_font_metrics`, and `draw_config_section_header` helpers in `renderer/overlays.rs` to reduce cognitive complexity (D+ → B)
+- refactor: unify `jump_section_forward`/`jump_section_backward` into a shared private `jump_section` method in `tui_config.rs`
+- refactor: move CLI argument-parsing functions to `src/cli.rs`; extract `session_path()` method and `bell_flash_intensity()` free function from `main.rs`
 - copy screenshot file path to clipboard after a successful capture
 - config panel: palette section collapsed by default; `Space` on a section header toggles collapse; `]`/`[` and `Tab`/`Shift+Tab` jump between sections
 - page up / page down now scroll the viewport in visual mode, extending the selection

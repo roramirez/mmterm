@@ -463,3 +463,30 @@ fn save_screenshot_fails_on_unwritable_dir() {
     let result = save_screenshot(&[0u32], 1, [0, 0, 1, 1], "/dev/null/cannot_create", "");
     assert!(result.is_err());
 }
+
+// ── bell_flash_intensity ──────────────────────────────────────────────────────
+
+#[test]
+fn bell_flash_intensity_none_returns_none() {
+    assert!(bell_flash_intensity(None).is_none());
+}
+
+#[test]
+fn bell_flash_intensity_recent_start_returns_some_between_zero_and_one() {
+    let v = bell_flash_intensity(Some(Instant::now()));
+    assert!(v.is_some(), "recent start should return Some");
+    let v = v.unwrap();
+    assert!(
+        (0.0..=1.0).contains(&v),
+        "intensity must be in [0, 1], got {v}"
+    );
+}
+
+#[test]
+fn bell_flash_intensity_expired_start_returns_none() {
+    let old = Instant::now() - Duration::from_millis(200);
+    assert!(
+        bell_flash_intensity(Some(old)).is_none(),
+        "expired flash (200ms ago) should return None"
+    );
+}

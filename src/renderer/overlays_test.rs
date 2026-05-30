@@ -264,3 +264,100 @@ fn draw_save_session_confirm_dims_background() {
     r.draw_save_session_confirm(&mut buf, 800, 600, &theme);
     assert!(buf.iter().any(|&p| ((p >> 16) & 0xFF) < 0x80));
 }
+
+// ── collapse_indicator ────────────────────────────────────────────────────────
+
+#[test]
+fn collapse_indicator_collapsed_returns_plus() {
+    assert_eq!(collapse_indicator(true), "[+]");
+}
+
+#[test]
+fn collapse_indicator_expanded_returns_minus() {
+    assert_eq!(collapse_indicator(false), "[-]");
+}
+
+// ── config_panel_hint ─────────────────────────────────────────────────────────
+
+fn make_section_panel(collapsed: bool) -> ConfigPanel {
+    use crate::tui_config::Field;
+    let mut c = HashSet::new();
+    if collapsed {
+        c.insert("General");
+    }
+    ConfigPanel {
+        fields: vec![Field {
+            label: "Restore Session",
+            hint: "restore on launch",
+            value: "true".to_string(),
+            kind: FieldKind::Bool,
+            section: Some("General"),
+        }],
+        selected: 0,
+        editing: false,
+        edit_buf: String::new(),
+        status: None,
+        collapsed: c,
+    }
+}
+
+#[test]
+fn config_panel_hint_non_section_field_shows_field_hint() {
+    let panel = make_panel("hello", FieldKind::Text);
+    let hint = config_panel_hint(&panel);
+    assert!(
+        hint.contains("hint:"),
+        "expected 'hint:' prefix, got: {hint}"
+    );
+}
+
+#[test]
+fn config_panel_hint_collapsed_section_says_expand() {
+    let panel = make_section_panel(true);
+    let hint = config_panel_hint(&panel);
+    assert!(
+        hint.contains("expand"),
+        "collapsed section should say 'expand', got: {hint}"
+    );
+}
+
+#[test]
+fn config_panel_hint_expanded_section_says_collapse() {
+    let panel = make_section_panel(false);
+    let hint = config_panel_hint(&panel);
+    assert!(
+        hint.contains("collapse"),
+        "expanded section should say 'collapse', got: {hint}"
+    );
+}
+
+// ── draw_screenshot_name_input ────────────────────────────────────────────────
+
+#[test]
+fn draw_screenshot_name_input_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    r.draw_screenshot_name_input(&mut buf, 800, 600, 400, 300, 100, 80, "myshot");
+}
+
+#[test]
+fn draw_screenshot_name_input_draws_something() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    r.draw_screenshot_name_input(&mut buf, 800, 600, 400, 300, 100, 80, "test");
+    assert!(
+        buf.iter().any(|&p| p != 0),
+        "draw_screenshot_name_input must write at least one pixel"
+    );
+}
+
+// ── panel_font_metrics ────────────────────────────────────────────────────────
+
+#[test]
+fn panel_font_metrics_returns_consistent_values() {
+    let mut r = make_renderer();
+    let (fp, cw, row_h) = r.panel_font_metrics();
+    assert!(fp > 0.0, "fp must be positive");
+    assert!(cw > 0, "cw must be positive");
+    assert!(row_h > 0, "row_h must be positive");
+}
