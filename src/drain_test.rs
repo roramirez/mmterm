@@ -30,6 +30,7 @@ fn make_tab() -> TabState {
         zoomed: false,
         has_activity: false,
         bell_flash_until: None,
+        passthrough: false,
     }
 }
 
