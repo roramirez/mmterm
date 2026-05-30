@@ -380,42 +380,46 @@ impl AppState {
         }
     }
 
+    fn swap_visual_anchor(&mut self) {
+        if let InputMode::Visual {
+            start_col,
+            start_row,
+            cur_col,
+            cur_row,
+            anchored,
+        } = self.mode.clone()
+        {
+            let grid_rows = self.active_grid_rows();
+            self.mode = InputMode::Visual {
+                start_col: cur_col,
+                start_row: cur_row,
+                cur_col: start_col,
+                cur_row: start_row.min(grid_rows.saturating_sub(1)),
+                anchored,
+            };
+        }
+    }
+
+    fn set_visual_anchor(&mut self) {
+        if let InputMode::Visual {
+            cur_col, cur_row, ..
+        } = self.mode.clone()
+        {
+            self.mode = InputMode::Visual {
+                start_col: cur_col,
+                start_row: cur_row,
+                cur_col,
+                cur_row,
+                anchored: true,
+            };
+        }
+    }
+
     fn dispatch_visual_action(&mut self, action: Action) -> Vec<AppEffect> {
         match action {
             Action::Copy => self.do_visual_copy(),
-            Action::VisualSwapAnchor => {
-                if let InputMode::Visual {
-                    start_col,
-                    start_row,
-                    cur_col,
-                    cur_row,
-                    anchored,
-                } = self.mode.clone()
-                {
-                    let grid_rows = self.active_grid_rows();
-                    self.mode = InputMode::Visual {
-                        start_col: cur_col,
-                        start_row: cur_row,
-                        cur_col: start_col,
-                        cur_row: start_row.min(grid_rows.saturating_sub(1)),
-                        anchored,
-                    };
-                }
-            }
-            Action::VisualAnchor => {
-                if let InputMode::Visual {
-                    cur_col, cur_row, ..
-                } = self.mode.clone()
-                {
-                    self.mode = InputMode::Visual {
-                        start_col: cur_col,
-                        start_row: cur_row,
-                        cur_col,
-                        cur_row,
-                        anchored: true,
-                    };
-                }
-            }
+            Action::VisualSwapAnchor => self.swap_visual_anchor(),
+            Action::VisualAnchor => self.set_visual_anchor(),
             Action::VisualWordForward => self.move_visual_cursor(crate::motion::word_forward),
             Action::VisualWordBackward => self.move_visual_cursor(crate::motion::word_backward),
             Action::VisualWordEnd => self.move_visual_cursor(crate::motion::word_end),

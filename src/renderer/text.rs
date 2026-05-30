@@ -531,6 +531,39 @@ impl Renderer {
         }
     }
 
+    /// Draws a filled badge rectangle followed by a label glyphs inside it.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_status_badge(
+        &mut self,
+        buf: &mut [u32],
+        width: u32,
+        height: u32,
+        x: u32,
+        y: u32,
+        badge_w: u32,
+        badge_h: u32,
+        label: &str,
+        badge_color: u32,
+        fg: u32,
+        char_w: u32,
+        px: f32,
+    ) {
+        fill_rect(buf, width, x, y, badge_w, badge_h, badge_color);
+        self.draw_badge_label(
+            buf,
+            width,
+            height,
+            x + BADGE_PAD_X,
+            y,
+            badge_h,
+            char_w,
+            label,
+            badge_color,
+            fg,
+            px,
+        );
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw_status_bar(
         &mut self,
@@ -565,19 +598,18 @@ impl Renderer {
         let badge_x = 8u32;
         let badge_y = bar_y + 2;
 
-        fill_rect(buf, width, badge_x, badge_y, badge_w, badge_h, badge_color);
-
-        self.draw_badge_label(
+        self.draw_status_badge(
             buf,
             width,
             height,
-            badge_x + BADGE_PAD_X,
+            badge_x,
             badge_y,
+            badge_w,
             badge_h,
-            char_w,
             label,
             badge_color,
             badge_fg,
+            char_w,
             px,
         );
 
@@ -601,19 +633,9 @@ impl Renderer {
             let rec_w = rec_label.len() as u32 * char_w + BADGE_PAD_X * 2;
             let rec_color = color_u32(theme.palette[1]); // red/pink
             let rec_x = badge_x + badge_w + 8;
-            fill_rect(buf, width, rec_x, badge_y, rec_w, badge_h, rec_color);
-            self.draw_badge_label(
-                buf,
-                width,
-                height,
-                rec_x + BADGE_PAD_X,
-                badge_y,
-                badge_h,
-                char_w,
-                rec_label,
-                rec_color,
-                badge_fg,
-                px,
+            self.draw_status_badge(
+                buf, width, height, rec_x, badge_y, rec_w, badge_h, rec_label, rec_color, badge_fg,
+                char_w, px,
             );
         }
 

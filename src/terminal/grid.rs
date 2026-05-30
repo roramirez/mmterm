@@ -2,6 +2,9 @@ use super::sixel::SixelImage;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+const HTTPS_PREFIX_LEN: usize = 8; // "https://"
+const HTTP_PREFIX_LEN: usize = 7; // "http://"
+
 /// DECSCUSR cursor shape (CSI Ps SP q).
 /// Blinking variants use the existing blink_visible flag in PaneView.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -313,7 +316,7 @@ impl Grid {
         self.cursor_visible = true;
         self.cursor_shape = CursorShape::Block;
         self.scroll_top = 0;
-        self.scroll_bottom = self.rows - 1;
+        self.scroll_bottom = self.max_row();
         self.reset_sgr();
         self.charset_drawing = false;
         self.images.clear();
@@ -659,7 +662,7 @@ impl Grid {
         }
 
         if !self.autowrap {
-            self.cursor_col = self.cursor_col.min(self.cols - 1);
+            self.cursor_col = self.cursor_col.min(self.max_col());
         }
     }
 
@@ -811,11 +814,9 @@ impl Grid {
     }
 
     pub fn clear_line(&mut self, row: usize) {
-        let cols = self.cols;
         let blank = self.erase_cell();
-        for c in 0..cols {
-            self.cells[row * cols + c] = blank.clone();
-        }
+        let cols = self.cols;
+        self.cells[row * cols..(row + 1) * cols].fill(blank);
     }
 
     pub fn clear_screen(&mut self) {
@@ -905,7 +906,7 @@ impl Grid {
         self.cursor_col = 0;
         self.cursor_row = 0;
         self.scroll_top = 0;
-        self.scroll_bottom = self.rows - 1;
+        self.scroll_bottom = self.max_row();
 
         self.reset_sgr();
 
@@ -977,9 +978,9 @@ fn strip_trailing_punct(tail: &[char], prefix_len: usize, mut len: usize) -> usi
 fn url_span_at(chars: &[char], start: usize) -> Option<usize> {
     let tail = &chars[start..];
     let prefix_len = if tail.starts_with(&['h', 't', 't', 'p', 's', ':', '/', '/']) {
-        8
+        HTTPS_PREFIX_LEN
     } else if tail.starts_with(&['h', 't', 't', 'p', ':', '/', '/']) {
-        7
+        HTTP_PREFIX_LEN
     } else {
         return None;
     };
