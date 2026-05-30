@@ -688,12 +688,7 @@ impl Grid {
                     self.row_wrapped.remove(0)
                 };
                 self.row_wrapped.push(false);
-                self.scrollback.push_back(line);
-                self.scrollback_wrapped.push_back(soft_wrap);
-                if self.scrollback.len() > self.scrollback_max {
-                    self.scrollback.pop_front();
-                    self.scrollback_wrapped.pop_front();
-                }
+                self.push_scrollback(line, soft_wrap);
             }
             // Shift rows top..bot upward by one using a rotation. rotate_left
             // moves elements without cloning (ptr::copy internally), so the

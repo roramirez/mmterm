@@ -3,6 +3,15 @@ pub const TAB_BAR_H: u32 = 22;
 pub const PANE_PADDING: u32 = 4;
 const SEP: u32 = 1;
 pub const NUDGE_STEP: f32 = 0.05;
+const RATIO_MIN: f32 = 0.1;
+const RATIO_MAX: f32 = 0.9;
+
+/// Split `full` pixels at `ratio`, reserving 1 px for the separator.
+/// Returns `(a_size, b_size)` both clamped to at least 1 px.
+fn split_dimension(full: u32, ratio: f32) -> (u32, u32) {
+    let a = ((full as f32 * ratio) as u32).clamp(1, full.saturating_sub(SEP + 1));
+    (a, full.saturating_sub(a + SEP))
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum SplitDir {
@@ -79,14 +88,12 @@ impl Node {
             Node::Leaf(id) => out.push((*id, [x, y, w, h])),
             Node::Split { dir, ratio, a, b } => match dir {
                 SplitDir::H => {
-                    let wa = ((w as f32 * ratio) as u32).clamp(1, w.saturating_sub(SEP + 1));
-                    let wb = w.saturating_sub(wa + SEP);
+                    let (wa, wb) = split_dimension(w, *ratio);
                     a.compute_rects(x, y, wa, h, out);
                     b.compute_rects(x + wa + SEP, y, wb, h, out);
                 }
                 SplitDir::V => {
-                    let ha = ((h as f32 * ratio) as u32).clamp(1, h.saturating_sub(SEP + 1));
-                    let hb = h.saturating_sub(ha + SEP);
+                    let (ha, hb) = split_dimension(h, *ratio);
                     a.compute_rects(x, y, w, ha, out);
                     b.compute_rects(x, y + ha + SEP, w, hb, out);
                 }
@@ -98,15 +105,13 @@ impl Node {
         if let Node::Split { dir, ratio, a, b } = self {
             match dir {
                 SplitDir::H => {
-                    let wa = ((w as f32 * ratio) as u32).clamp(1, w.saturating_sub(SEP + 1));
-                    let wb = w.saturating_sub(wa + SEP);
+                    let (wa, wb) = split_dimension(w, *ratio);
                     out.push([x + wa, y, SEP, h]);
                     a.separators(x, y, wa, h, out);
                     b.separators(x + wa + SEP, y, wb, h, out);
                 }
                 SplitDir::V => {
-                    let ha = ((h as f32 * ratio) as u32).clamp(1, h.saturating_sub(SEP + 1));
-                    let hb = h.saturating_sub(ha + SEP);
+                    let (ha, hb) = split_dimension(h, *ratio);
                     out.push([x, y + ha, w, SEP]);
                     a.separators(x, y, w, ha, out);
                     b.separators(x, y + ha + SEP, w, hb, out);
@@ -143,8 +148,7 @@ impl Node {
         *counter += 1;
         match dir {
             SplitDir::H => {
-                let wa = ((w as f32 * ratio) as u32).clamp(1, w.saturating_sub(SEP + 1));
-                let wb = w.saturating_sub(wa + SEP);
+                let (wa, wb) = split_dimension(w, *ratio);
                 if sep_hit(y, h, x + wa, px, py, margin) {
                     return Some(SeparatorHandle {
                         idx,
@@ -159,8 +163,7 @@ impl Node {
                     })
             }
             SplitDir::V => {
-                let ha = ((h as f32 * ratio) as u32).clamp(1, h.saturating_sub(SEP + 1));
-                let hb = h.saturating_sub(ha + SEP);
+                let (ha, hb) = split_dimension(h, *ratio);
                 if sep_hit(x, w, y + ha, py, px, margin) {
                     return Some(SeparatorHandle {
                         idx,
@@ -209,7 +212,7 @@ impl Node {
                 return true;
             }
             if dir_matches {
-                *ratio = (*ratio + delta).clamp(0.1, 0.9);
+                *ratio = (*ratio + delta).clamp(RATIO_MIN, RATIO_MAX);
                 return true;
             }
         } else if b.contains_leaf(target) {
@@ -217,7 +220,7 @@ impl Node {
                 return true;
             }
             if dir_matches {
-                *ratio = (*ratio + delta).clamp(0.1, 0.9);
+                *ratio = (*ratio + delta).clamp(RATIO_MIN, RATIO_MAX);
                 return true;
             }
         }
@@ -360,7 +363,7 @@ impl Layout {
             return;
         }
         let raw = new_pos.saturating_sub(handle.region_pos) as f32 / handle.region_size as f32;
-        let new_ratio = raw.clamp(0.1, 0.9);
+        let new_ratio = raw.clamp(RATIO_MIN, RATIO_MAX);
         let mut counter = 0usize;
         self.root
             .set_ratio_by_idx(handle.idx, new_ratio, &mut counter);

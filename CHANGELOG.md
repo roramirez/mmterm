@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - visual mode selection spanning multiple pages now copies all selected lines; previously `start_row` was clamped to the viewport height, so only the last page of a multi-page selection was copied
 
 ### Changed
+- refactor layout.rs: extract `split_dimension()` helper and `RATIO_MIN`/`RATIO_MAX` constants; eliminate 6 repeated split-dimension calculations in `compute_rects`, `separators`, `find_sep_at_pixel`
+- refactor grid.rs: remove duplicated scrollback-max cap in `scroll_up()` by calling `push_scrollback()`
+- refactor app_event.rs: merge duplicate `if let Some(entry)` blocks in `viewport_scroll()`
+- refactor keybindings.rs: extract `visual_mode_init()` to deduplicate repeated `InputMode::Visual` construction
 - refactor grid.rs: extract `cell_with_colors`, `max_row`/`max_col`, `reposition_cursor_after_reflow`; replace duplicate SGR reset blocks with `reset_sgr()` calls to reduce Halstead effort
 - refactor parser.rs: extract `param_or_one` helper; use `grid.max_row()`/`max_col()` in `csi_dispatch` and scroll-region handling
 - refactor app_event.rs: eliminate double `command_palette::filter` lookup; simplify screenshot name mode reconstruction

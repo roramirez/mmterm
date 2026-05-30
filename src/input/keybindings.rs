@@ -215,16 +215,20 @@ fn alt_action(key: &Key, ctrl: bool, shift: bool) -> Option<Action> {
     None
 }
 
+fn visual_mode_init() -> InputMode {
+    InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: false,
+    }
+}
+
 fn ctrl_dot_next_mode(mode: &InputMode) -> InputMode {
     match mode {
         InputMode::Insert => InputMode::Normal,
-        InputMode::Normal => InputMode::Visual {
-            start_col: 0,
-            start_row: 0,
-            cur_col: 0,
-            cur_row: 0,
-            anchored: false,
-        },
+        InputMode::Normal => visual_mode_init(),
         _ => InputMode::Insert,
     }
 }
@@ -440,13 +444,7 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
         Key::Named(NamedKey::PageDown) => Action::ScrollDown(grid_rows),
         Key::Character(s) => match s.as_str() {
             "i" => Action::SetMode(InputMode::Insert),
-            "v" => Action::SetMode(InputMode::Visual {
-                start_col: 0,
-                start_row: 0,
-                cur_col: 0,
-                cur_row: 0,
-                anchored: false,
-            }),
+            "v" => Action::SetMode(visual_mode_init()),
             "q" => Action::ClosePane,
             "/" => Action::SearchOpen,
             "n" => Action::SearchNext,

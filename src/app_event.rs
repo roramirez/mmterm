@@ -690,12 +690,10 @@ impl App {
     fn viewport_scroll(&mut self, lines: f32) {
         let n = lines.abs().ceil() as usize;
         let active = self.tab().active;
-        if lines > 0.0 {
-            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+        if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+            if lines > 0.0 {
                 entry.pane.scroll_up(n);
-            }
-        } else {
-            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+            } else {
                 entry.pane.scroll_down(n);
             }
         }
