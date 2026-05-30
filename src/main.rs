@@ -823,8 +823,8 @@ impl App {
             &self.state.theme,
         );
 
-        if let Some([px, py, pw, ph]) = self.pending_screenshot.take()
-            && let Err(e) = save_screenshot(
+        if let Some([px, py, pw, ph]) = self.pending_screenshot.take() {
+            match save_screenshot(
                 pixels,
                 w,
                 px,
@@ -832,9 +832,12 @@ impl App {
                 pw,
                 ph,
                 &self.state.config.general.screenshot_dir,
-            )
-        {
-            log::warn!("screenshot save failed: {e}");
+            ) {
+                Ok(path) => self
+                    .state
+                    .copy_text_to_clipboard(path.to_string_lossy().into_owned()),
+                Err(e) => log::warn!("screenshot save failed: {e}"),
+            }
         }
 
         draw_overlays(&mut self.renderer, &self.state, pixels, w, h);
@@ -924,7 +927,7 @@ fn save_screenshot(
     w: u32,
     h: u32,
     dir: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<std::path::PathBuf> {
     let dir = expand_tilde(dir);
     use anyhow::Context as _;
     std::fs::create_dir_all(&dir)
@@ -943,7 +946,7 @@ fn save_screenshot(
     img.save(&path)
         .with_context(|| format!("cannot write PNG to {}", path.display()))?;
     log::info!("screenshot saved: {}", path.display());
-    Ok(())
+    Ok(path)
 }
 
 impl App {

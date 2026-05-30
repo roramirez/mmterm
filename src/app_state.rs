@@ -281,7 +281,7 @@ impl AppState {
 
     // ── Clipboard helper ─────────────────────────────────────────────────────
 
-    fn copy_text_to_clipboard(&mut self, text: String) {
+    pub(crate) fn copy_text_to_clipboard(&mut self, text: String) {
         if text.is_empty() {
             return;
         }

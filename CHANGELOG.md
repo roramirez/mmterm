@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - visual mode selection spanning multiple pages now copies all selected lines; previously `start_row` was clamped to the viewport height, so only the last page of a multi-page selection was copied
 
 ### Changed
+- copy screenshot file path to clipboard after a successful capture
 - page up / page down now scroll the viewport in visual mode, extending the selection
 
 ### Added

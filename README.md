@@ -179,7 +179,7 @@ A rectangular selection overlay appears centered on the screen.
 | `Enter` / `Space` | Capture and save PNG |
 | `Esc` | Cancel |
 
-The file is saved as `mmterm-YYYYMMDDTHHMMSS.png` in the directory set by `[general] screenshot_dir` (default `~/mmterm/shot`).
+The file is saved as `mmterm-YYYYMMDDTHHMMSS.png` in the directory set by `[general] screenshot_dir` (default `~/mmterm/shot`). The full path is copied to the clipboard automatically after a successful capture.
 
 ### Visual Bell
 

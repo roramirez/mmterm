@@ -141,7 +141,7 @@ vim-style modal input, split panes, and multi-tab sessions.
 - `←`/`→` grow or shrink width; `↑`/`↓` grow or shrink height; each step is 5% of the current half-extent (min 4 px).
 - `Shift+Arrow` moves the selection center 20 px in the given direction.
 - `Enter`/`Space` → `AppEffect::TakeScreenshot`; capture is taken from the raw pixel buffer **before** overlays are drawn (no selector border in output).
-- PNG saved as `mmterm-YYYYMMDDTHHMMSS.png` to `config.general.screenshot_dir` (default `~/mmterm/shot`); `~` is expanded to `$HOME`.
+- PNG saved as `mmterm-YYYYMMDDTHHMMSS.png` to `config.general.screenshot_dir` (default `~/mmterm/shot`); `~` is expanded to `$HOME`. After a successful save the absolute path is copied to the system clipboard.
 - Overlay: pixels outside the rectangle are darkened (60 % veil); a 2-px white border frames the selection; a hint line shows key bindings.
 - Status bar badge: `SHOT` (yellow) while the mode is active.
 

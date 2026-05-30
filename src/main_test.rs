@@ -286,3 +286,39 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
     let result = next_bell_wakeup(&[tab1, tab2], default);
     assert_eq!(result, expiry2, "should return the earliest bell expiry");
 }
+
+// ── save_screenshot ───────────────────────────────────────────────────────────
+
+fn tiny_buf() -> (Vec<u32>, u32, u32) {
+    let w = 4u32;
+    let h = 4u32;
+    (vec![0xFF_FF_FF_FFu32; (w * h) as usize], w, h)
+}
+
+#[test]
+fn save_screenshot_returns_path_on_success() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (buf, w, h) = tiny_buf();
+    let path = save_screenshot(&buf, w, 0, 0, w, h, dir.path().to_str().unwrap())
+        .expect("save_screenshot failed");
+    assert!(path.exists(), "PNG file should exist on disk");
+}
+
+#[test]
+fn save_screenshot_filename_matches_mmterm_timestamp_pattern() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (buf, w, h) = tiny_buf();
+    let path = save_screenshot(&buf, w, 0, 0, w, h, dir.path().to_str().unwrap())
+        .expect("save_screenshot failed");
+    let name = path.file_name().unwrap().to_string_lossy();
+    assert!(
+        name.starts_with("mmterm-") && name.ends_with(".png"),
+        "unexpected filename: {name}"
+    );
+}
+
+#[test]
+fn save_screenshot_fails_on_unwritable_dir() {
+    let result = save_screenshot(&[0u32], 1, 0, 0, 1, 1, "/dev/null/cannot_create");
+    assert!(result.is_err());
+}
