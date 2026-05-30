@@ -331,11 +331,25 @@ right = "%pwd  %date{%Y-%m-%d %H:%M}"
   [s] Save and quit   [q] Quit   [Esc] Cancel
   ```
 
-- `s` / `S` — saves `~/.config/mmterm/session.toml` and exits.
+- `s` / `S` — saves the session file and exits.
 - `q` / `Q` / `n` / `Enter` — exits without saving.
 - `Esc` — cancels the quit and returns to normal input.
 
-#### What is saved (`session.toml`)
+#### Named scopes
+
+`--scope <name>` (also `--scope=<name>` / `-s <name>`) routes save/load to a
+named workspace file, keeping it fully isolated from other scopes:
+
+| Invocation | Session file |
+|---|---|
+| `mmterm` | `~/.config/mmterm/session.toml` (default) |
+| `mmterm --scope work` | `~/.config/mmterm/sessions/work.toml` |
+| `mmterm -s personal` | `~/.config/mmterm/sessions/personal.toml` |
+
+`--list-scopes` prints all saved scope names (sorted) and exits without
+launching the terminal.
+
+#### What is saved
 
 | Field | Description |
 |---|---|
@@ -352,7 +366,7 @@ right = "%pwd  %date{%Y-%m-%d %H:%M}"
 
 #### Restore
 
-On launch, if `session.toml` exists and `restore_session = true`, each saved
+On launch, if the session file exists and `restore_session = true`, each saved
 tab is recreated: panes are spawned in DFS leaf order with their saved CWDs,
 and the split tree is reconstructed with the original ratios.
 

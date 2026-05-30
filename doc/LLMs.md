@@ -72,8 +72,12 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 - `App::build_saved_session()` collects tab names, active panes, CWDs (via `pty.cwd()` → `/proc/<pid>/cwd`), and layout trees
 - `Layout::to_saved_node()` walks the `Node` tree in DFS order, returns `(SavedNode, Vec<pane_id>)` with serial slot indices for leaves
 - `Layout::from_saved_node(node, slot_to_id, w, h)` reconstructs the tree substituting slot indices with new pane IDs
-- Saved to `~/.config/mmterm/session.toml` via `session::save()`; atomic write (`.tmp` → rename)
-- On startup `resumed()`: if `restore_session = true` and `session::load()` succeeds, `App::restore_session()` spawns panes with saved CWDs and rebuilds layout trees; CWDs that no longer exist fall back to `$HOME`
+- **Named scopes** — `--scope <name>` (also `--scope=<name>` / `-s <name>`) routes save/load to `~/.config/mmterm/sessions/<name>.toml`; omitting the flag uses the default `~/.config/mmterm/session.toml`
+- `App.scope: Option<String>` holds the active scope; passed to `App::new()` from `main()`
+- `session::session_path_for(scope: Option<&str>) -> PathBuf` — `None` → default path, `Some(name)` → scoped path under `sessions/`
+- Save uses `session::save_to(&path, &s)` where `path = session_path_for(self.scope.as_deref())`; atomic write (`.tmp` → rename)
+- On startup `resumed()`: if `restore_session = true`, calls `session::load_from(&session_path_for(scope))` and `App::restore_session()`; CWDs that no longer exist fall back to `$HOME`
+- `--list-scopes` prints sorted scope names (`*.toml` stems from `sessions/` dir) and exits — implemented via `session::list_scopes()` / `list_scopes_in(dir)` and `list_scopes_requested()` in `main.rs`
 - What is saved: `active_tab`, per-tab `name`, `active_pane` slot, `pane_cwds`, `layout` tree with `dir`/`ratio`
 - What is NOT saved: PTY content, scrollback, per-tab font size, zoom, scroll offset
 
