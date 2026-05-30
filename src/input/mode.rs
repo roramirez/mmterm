@@ -34,4 +34,12 @@ pub enum InputMode {
         half_w: u32,
         half_h: u32,
     },
+    /// User is typing a name for the screenshot before it is saved.
+    ScreenshotName {
+        cx: u32,
+        cy: u32,
+        half_w: u32,
+        half_h: u32,
+        name: String,
+    },
 }

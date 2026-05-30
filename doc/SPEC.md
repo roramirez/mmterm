@@ -136,14 +136,27 @@ vim-style modal input, split panes, and multi-tab sessions.
 - Minimum pane size is 10% of the parent region (ratio clamped to 0.1–0.9).
 
 ### Screenshot Mode
-- Entered with `Ctrl+W p`; exits to Insert mode on capture or `Esc`.
+Screenshot capture is a two-step flow: region selection followed by a name prompt.
+
+**Step 1 — Region selector (`InputMode::Screenshot`)**
+- Entered with `Ctrl+W p`; exits to Insert mode on `Esc`.
 - `InputMode::Screenshot { cx, cy, half_w, half_h }` — rectangle centered at `(cx, cy)` with independent half-extents.
 - `←`/`→` grow or shrink width; `↑`/`↓` grow or shrink height; each step is 5% of the current half-extent (min 4 px).
 - `Shift+Arrow` moves the selection center 20 px in the given direction.
-- `Enter`/`Space` → `AppEffect::TakeScreenshot`; capture is taken from the raw pixel buffer **before** overlays are drawn (no selector border in output).
-- PNG saved as `mmterm-YYYYMMDDTHHMMSS.png` to `config.general.screenshot_dir` (default `~/mmterm/shot`); `~` is expanded to `$HOME`. After a successful save the absolute path is copied to the system clipboard.
+- `Enter`/`Space` → transitions to `InputMode::ScreenshotName` (name prompt); capture is taken from the raw pixel buffer **before** overlays are drawn (no selector border in output).
 - Overlay: pixels outside the rectangle are darkened (60 % veil); a 2-px white border frames the selection; a hint line shows key bindings.
 - Status bar badge: `SHOT` (yellow) while the mode is active.
+
+**Step 2 — Name prompt (`InputMode::ScreenshotName`)**
+- `InputMode::ScreenshotName { cx, cy, half_w, half_h, name: String }` — carries the region from step 1 plus the name being typed.
+- The selection is kept visible (dimmed veil + border). A centered input box near the bottom shows `Name: <typed>_`.
+- Hint below the box: `Enter save  (empty = mmterm-<timestamp>.png)   Esc cancel`.
+- Typing characters appends to `name`; `Backspace` removes the last character.
+- `Enter` — saves the PNG and exits to Insert mode:
+  - Non-empty input: filename is `<sanitized-name>.png` (path separators, colons, spaces → `-`).
+  - Empty input: filename falls back to `mmterm-YYYYMMDDTHHMMSS.png`.
+  - Saved to `config.general.screenshot_dir` (default `~/mmterm/shot`); `~` is expanded to `$HOME`. The absolute path is copied to the clipboard after a successful save.
+- `Esc` — cancels without saving; returns to Insert mode.
 
 ### Tabs
 - `Ctrl+T` — new tab.

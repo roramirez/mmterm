@@ -61,19 +61,10 @@ pub enum AppEffect {
     ToggleLog,
     SendToPty(Vec<u8>),
     Paste,
-    ResizePane {
-        split_h: bool,
-        delta: f32,
-    },
+    ResizePane { split_h: bool, delta: f32 },
     RotatePanes(bool),
     SaveSessionAndQuit,
     ScreenshotOpen,
-    TakeScreenshot {
-        cx: u32,
-        cy: u32,
-        half_w: u32,
-        half_h: u32,
-    },
 }
 
 // ── AppState ─────────────────────────────────────────────────────────────────
@@ -836,7 +827,7 @@ impl AppState {
         };
     }
 
-    fn do_screenshot_capture(&self) -> Vec<AppEffect> {
+    fn do_screenshot_capture(&mut self) -> Vec<AppEffect> {
         let InputMode::Screenshot {
             cx,
             cy,
@@ -846,12 +837,14 @@ impl AppState {
         else {
             return vec![];
         };
-        vec![AppEffect::TakeScreenshot {
+        self.mode = InputMode::ScreenshotName {
             cx,
             cy,
             half_w,
             half_h,
-        }]
+            name: String::new(),
+        };
+        vec![AppEffect::Redraw]
     }
 
     fn do_quit(&mut self) -> Vec<AppEffect> {

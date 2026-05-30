@@ -256,6 +256,58 @@ impl App {
         }
     }
 
+    pub(super) fn handle_screenshot_name_key(&mut self, event: &winit::event::KeyEvent) {
+        let (cx, cy, half_w, half_h, name) = if let InputMode::ScreenshotName {
+            cx,
+            cy,
+            half_w,
+            half_h,
+            name,
+        } = &self.state.mode
+        {
+            (*cx, *cy, *half_w, *half_h, name.clone())
+        } else {
+            return;
+        };
+        match &event.logical_key {
+            Key::Named(NamedKey::Escape) => {
+                self.state.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Enter) => {
+                let (w, h) = self.surface_size;
+                let x = cx.saturating_sub(half_w);
+                let y = cy.saturating_sub(half_h);
+                let sw = (half_w * 2).min(w.saturating_sub(x));
+                let sh = (half_h * 2).min(h.saturating_sub(y));
+                self.pending_screenshot = Some(([x, y, sw, sh], name.trim().to_string()));
+                self.state.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Backspace) => {
+                let mut n = name;
+                n.pop();
+                self.state.mode = InputMode::ScreenshotName {
+                    cx,
+                    cy,
+                    half_w,
+                    half_h,
+                    name: n,
+                };
+            }
+            Key::Character(s) => {
+                let mut n = name;
+                n.push_str(s);
+                self.state.mode = InputMode::ScreenshotName {
+                    cx,
+                    cy,
+                    half_w,
+                    half_h,
+                    name: n,
+                };
+            }
+            _ => {}
+        }
+    }
+
     pub(super) fn handle_config_key(&mut self, event: &winit::event::KeyEvent) {
         let ctrl = self.modifiers.state().control_key();
         let panel = match &mut self.state.config_panel {
@@ -382,6 +434,11 @@ impl App {
         }
         if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
             self.handle_command_palette_key(event, event_loop);
+            self.request_redraw();
+            return true;
+        }
+        if matches!(self.state.mode, InputMode::ScreenshotName { .. }) {
+            self.handle_screenshot_name_key(event);
             self.request_redraw();
             return true;
         }
