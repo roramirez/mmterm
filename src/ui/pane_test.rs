@@ -248,3 +248,79 @@ fn scenario_scroll_up_user_input_then_more_output_stays_at_bottom() {
         );
     }
 }
+
+// ── Reflow scroll_offset tests ───────────────────────────────────────────────
+
+#[test]
+fn resize_adjusts_scroll_offset_on_widen() {
+    // 4-col, 1-row pane: "ABCDEFGH\r\n" autowraps at col 4, pushing ABCD (soft)
+    // then the \n pushes EFGH (hard). Together they form the logical line ABCDEFGH.
+    // Then "IJKLMNOP\r\n" does the same, adding IJKL(soft) + MNOP(hard).
+    // scrollback = 4 rows.  Widen to 8: 4 rows collapse to 2 logical lines.
+    let mut pane = make_pane(4, 1);
+    pane.process(b"ABCDEFGH\r\nIJKLMNOP\r\n");
+    let sb_before = pane.parser.grid.scrollback_len();
+    assert!(sb_before >= 2, "expected scrollback rows, got {sb_before}");
+
+    pane.scroll_up(sb_before); // scroll to top
+    let offset_before = pane.scroll_offset;
+
+    pane.resize(8, 1, [0, 0, 64, 16]);
+
+    let sb_after = pane.parser.grid.scrollback_len();
+    // Scrollback should have shrunk (soft+hard pairs joined into single rows).
+    assert!(
+        sb_after < sb_before,
+        "expected scrollback to shrink on widen ({sb_before} → {sb_after})"
+    );
+    // scroll_offset must not exceed new scrollback length.
+    assert!(
+        pane.scroll_offset <= sb_after,
+        "scroll_offset {} exceeds new sb_len {}",
+        pane.scroll_offset,
+        sb_after
+    );
+    // Offset should have decreased when scrollback shrank.
+    assert!(
+        pane.scroll_offset < offset_before,
+        "expected offset to decrease: before={offset_before}, after={}",
+        pane.scroll_offset
+    );
+}
+
+#[test]
+fn resize_adjusts_scroll_offset_on_narrow() {
+    // 8-col, 1-row pane: "ABCDEFGH\r\n" fills row 0 then \n pushes it as hard-wrap.
+    // Same for "IJKLMNOP\r\n". scrollback = 2 hard-wrapped rows.
+    // Narrow to 4: each 8-col row splits into 2 rows of 4, so delta=+2.
+    let mut pane = make_pane(8, 1);
+    pane.process(b"ABCDEFGH\r\n");
+    pane.process(b"IJKLMNOP\r\n");
+    let sb_before = pane.parser.grid.scrollback_len();
+    assert!(sb_before >= 2, "expected at least 2 scrollback rows");
+
+    pane.scroll_up(1);
+    assert_eq!(pane.scroll_offset, 1);
+
+    pane.resize(4, 1, [0, 0, 32, 16]);
+
+    let sb_after = pane.parser.grid.scrollback_len();
+    // Scrollback should have grown (each 8-col row splits into 2 rows of 4).
+    assert!(
+        sb_after > sb_before,
+        "expected scrollback to grow on narrow ({sb_before} → {sb_after})"
+    );
+    // scroll_offset must still be within bounds.
+    assert!(
+        pane.scroll_offset <= sb_after,
+        "scroll_offset {} exceeds new sb_len {}",
+        pane.scroll_offset,
+        sb_after
+    );
+    // Offset should have grown to track the added rows.
+    assert!(
+        pane.scroll_offset > 1,
+        "offset should have grown after narrowing (was 1, got {})",
+        pane.scroll_offset
+    );
+}

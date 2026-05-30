@@ -36,8 +36,13 @@ impl Pane {
     }
 
     pub fn resize(&mut self, cols: usize, rows: usize, rect: [u32; 4]) {
-        self.parser.grid.resize(cols, rows);
+        let delta = self.parser.grid.resize(cols, rows);
         self.rect = rect;
+        if self.scroll_offset > 0 {
+            let new_sb = self.parser.grid.scrollback_len();
+            self.scroll_offset = (self.scroll_offset as isize + delta).max(0) as usize;
+            self.scroll_offset = self.scroll_offset.min(new_sb);
+        }
     }
 
     pub fn scroll_up(&mut self, n: usize) {

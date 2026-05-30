@@ -717,3 +717,276 @@ fn collect_row_text_single_cell() {
     let text = g.collect_row_text(0, 1, 1, 0);
     assert_eq!(text, "b");
 }
+
+// ── Reflow tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn scroll_up_marks_autowrap_as_soft() {
+    // Use a 1-row grid so that autowrap triggers scroll_up (hitting scroll_bottom=0).
+    // Writing the 5th char must push row 0 to scrollback with soft_wrap=true.
+    let mut g = make_grid(4, 1);
+    g.write_char('A');
+    g.write_char('B');
+    g.write_char('C');
+    g.write_char('D');
+    // Next char causes autowrap on the only row → scroll_up is called.
+    g.write_char('E');
+    assert_eq!(g.scrollback_len(), 1);
+    assert!(
+        g.scrollback_wrapped[0],
+        "autowrap-pushed line must be soft_wrap=true"
+    );
+}
+
+#[test]
+fn scroll_up_marks_explicit_newline_as_hard() {
+    // A direct scroll_up (simulating \n on the last row) must produce soft_wrap=false.
+    // Use a 1-row grid so scroll_up always pushes to scrollback.
+    let mut g = make_grid(4, 1);
+    g.write_char('A');
+    // Explicitly scroll — no autowrap was triggered, so row_wrapped[0]=false.
+    g.scroll_up(1);
+    assert_eq!(g.scrollback_len(), 1);
+    assert!(
+        !g.scrollback_wrapped[0],
+        "explicit scroll_up must produce soft_wrap=false"
+    );
+}
+
+#[test]
+fn reflow_wider_joins_soft_wrapped_lines() {
+    // Use a 1-row grid so every autowrap immediately pushes to scrollback.
+    // Write ABCDE: ABCD pushed as soft_wrap=true; E sits in row 0.
+    // Write FGHI: EFGH pushed as soft_wrap=true; I sits in row 0.
+    let mut g = make_grid(4, 1);
+    for c in b"ABCDEFGHI" {
+        g.write_char(*c as char);
+    }
+    // scrollback: [ABCD (soft), EFGH (soft)]; live row 0: [I, ...]
+    assert_eq!(g.scrollback_len(), 2);
+    assert!(g.scrollback_wrapped[0]);
+    assert!(g.scrollback_wrapped[1]);
+
+    g.resize(8, 1);
+    // Two soft-wrapped rows join into one logical line.
+    assert_eq!(
+        g.scrollback_len(),
+        1,
+        "two soft-wrapped rows should join into one after widening"
+    );
+    let joined: String = g.scrollback[0]
+        .iter()
+        .take_while(|c| c.c != ' ')
+        .map(|c| c.c)
+        .collect();
+    assert_eq!(joined, "ABCDEFGH");
+}
+
+#[test]
+fn reflow_narrower_splits_hard_wrapped_logical_line() {
+    // Hard-push a 6-char row from an 8-col grid, then resize to 4 cols.
+    // The 6-char logical line splits into two physical rows.
+    let mut g = make_grid(8, 1);
+    for c in b"ABCDEF" {
+        g.write_char(*c as char);
+    }
+    g.scroll_up(1); // hard push (no autowrap preceded this)
+    assert_eq!(g.scrollback_len(), 1);
+    assert!(!g.scrollback_wrapped[0]);
+
+    g.resize(4, 1);
+    assert_eq!(
+        g.scrollback_len(),
+        2,
+        "6-char line at 8 cols should split into 2 rows at 4 cols"
+    );
+    // First chunk is soft-wrapped into the second.
+    assert!(
+        g.scrollback_wrapped[0],
+        "first chunk must be soft_wrap=true"
+    );
+    assert!(
+        !g.scrollback_wrapped[1],
+        "last chunk must be soft_wrap=false"
+    );
+    let row0: String = g.scrollback[0][..4].iter().map(|c| c.c).collect();
+    assert_eq!(row0, "ABCD");
+    let row1_content: String = g.scrollback[1]
+        .iter()
+        .take_while(|c| c.c != ' ')
+        .map(|c| c.c)
+        .collect();
+    assert_eq!(row1_content, "EF");
+}
+
+#[test]
+fn reflow_preserves_cell_attributes() {
+    // Bold cells must survive a widen reflow.
+    // 1-row grid: ABCD pushed to scrollback (soft_wrap=true) when E is written.
+    // EFGH pushed (soft_wrap=true) when I is written.
+    let mut g = make_grid(4, 1);
+    g.bold = true;
+    for c in b"ABCDEFGHI" {
+        g.write_char(*c as char);
+    }
+    assert_eq!(g.scrollback_len(), 2);
+
+    g.resize(8, 1);
+    assert_eq!(g.scrollback_len(), 1);
+    for cell in g.scrollback[0].iter().take(8) {
+        assert!(cell.bold, "cell {:?} must be bold after reflow", cell.c);
+    }
+}
+
+#[test]
+fn reflow_hard_wrapped_lines_not_joined() {
+    // Hard-push two separate lines from an 8-col grid (cursor reset between pushes).
+    // On widen to 12 cols, they must NOT be joined.
+    let mut g = make_grid(8, 1);
+    for c in b"HELLO" {
+        g.write_char(*c as char);
+    }
+    g.scroll_up(1); // hard push — no autowrap preceded this
+    // Reset cursor to row 0 for the next line.
+    g.cursor_col = 0;
+    g.cursor_row = 0;
+    for c in b"WORLD" {
+        g.write_char(*c as char);
+    }
+    g.scroll_up(1); // hard push
+    assert_eq!(g.scrollback_len(), 2);
+    assert!(!g.scrollback_wrapped[0], "HELLO must be hard-wrapped");
+    assert!(!g.scrollback_wrapped[1], "WORLD must be hard-wrapped");
+
+    g.resize(12, 1);
+    assert_eq!(
+        g.scrollback_len(),
+        2,
+        "hard-wrapped lines must not be joined on widen"
+    );
+}
+
+#[test]
+fn reflow_wide_chars_not_split_across_row() {
+    // '日'(2-wide) '本'(2-wide) fill a 4-col row exactly.
+    // Resize to 3 cols: the split point falls on '本' (wide=true).
+    // The reflow must move '本' entirely to the next row.
+    let mut g = make_grid(4, 1);
+    g.write_char('日'); // cols 0-1
+    g.write_char('本'); // cols 2-3
+    g.scroll_up(1); // hard push: row = ['日', wide_cont, '本', wide_cont]
+    assert_eq!(g.scrollback_len(), 1);
+
+    g.resize(3, 1);
+    // '日' (+ its wide_cont) fits in 2 cols of the 3-col row; row 0 must not
+    // contain '本' (it should be pushed to row 1).
+    let row0: Vec<char> = g.scrollback[0].iter().map(|c| c.c).collect();
+    assert!(
+        !row0.contains(&'本'),
+        "wide char '本' must not appear in row 0 after split at 3 cols; row0={row0:?}"
+    );
+}
+
+// ── Live-grid reflow tests ────────────────────────────────────────────────────
+
+#[test]
+fn live_grid_reflow_wider_joins_wrapped_lines() {
+    // 4-col, 3-row grid. Write "ABCDE" — A-D fill row 0 (row_wrapped[0]=true),
+    // E goes to row 1. Resize to 8 cols: rows 0+1 join into one 8-col row.
+    let mut g = make_grid(4, 3);
+    for c in b"ABCDE" {
+        g.write_char(*c as char);
+    }
+    assert!(g.row_wrapped[0], "row 0 must be soft-wrapped after ABCDE");
+
+    g.resize(8, 3);
+
+    // Row 0 should contain ABCDE (joined); row 1 should be blank.
+    let row0: String = g.cells[..8]
+        .iter()
+        .take_while(|c| c.c != ' ')
+        .map(|c| c.c)
+        .collect();
+    assert_eq!(
+        row0, "ABCDE",
+        "row 0 must contain joined content after widen"
+    );
+    assert!(
+        !g.row_wrapped[0],
+        "row 0 must not be soft-wrapped after join"
+    );
+}
+
+#[test]
+fn live_grid_reflow_narrower_splits_line() {
+    // 8-col, 3-row grid. Write "ABCDEFGH" to row 0, then narrow to 4 cols.
+    // ABCDEFGH splits into ABCD + EFGH.  Because the trailing blank rows in the
+    // original grid + the extra split row exceed new_rows, ABCD spills to
+    // scrollback and EFGH becomes the first visible row — correct terminal behaviour.
+    let mut g = make_grid(8, 3);
+    for c in b"ABCDEFGH" {
+        g.write_char(*c as char);
+    }
+    assert!(!g.row_wrapped[0]);
+    g.cursor_col = 0;
+    g.cursor_row = 0;
+
+    g.resize(4, 3);
+
+    // ABCD spilled to scrollback; EFGH is now the first live-grid row.
+    assert_eq!(g.scrollback_len(), 1, "ABCD should spill to scrollback");
+    let sb0: String = g.scrollback[0]
+        .iter()
+        .take_while(|c| c.c != ' ')
+        .map(|c| c.c)
+        .collect();
+    assert_eq!(sb0, "ABCD");
+    let row0: String = g.cells[..4]
+        .iter()
+        .take_while(|c| c.c != ' ')
+        .map(|c| c.c)
+        .collect();
+    assert_eq!(row0, "EFGH");
+}
+
+#[test]
+fn live_grid_reflow_cursor_stays_in_bounds() {
+    // After any resize, cursor must remain within [0, cols) × [0, rows).
+    let mut g = make_grid(8, 5);
+    for c in b"HELLO WORLD" {
+        g.write_char(*c as char);
+    }
+    g.resize(4, 3);
+    assert!(
+        g.cursor_col < 4,
+        "cursor_col {} out of bounds (cols=4)",
+        g.cursor_col
+    );
+    assert!(
+        g.cursor_row < 3,
+        "cursor_row {} out of bounds (rows=3)",
+        g.cursor_row
+    );
+}
+
+#[test]
+fn live_grid_reflow_hard_wrapped_rows_not_joined() {
+    // Two separate logical lines in the live grid must not join on widen.
+    let mut g = make_grid(4, 4);
+    // Write "AB" then advance row (hard wrap).
+    g.write_char('A');
+    g.write_char('B');
+    g.cursor_col = 0;
+    g.cursor_row = 1; // move to next row without setting row_wrapped[0]
+    g.write_char('C');
+    g.write_char('D');
+    // row_wrapped = [false, false, false, false]
+
+    g.resize(8, 4);
+
+    // AB and CD should still be on separate rows, not joined.
+    let row0_start = g.cells[0].c;
+    let row1_start = g.cells[8].c; // col 0 of row 1 in 8-col grid
+    assert_eq!(row0_start, 'A');
+    assert_eq!(row1_start, 'C', "CD must remain on its own row after widen");
+}
