@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - visual mode selection spanning multiple pages now copies all selected lines; previously `start_row` was clamped to the viewport height, so only the last page of a multi-page selection was copied
 
 ### Changed
+- refactor app_event.rs: extract handle_passthrough_key() to reduce handle_keyboard_input from 55 to 20 lines
+- refactor ui/layout.rs: extract apply_child_remove() helper; replace doubly-nested match in remove_leaf() with flat early-return pattern; 26 lines → 12 lines
+- refactor renderer/overlays.rs: extract draw_config_panel_footer() to reduce draw_config_panel by 28 lines
 - refactor ui/layout.rs: simplify nudge() by eliminating duplicated if-dir_matches block; unify two branches into a single post-recursion check; collapse rotate_leaves() to use inline cursor
 - refactor renderer/text.rs: precompute inactive_bg, inactive_text, active_bg outside the tab loop in draw_tab_bar() to eliminate per-tab redundant color conversion
 - refactor renderer/text.rs: precompute cell_y, base_x, cursor_color_u32 before the render_row cell loop to eliminate per-cell redundant arithmetic

@@ -383,6 +383,24 @@ impl App {
             .unwrap_or((80, 24, false))
     }
 
+    /// Handle keyboard input while in passthrough mode.
+    /// Returns `true` if the event was consumed and the caller should return.
+    fn handle_passthrough_key(&mut self, event: &winit::event::KeyEvent, app_cursor: bool) -> bool {
+        if event.state == ElementState::Pressed
+            && self.modifiers.state().control_key()
+            && event.logical_key == Key::Character("b".into())
+        {
+            self.tab_mut().passthrough = false;
+            self.request_redraw();
+        } else {
+            let action = handle_key_passthrough(event, &self.modifiers, app_cursor);
+            if let crate::input::keybindings::Action::SendToPty(bytes) = action {
+                self.do_send_to_pty(bytes);
+            }
+        }
+        true
+    }
+
     fn separator_at_pixel(&self, px: u32, py: u32) -> Option<crate::ui::layout::SeparatorHandle> {
         let tab = &self.state.tabs[self.state.active_tab];
         if !tab.zoomed {
@@ -398,7 +416,6 @@ impl App {
         event_loop: &ActiveEventLoop,
     ) {
         use std::time::Instant;
-        use winit::event::ElementState;
         self.state.cursor_blink = true;
         self.state.blink_last = Instant::now();
 
@@ -406,18 +423,7 @@ impl App {
 
         // Passthrough mode: Ctrl+B exits, everything else goes straight to the PTY.
         if self.tab().passthrough {
-            if event.state == ElementState::Pressed
-                && self.modifiers.state().control_key()
-                && event.logical_key == Key::Character("b".into())
-            {
-                self.tab_mut().passthrough = false;
-                self.request_redraw();
-            } else {
-                let action = handle_key_passthrough(&event, &self.modifiers, app_cursor);
-                if let crate::input::keybindings::Action::SendToPty(bytes) = action {
-                    self.do_send_to_pty(bytes);
-                }
-            }
+            self.handle_passthrough_key(&event, app_cursor);
             return;
         }
 

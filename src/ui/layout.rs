@@ -241,27 +241,32 @@ impl Node {
         match self {
             Node::Leaf(id) if *id == target => RemoveResult::RemoveMe,
             Node::Leaf(_) => RemoveResult::NotFound,
-            Node::Split { a, b, .. } => match a.remove_leaf(target) {
-                RemoveResult::RemoveMe => {
-                    RemoveResult::Replace(std::mem::replace(b, Box::new(Node::Leaf(0))))
+            Node::Split { a, b, .. } => {
+                match a.remove_leaf(target) {
+                    RemoveResult::NotFound => {}
+                    r => return apply_child_remove(a, b, r),
                 }
-                RemoveResult::Replace(node) => {
-                    *a = node;
-                    RemoveResult::Done
-                }
-                RemoveResult::Done => RemoveResult::Done,
-                RemoveResult::NotFound => match b.remove_leaf(target) {
-                    RemoveResult::RemoveMe => {
-                        RemoveResult::Replace(std::mem::replace(a, Box::new(Node::Leaf(0))))
-                    }
-                    RemoveResult::Replace(node) => {
-                        *b = node;
-                        RemoveResult::Done
-                    }
-                    r => r,
-                },
-            },
+                let r = b.remove_leaf(target);
+                apply_child_remove(b, a, r)
+            }
         }
+    }
+}
+
+fn apply_child_remove(
+    child: &mut Box<Node>,
+    sibling: &mut Box<Node>,
+    r: RemoveResult,
+) -> RemoveResult {
+    match r {
+        RemoveResult::RemoveMe => {
+            RemoveResult::Replace(std::mem::replace(sibling, Box::new(Node::Leaf(0))))
+        }
+        RemoveResult::Replace(node) => {
+            *child = node;
+            RemoveResult::Done
+        }
+        other => other,
     }
 }
 
