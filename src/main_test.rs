@@ -395,7 +395,7 @@ fn tiny_buf() -> (Vec<u32>, u32, u32) {
 fn save_screenshot_returns_path_on_success() {
     let dir = tempfile::tempdir().expect("tempdir");
     let (buf, w, h) = tiny_buf();
-    let path = save_screenshot(&buf, w, 0, 0, w, h, dir.path().to_str().unwrap())
+    let path = save_screenshot(&buf, w, [0, 0, w, h], dir.path().to_str().unwrap(), "")
         .expect("save_screenshot failed");
     assert!(path.exists(), "PNG file should exist on disk");
 }
@@ -404,7 +404,52 @@ fn save_screenshot_returns_path_on_success() {
 fn save_screenshot_filename_matches_mmterm_timestamp_pattern() {
     let dir = tempfile::tempdir().expect("tempdir");
     let (buf, w, h) = tiny_buf();
-    let path = save_screenshot(&buf, w, 0, 0, w, h, dir.path().to_str().unwrap())
+    let path = save_screenshot(&buf, w, [0, 0, w, h], dir.path().to_str().unwrap(), "")
+        .expect("save_screenshot failed");
+    let name = path.file_name().unwrap().to_string_lossy();
+    assert!(
+        name.starts_with("mmterm-") && name.ends_with(".png"),
+        "unexpected filename: {name}"
+    );
+}
+
+#[test]
+fn save_screenshot_uses_custom_name() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (buf, w, h) = tiny_buf();
+    let path = save_screenshot(
+        &buf,
+        w,
+        [0, 0, w, h],
+        dir.path().to_str().unwrap(),
+        "screenshot-evidence",
+    )
+    .expect("save_screenshot failed");
+    let name = path.file_name().unwrap().to_string_lossy();
+    assert_eq!(name, "screenshot-evidence.png");
+}
+
+#[test]
+fn save_screenshot_sanitizes_name() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (buf, w, h) = tiny_buf();
+    let path = save_screenshot(
+        &buf,
+        w,
+        [0, 0, w, h],
+        dir.path().to_str().unwrap(),
+        "my shot/bad:name",
+    )
+    .expect("save_screenshot failed");
+    let name = path.file_name().unwrap().to_string_lossy();
+    assert_eq!(name, "my-shot-bad-name.png");
+}
+
+#[test]
+fn save_screenshot_whitespace_only_name_falls_back_to_timestamp() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (buf, w, h) = tiny_buf();
+    let path = save_screenshot(&buf, w, [0, 0, w, h], dir.path().to_str().unwrap(), "   ")
         .expect("save_screenshot failed");
     let name = path.file_name().unwrap().to_string_lossy();
     assert!(
@@ -415,6 +460,6 @@ fn save_screenshot_filename_matches_mmterm_timestamp_pattern() {
 
 #[test]
 fn save_screenshot_fails_on_unwritable_dir() {
-    let result = save_screenshot(&[0u32], 1, 0, 0, 1, 1, "/dev/null/cannot_create");
+    let result = save_screenshot(&[0u32], 1, [0, 0, 1, 1], "/dev/null/cannot_create", "");
     assert!(result.is_err());
 }

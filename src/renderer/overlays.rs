@@ -575,6 +575,61 @@ impl Renderer {
         self.draw_str(buf, bw, bh, text_x, text_y, hint, fp, false, 0xFF_FF_FF_FF);
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_screenshot_name_input(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        cx: u32,
+        cy: u32,
+        half_w: u32,
+        half_h: u32,
+        name: &str,
+    ) {
+        let left = cx.saturating_sub(half_w);
+        let top = cy.saturating_sub(half_h);
+        let right = (cx + half_w).min(bw);
+        let bottom = (cy + half_h).min(bh);
+        let sel_w = right.saturating_sub(left);
+        let sel_h = bottom.saturating_sub(top);
+
+        dim_outside_rect(buf, bw, bh, left, top, right, bottom);
+        self.draw_selection_border(buf, bw, left, top, sel_w, sel_h);
+
+        let fp = self.status_font_px;
+        let cw = self.glyphs.rasterize('M', fp, false).1;
+        let row_h = (fp * 1.6) as u32 + 4;
+        let pad = cw * 2;
+
+        let label = "Name: ";
+        let display = format!("{}{}_", label, name);
+        let box_w = (display.chars().count() as u32).max(30) * cw + pad * 2;
+        let box_h = row_h + pad;
+        let bx = bw.saturating_sub(box_w) / 2;
+        let by = bh.saturating_sub(box_h + 8);
+
+        fill_rect(buf, bw, bx, by, box_w, box_h, 0xff_1a_1b_26);
+        draw_rect_border(buf, bw, bx, by, box_w, box_h, 0xff_89_b4_fa);
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            bx + pad,
+            by + pad / 2,
+            &display,
+            fp,
+            false,
+            0xff_cb_d5_f5,
+        );
+
+        let hint = "Enter save  (empty = mmterm-<timestamp>.png)   Esc cancel";
+        let hint_w = hint.chars().count() as u32 * cw;
+        let hint_x = bw.saturating_sub(hint_w) / 2;
+        let hint_y = by.saturating_sub(row_h + 2);
+        self.draw_str(buf, bw, bh, hint_x, hint_y, hint, fp, false, 0xff_58_5b_70);
+    }
+
     pub fn draw_quit_confirm(&mut self, buf: &mut [u32], bw: u32, bh: u32, theme: &ResolvedTheme) {
         dim_buffer(buf);
         let lines = ["Quit? All tabs will close.", "[y] Yes   [n / Esc] Cancel"];

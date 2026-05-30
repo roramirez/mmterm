@@ -1054,7 +1054,7 @@ fn dispatch_screenshot_move_clamps_at_zero() {
 }
 
 #[test]
-fn dispatch_screenshot_capture_returns_take_screenshot_effect() {
+fn dispatch_screenshot_capture_enters_name_mode() {
     let mut s = make_state();
     s.mode = InputMode::Screenshot {
         cx: 400,
@@ -1063,10 +1063,19 @@ fn dispatch_screenshot_capture_returns_take_screenshot_effect() {
         half_h: 80,
     };
     let effects = s.dispatch_action(Action::ScreenshotCapture);
+    assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
     assert!(
-        effects
-            .iter()
-            .any(|e| matches!(e, AppEffect::TakeScreenshot { .. }))
+        matches!(
+            s.mode,
+            InputMode::ScreenshotName {
+                cx: 400,
+                cy: 300,
+                half_w: 100,
+                half_h: 80,
+                ..
+            }
+        ),
+        "expected ScreenshotName mode"
     );
 }
 

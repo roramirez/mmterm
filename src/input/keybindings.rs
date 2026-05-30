@@ -137,6 +137,7 @@ pub(crate) fn handle_key_inner(
         InputMode::RenameTab { .. } => Action::None,
         InputMode::Search { .. } => Action::None,
         InputMode::CommandPalette { .. } => Action::None,
+        InputMode::ScreenshotName { .. } => Action::None,
         InputMode::QuitSave => handle_quit_save(key),
         InputMode::Screenshot {
             cx,

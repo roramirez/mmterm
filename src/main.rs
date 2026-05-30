@@ -67,7 +67,7 @@ struct App {
     /// Used to drive a vsync-style render loop while output is flowing.
     last_pty_data: Option<Instant>,
     /// Pending screenshot crop [x, y, w, h]; captured in redraw() before overlays are drawn.
-    pending_screenshot: Option<[u32; 4]>,
+    pending_screenshot: Option<([u32; 4], String)>,
     /// Named session scope from `--scope <name>`; `None` means the default session.
     scope: Option<String>,
 }
@@ -566,21 +566,6 @@ impl App {
                     };
                     self.request_redraw();
                 }
-                AppEffect::TakeScreenshot {
-                    cx,
-                    cy,
-                    half_w,
-                    half_h,
-                } => {
-                    let (w, h) = self.surface_size;
-                    let x = cx.saturating_sub(half_w);
-                    let y = cy.saturating_sub(half_h);
-                    let sw = (half_w * 2).min(w.saturating_sub(x));
-                    let sh = (half_h * 2).min(h.saturating_sub(y));
-                    self.pending_screenshot = Some([x, y, sw, sh]);
-                    self.state.mode = InputMode::Insert;
-                    self.request_redraw();
-                }
             }
         }
         let focus_after = (
@@ -827,15 +812,13 @@ impl App {
             &self.state.theme,
         );
 
-        if let Some([px, py, pw, ph]) = self.pending_screenshot.take() {
+        if let Some(([px, py, pw, ph], name)) = self.pending_screenshot.take() {
             match save_screenshot(
                 pixels,
                 w,
-                px,
-                py,
-                pw,
-                ph,
+                [px, py, pw, ph],
                 &self.state.config.general.screenshot_dir,
+                &name,
             ) {
                 Ok(path) => self
                     .state
@@ -903,6 +886,16 @@ fn draw_overlays(renderer: &mut Renderer, state: &AppState, pixels: &mut [u32], 
     {
         renderer.draw_screenshot_selector(pixels, w, h, cx, cy, half_w, half_h);
     }
+    if let InputMode::ScreenshotName {
+        cx,
+        cy,
+        half_w,
+        half_h,
+        ref name,
+    } = state.mode
+    {
+        renderer.draw_screenshot_name_input(pixels, w, h, cx, cy, half_w, half_h, name);
+    }
 }
 
 fn expand_tilde(path: &str) -> std::path::PathBuf {
@@ -923,15 +916,24 @@ fn pixel_to_rgb(p: u32) -> [u8; 3] {
 }
 
 #[allow(clippy::too_many_arguments)]
+fn sanitize_screenshot_name(raw: &str) -> String {
+    raw.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
+            ' ' => '-',
+            c => c,
+        })
+        .collect()
+}
+
 fn save_screenshot(
     buf: &[u32],
     buf_width: u32,
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
+    crop: [u32; 4],
     dir: &str,
+    name: &str,
 ) -> anyhow::Result<std::path::PathBuf> {
+    let [x, y, w, h] = crop;
     let dir = expand_tilde(dir);
     use anyhow::Context as _;
     std::fs::create_dir_all(&dir)
@@ -942,8 +944,13 @@ fn save_screenshot(
         .flat_map(|idx| pixel_to_rgb(buf.get(idx).copied().unwrap_or(0)))
         .collect();
 
-    let timestamp = chrono::Local::now().format("%Y%m%dT%H%M%S");
-    let filename = format!("mmterm-{timestamp}.png");
+    let filename = if name.trim().is_empty() {
+        let timestamp = chrono::Local::now().format("%Y%m%dT%H%M%S");
+        format!("mmterm-{timestamp}.png")
+    } else {
+        let sanitized = sanitize_screenshot_name(name.trim());
+        format!("{sanitized}.png")
+    };
     let path = dir.join(&filename);
     let img = image::RgbImage::from_raw(w, h, rgb)
         .ok_or_else(|| anyhow::anyhow!("invalid image dimensions {w}x{h}"))?;

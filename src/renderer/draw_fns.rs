@@ -70,6 +70,7 @@ pub(super) fn mode_style(
         InputMode::CommandPalette { .. } => ("PALETTE", color_u32(theme.palette[6])),
         InputMode::QuitSave => ("INSERT", color_u32(theme.palette[2])),
         InputMode::Screenshot { .. } => ("SHOT", color_u32(theme.palette[3])),
+        InputMode::ScreenshotName { .. } => ("SHOT", color_u32(theme.palette[3])),
     }
 }
 

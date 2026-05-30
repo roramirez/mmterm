@@ -14,6 +14,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - page up / page down now scroll the viewport in visual mode, extending the selection
 
 ### Added
+- screenshot name prompt: after selecting a region, a text input asks for a filename; Enter saves as `<name>.png`, empty input falls back to `mmterm-<timestamp>.png`, Esc cancels
 - `--scope <name>` flag to isolate session storage per named workspace (`~/.config/mmterm/sessions/<name>.toml`); also accepts `--scope=<name>` and `-s <name>`
 - `--list-scopes` flag to print all saved scope names and exit without launching the terminal
 - visual bell: BEL (0x07) triggers a `●` indicator next to the mode badge in the status bar (150 ms, yellow); a 500 ms cooldown suppresses repeated bells (e.g. tab-completion spam); optional screen flash can be enabled with `visual_bell = true` in `[general]` (default `false`)
