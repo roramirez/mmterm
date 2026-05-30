@@ -449,8 +449,7 @@ impl ConfigPanel {
         }
     }
 
-    /// Jump to the next section header in visible order, wrapping around.
-    pub fn jump_section_forward(&mut self) {
+    fn jump_section(&mut self, forward: bool) {
         let vis = self.visible_indices();
         let headers: Vec<usize> = vis
             .iter()
@@ -465,27 +464,21 @@ impl ConfigPanel {
             .iter()
             .position(|&i| self.fields[i].section == cur_sec)
             .unwrap_or(0);
-        self.selected = headers[(cur_pos + 1) % headers.len()];
+        self.selected = if forward {
+            headers[(cur_pos + 1) % headers.len()]
+        } else {
+            headers[cur_pos.checked_sub(1).unwrap_or(headers.len() - 1)]
+        };
+    }
+
+    /// Jump to the next section header in visible order, wrapping around.
+    pub fn jump_section_forward(&mut self) {
+        self.jump_section(true);
     }
 
     /// Jump to the previous section header in visible order, wrapping around.
     pub fn jump_section_backward(&mut self) {
-        let vis = self.visible_indices();
-        let headers: Vec<usize> = vis
-            .iter()
-            .copied()
-            .filter(|&i| self.fields[i].section.is_some())
-            .collect();
-        if headers.len() <= 1 {
-            return;
-        }
-        let cur_sec = self.section_of(self.selected);
-        let cur_pos = headers
-            .iter()
-            .position(|&i| self.fields[i].section == cur_sec)
-            .unwrap_or(0);
-        let prev = cur_pos.checked_sub(1).unwrap_or(headers.len() - 1);
-        self.selected = headers[prev];
+        self.jump_section(false);
     }
 
     /// Number of body fields hidden when `sec` is collapsed (excludes the header itself).

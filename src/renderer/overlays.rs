@@ -74,6 +74,23 @@ fn hint_text_y(top: u32, bottom: u32, line_h: u32, bh: u32) -> u32 {
     }
 }
 
+fn collapse_indicator(is_collapsed: bool) -> &'static str {
+    if is_collapsed { "[+]" } else { "[-]" }
+}
+
+fn config_panel_hint(panel: &ConfigPanel) -> String {
+    match panel.fields[panel.selected].section {
+        Some(sec) => {
+            if panel.collapsed.contains(sec) {
+                "Space: expand section  ]: next section  [: prev section".to_string()
+            } else {
+                "Space: collapse section  ]: next section  [: prev section".to_string()
+            }
+        }
+        None => format!("hint: {}", panel.fields[panel.selected].hint),
+    }
+}
+
 struct FieldRowLayout {
     px: u32,
     panel_w: u32,
@@ -165,13 +182,75 @@ fn blit_glyph_badge(
 }
 
 impl Renderer {
-    pub fn draw_config_panel(&mut self, buf: &mut [u32], bw: u32, bh: u32, panel: &ConfigPanel) {
-        dim_buffer(buf);
-
+    fn panel_font_metrics(&mut self) -> (f32, u32, u32) {
         let fp = self.status_font_px;
         let cw = self.glyphs.rasterize('M', fp, false).1;
         let row_h = (fp * 1.6) as u32 + 4;
-        let section_h = row_h - 2;
+        (fp, cw, row_h)
+    }
+
+    /// Draws the section separator rule and label/indicator row.
+    /// Returns `Some(new_draw_y)` to continue the field loop, or `None` if
+    /// the panel viewport is exhausted and the caller should break.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_config_section_header(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        panel: &ConfigPanel,
+        sec: &'static str,
+        i: usize,
+        draw_y: u32,
+        clip_y: u32,
+        l: &FieldRowLayout,
+    ) -> Option<u32> {
+        let section_h = l.row_h - 2;
+        fill_rect(buf, bw, l.px + 1, draw_y, l.panel_w - 2, 1, C_SECTION_RULE);
+        let is_collapsed = panel.collapsed.contains(sec);
+        let count = panel.collapsed_count(sec);
+        let sec_label = if is_collapsed {
+            format!("── {} ({}) ", sec, count)
+        } else {
+            format!("── {} ", sec)
+        };
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            l.px + l.pad,
+            draw_y + 1,
+            &sec_label,
+            l.fp,
+            true,
+            C_DIM,
+        );
+        let indicator = collapse_indicator(is_collapsed);
+        let ind_color = if i == l.sel { C_LABEL_SEL } else { C_DIM };
+        let ind_x = l.px + l.panel_w - l.cw * indicator.len() as u32 - l.pad;
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            ind_x,
+            draw_y + 1,
+            indicator,
+            l.fp,
+            false,
+            ind_color,
+        );
+        let new_y = draw_y + section_h;
+        if new_y + l.row_h > clip_y {
+            None
+        } else {
+            Some(new_y)
+        }
+    }
+
+    pub fn draw_config_panel(&mut self, buf: &mut [u32], bw: u32, bh: u32, panel: &ConfigPanel) {
+        dim_buffer(buf);
+
+        let (fp, cw, row_h) = self.panel_font_metrics();
         let pad = cw;
 
         let panel_w = (bw as f32 * 0.65) as u32;
@@ -230,51 +309,14 @@ impl Renderer {
             if draw_y + row_h > clip_y {
                 break;
             }
-
-            let field = &panel.fields[i];
-
-            // Section header
-            if let Some(sec) = field.section {
-                fill_rect(buf, bw, px + 1, draw_y, panel_w - 2, 1, C_SECTION_RULE);
-                let is_collapsed = panel.collapsed.contains(sec);
-                let count = panel.collapsed_count(sec);
-                let sec_label = if is_collapsed {
-                    format!("── {} ({}) ", sec, count)
-                } else {
-                    format!("── {} ", sec)
-                };
-                self.draw_str(
-                    buf,
-                    bw,
-                    bh,
-                    px + pad,
-                    draw_y + 1,
-                    &sec_label,
-                    fp,
-                    true,
-                    C_DIM,
-                );
-                // Collapse indicator [+] / [-]
-                let indicator = if is_collapsed { "[+]" } else { "[-]" };
-                let ind_color = if i == sel { C_LABEL_SEL } else { C_DIM };
-                let ind_x = px + panel_w - cw * indicator.len() as u32 - pad;
-                self.draw_str(
-                    buf,
-                    bw,
-                    bh,
-                    ind_x,
-                    draw_y + 1,
-                    indicator,
-                    fp,
-                    false,
-                    ind_color,
-                );
-                draw_y += section_h;
-                if draw_y + row_h > clip_y {
-                    break;
+            if let Some(sec) = panel.fields[i].section {
+                match self
+                    .draw_config_section_header(buf, bw, bh, panel, sec, i, draw_y, clip_y, &layout)
+                {
+                    Some(new_y) => draw_y = new_y,
+                    None => break,
                 }
             }
-
             self.draw_config_field_row(buf, bw, bh, panel, i, draw_y, &layout);
             draw_y += row_h;
         }
@@ -283,19 +325,7 @@ impl Renderer {
         let footer_y = py + panel_h - row_h * footer_rows;
         fill_rect(buf, bw, px + 1, footer_y, panel_w - 2, 1, C_FOOTER_SEP);
 
-        let hint = if panel.fields[panel.selected].section.is_some() {
-            let is_collapsed = panel.fields[panel.selected]
-                .section
-                .map(|s| panel.collapsed.contains(s))
-                .unwrap_or(false);
-            if is_collapsed {
-                "Space: expand section  ]: next section  [: prev section".to_string()
-            } else {
-                "Space: collapse section  ]: next section  [: prev section".to_string()
-            }
-        } else {
-            format!("hint: {}", panel.fields[panel.selected].hint)
-        };
+        let hint = config_panel_hint(panel);
         self.draw_str(buf, bw, bh, px + pad, footer_y + 2, &hint, fp, false, C_DIM);
 
         let status_y = py + panel_h - row_h;
@@ -377,11 +407,7 @@ impl Renderer {
         // For section-header fields show [+]/[-] badge on the row itself so the
         // collapse affordance is visible on the highlighted row, not just above it.
         if let Some(sec) = field.section.filter(|_| is_sel) {
-            let ind = if panel.collapsed.contains(sec) {
-                "[+]"
-            } else {
-                "[-]"
-            };
+            let ind = collapse_indicator(panel.collapsed.contains(sec));
             let bx = l.px + l.panel_w - l.cw * ind.len() as u32 - l.pad;
             self.draw_str(buf, bw, bh, bx, draw_y + 2, ind, l.fp, false, C_LABEL_SEL);
         }
@@ -399,9 +425,7 @@ impl Renderer {
     ) {
         dim_buffer(buf);
 
-        let fp = self.status_font_px;
-        let cw = self.glyphs.rasterize('M', fp, false).1;
-        let row_h = (fp * 1.6) as u32 + 4;
+        let (fp, cw, row_h) = self.panel_font_metrics();
 
         const MAX_VISIBLE: usize = 10;
         let visible = entries.len().min(MAX_VISIBLE);
@@ -597,9 +621,7 @@ impl Renderer {
         dim_outside_rect(buf, bw, bh, left, top, right, bottom);
         self.draw_selection_border(buf, bw, left, top, sel_w, sel_h);
 
-        let fp = self.status_font_px;
-        let cw = self.glyphs.rasterize('M', fp, false).1;
-        let row_h = (fp * 1.6) as u32 + 4;
+        let (fp, cw, row_h) = self.panel_font_metrics();
         let pad = cw * 2;
 
         let label = "Name: ";
@@ -609,8 +631,8 @@ impl Renderer {
         let bx = bw.saturating_sub(box_w) / 2;
         let by = bh.saturating_sub(box_h + 8);
 
-        fill_rect(buf, bw, bx, by, box_w, box_h, 0xff_1a_1b_26);
-        draw_rect_border(buf, bw, bx, by, box_w, box_h, 0xff_89_b4_fa);
+        fill_rect(buf, bw, bx, by, box_w, box_h, C_PANEL_BG);
+        draw_rect_border(buf, bw, bx, by, box_w, box_h, C_BORDER);
         self.draw_str(
             buf,
             bw,
@@ -620,14 +642,14 @@ impl Renderer {
             &display,
             fp,
             false,
-            0xff_cb_d5_f5,
+            C_QUERY_TEXT,
         );
 
         let hint = "Enter save  (empty = mmterm-<timestamp>.png)   Esc cancel";
         let hint_w = hint.chars().count() as u32 * cw;
         let hint_x = bw.saturating_sub(hint_w) / 2;
         let hint_y = by.saturating_sub(row_h + 2);
-        self.draw_str(buf, bw, bh, hint_x, hint_y, hint, fp, false, 0xff_58_5b_70);
+        self.draw_str(buf, bw, bh, hint_x, hint_y, hint, fp, false, C_DIM);
     }
 
     pub fn draw_quit_confirm(&mut self, buf: &mut [u32], bw: u32, bh: u32, theme: &ResolvedTheme) {
