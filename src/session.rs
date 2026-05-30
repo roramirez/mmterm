@@ -38,19 +38,45 @@ pub enum SavedSplitDir {
     V,
 }
 
-pub fn session_path() -> PathBuf {
-    dirs_next::config_dir()
+/// Returns the session file path for the given scope.
+///
+/// - `None`  → `~/.config/mmterm/session.toml` (default)
+/// - `Some(name)` → `~/.config/mmterm/sessions/<name>.toml`
+pub fn session_path_for(scope: Option<&str>) -> PathBuf {
+    let base = dirs_next::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("mmterm")
-        .join("session.toml")
+        .join("mmterm");
+    match scope {
+        None => base.join("session.toml"),
+        Some(name) => base.join("sessions").join(format!("{name}.toml")),
+    }
 }
 
-pub fn save(session: &SavedSession) -> anyhow::Result<()> {
-    save_to(&session_path(), session)
+/// Returns a sorted list of saved scope names (stems of `*.toml` in the
+/// `sessions/` sub-directory of the mmterm config dir).
+pub fn list_scopes() -> Vec<String> {
+    list_scopes_in(&{
+        dirs_next::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("mmterm")
+            .join("sessions")
+    })
 }
 
-pub fn load() -> Option<SavedSession> {
-    load_from(&session_path())
+pub(crate) fn list_scopes_in(dir: &std::path::Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return vec![];
+    };
+    let mut names: Vec<String> = entries
+        .filter_map(|e| {
+            let e = e.ok()?;
+            let raw = e.file_name();
+            let s = raw.to_string_lossy();
+            s.strip_suffix(".toml").map(|stem| stem.to_string())
+        })
+        .collect();
+    names.sort();
+    names
 }
 
 pub(crate) fn save_to(path: &std::path::Path, session: &SavedSession) -> anyhow::Result<()> {

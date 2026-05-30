@@ -1,6 +1,129 @@
 use super::*;
 use std::path::PathBuf;
 
+// ── session_path_for tests ────────────────────────────────────────────────────
+
+#[test]
+fn session_path_for_none_ends_with_default() {
+    let p = session_path_for(None);
+    assert!(
+        p.ends_with("mmterm/session.toml"),
+        "expected path ending with mmterm/session.toml, got: {}",
+        p.display()
+    );
+}
+
+#[test]
+fn session_path_for_scope_work() {
+    let p = session_path_for(Some("work"));
+    assert!(
+        p.ends_with("mmterm/sessions/work.toml"),
+        "expected path ending with mmterm/sessions/work.toml, got: {}",
+        p.display()
+    );
+}
+
+#[test]
+fn session_path_for_scope_with_dashes() {
+    let p = session_path_for(Some("my-project"));
+    assert!(
+        p.ends_with("mmterm/sessions/my-project.toml"),
+        "got: {}",
+        p.display()
+    );
+}
+
+// ── list_scopes_in tests ──────────────────────────────────────────────────────
+
+#[test]
+fn list_scopes_in_empty_dir_returns_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let sessions = dir.path().join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    assert_eq!(list_scopes_in(&sessions), Vec::<String>::new());
+}
+
+#[test]
+fn list_scopes_in_nonexistent_dir_returns_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let sessions = dir.path().join("sessions_does_not_exist");
+    assert_eq!(list_scopes_in(&sessions), Vec::<String>::new());
+}
+
+#[test]
+fn list_scopes_in_returns_sorted_stems() {
+    let dir = tempfile::tempdir().unwrap();
+    let sessions = dir.path().join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("c.toml"), "").unwrap();
+    std::fs::write(sessions.join("a.toml"), "").unwrap();
+    std::fs::write(sessions.join("b.toml"), "").unwrap();
+    assert_eq!(list_scopes_in(&sessions), vec!["a", "b", "c"]);
+}
+
+#[test]
+fn list_scopes_in_ignores_non_toml_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let sessions = dir.path().join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("work.toml"), "").unwrap();
+    std::fs::write(sessions.join("README.md"), "").unwrap();
+    std::fs::write(sessions.join("tmp.bak"), "").unwrap();
+    assert_eq!(list_scopes_in(&sessions), vec!["work"]);
+}
+
+#[test]
+fn list_scopes_in_strips_only_trailing_toml() {
+    let dir = tempfile::tempdir().unwrap();
+    let sessions = dir.path().join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    // "my.scope.toml" → stem should be "my.scope"
+    std::fs::write(sessions.join("my.scope.toml"), "").unwrap();
+    assert_eq!(list_scopes_in(&sessions), vec!["my.scope"]);
+}
+
+// ── scoped save/load round-trip ───────────────────────────────────────────────
+
+#[test]
+fn scoped_save_to_and_load_from_roundtrip() {
+    let dir = tempfile::tempdir().unwrap();
+    // Simulate ~/.config/mmterm/sessions/test-scope.toml
+    let path = dir
+        .path()
+        .join("mmterm")
+        .join("sessions")
+        .join("test-scope.toml");
+    let session = simple_session();
+    save_to(&path, &session).expect("save_to failed");
+    let loaded = load_from(&path).expect("load_from returned None");
+    assert_eq!(loaded.active_tab, session.active_tab);
+    assert_eq!(loaded.tabs[0].pane_cwds[0], PathBuf::from("/tmp"));
+}
+
+#[test]
+fn scoped_save_creates_sessions_parent_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("mmterm").join("sessions").join("work.toml");
+    // Parent doesn't exist yet — save_to must create it.
+    assert!(!path.parent().unwrap().exists());
+    save_to(&path, &simple_session()).expect("save_to should create parent dirs");
+    assert!(path.exists());
+}
+
+#[test]
+fn default_and_scoped_paths_are_different() {
+    let default = session_path_for(None);
+    let scoped = session_path_for(Some("work"));
+    assert_ne!(default, scoped);
+}
+
+#[test]
+fn two_scopes_produce_different_paths() {
+    let a = session_path_for(Some("work"));
+    let b = session_path_for(Some("personal"));
+    assert_ne!(a, b);
+}
+
 fn leaf(slot: usize) -> SavedNode {
     SavedNode::Leaf { slot }
 }

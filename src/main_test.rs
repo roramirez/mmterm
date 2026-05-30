@@ -55,7 +55,7 @@ fn make_app() -> Option<App> {
     // Keep el alive long enough for proxy to be valid, then leak it.
     // The proxy remains usable after the EventLoop is dropped on Linux.
     std::mem::forget(el);
-    Some(App::new(Config::default(), proxy))
+    Some(App::new(Config::default(), proxy, None))
 }
 
 #[test]
@@ -145,16 +145,112 @@ fn help_output_contains_all_flags() {
          Usage: mmterm [OPTIONS]\n\
          \n\
          Options:\n\
-           --version, -V    Print version and exit\n\
-           --help,    -h    Print this help and exit\n\
-           --debug          Enable debug logging to ~/.mmterm/debug-<ts>.log"
+           --version, -V       Print version and exit\n\
+           --help,    -h       Print this help and exit\n\
+           --debug             Enable debug logging to ~/.mmterm/debug-<ts>.log\n\
+           --scope <name>      Use a named session scope (~/.config/mmterm/sessions/<name>.toml)\n\
+           --scope=<name>      Same as --scope <name>\n\
+           -s <name>           Short form of --scope\n\
+           --list-scopes       Print all saved scope names and exit"
     );
     assert!(text.contains("--version"));
     assert!(text.contains("-V"));
     assert!(text.contains("--help"));
     assert!(text.contains("-h"));
     assert!(text.contains("--debug"));
+    assert!(text.contains("--scope"));
+    assert!(text.contains("--list-scopes"));
     assert!(text.contains(version));
+}
+
+// ── scope_from_args tests ─────────────────────────────────────────────────────
+
+#[test]
+fn scope_from_args_none_when_absent() {
+    assert_eq!(scope_from_args(str_args(&["mmterm"])), None);
+}
+
+#[test]
+fn scope_from_args_long_form_space() {
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "--scope", "work"])),
+        Some("work".to_string())
+    );
+}
+
+#[test]
+fn scope_from_args_long_form_equals() {
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "--scope=my-project"])),
+        Some("my-project".to_string())
+    );
+}
+
+#[test]
+fn scope_from_args_short_form() {
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "-s", "proj"])),
+        Some("proj".to_string())
+    );
+}
+
+#[test]
+fn scope_from_args_no_value_after_flag_returns_none() {
+    // --scope with nothing following must not panic
+    assert_eq!(scope_from_args(str_args(&["mmterm", "--scope"])), None);
+}
+
+#[test]
+fn scope_from_args_flags_before_scope() {
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "--debug", "--scope", "dev"])),
+        Some("dev".to_string())
+    );
+}
+
+#[test]
+fn scope_from_args_first_value_wins() {
+    // If --scope appears twice, the first value is returned.
+    assert_eq!(
+        scope_from_args(str_args(&[
+            "mmterm", "--scope", "first", "--scope", "second"
+        ])),
+        Some("first".to_string())
+    );
+}
+
+#[test]
+fn scope_from_args_unrelated_flags_only() {
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "--debug", "--version"])),
+        None
+    );
+}
+
+// ── list_scopes_requested tests ───────────────────────────────────────────────
+
+#[test]
+fn list_scopes_requested_absent() {
+    assert!(!list_scopes_requested(str_args(&["mmterm"])));
+    assert!(!list_scopes_requested(str_args(&["mmterm", "--debug"])));
+}
+
+#[test]
+fn list_scopes_requested_present() {
+    assert!(list_scopes_requested(str_args(&[
+        "mmterm",
+        "--list-scopes"
+    ])));
+}
+
+#[test]
+fn list_scopes_requested_with_other_flags() {
+    assert!(list_scopes_requested(str_args(&[
+        "mmterm",
+        "--scope",
+        "x",
+        "--list-scopes"
+    ])));
 }
 
 #[test]

@@ -68,6 +68,8 @@ struct App {
     last_pty_data: Option<Instant>,
     /// Pending screenshot crop [x, y, w, h]; captured in redraw() before overlays are drawn.
     pending_screenshot: Option<[u32; 4]>,
+    /// Named session scope from `--scope <name>`; `None` means the default session.
+    scope: Option<String>,
 }
 
 fn bracketed_paste_encode(text: &str, bracketed: bool) -> Vec<u8> {
@@ -83,7 +85,7 @@ fn bracketed_paste_encode(text: &str, bracketed: bool) -> Vec<u8> {
 }
 
 impl App {
-    fn new(config: Config, proxy: EventLoopProxy<()>) -> Self {
+    fn new(config: Config, proxy: EventLoopProxy<()>, scope: Option<String>) -> Self {
         let renderer = Renderer::new(&config.font.family, config.font.size);
         let td = themes_dir();
         install_bundled_themes(&td);
@@ -104,6 +106,7 @@ impl App {
             wakeup_pending,
             last_pty_data: None,
             pending_screenshot: None,
+            scope,
         }
     }
 
@@ -533,7 +536,8 @@ impl App {
                 }
                 AppEffect::SaveSessionAndQuit => {
                     let s = self.build_saved_session();
-                    if let Err(e) = session::save(&s) {
+                    let path = session::session_path_for(self.scope.as_deref());
+                    if let Err(e) = session::save_to(&path, &s) {
                         log::warn!("session save failed: {e}");
                     }
                     event_loop.exit();
@@ -994,8 +998,9 @@ impl ApplicationHandler for App {
         let surface = softbuffer::Surface::new(&ctx, window.clone()).unwrap();
 
         let size = window.inner_size();
+        let session_path = session::session_path_for(self.scope.as_deref());
         let did_restore = self.state.config.general.restore_session
-            && session::load()
+            && session::load_from(&session_path)
                 .map(|s| self.restore_session(s, size.width, size.height))
                 .unwrap_or(false);
         if !did_restore {
@@ -1150,11 +1155,36 @@ A cross-platform CPU-rendered terminal emulator.
 Usage: mmterm [OPTIONS]
 
 Options:
-  --version, -V    Print version and exit
-  --help,    -h    Print this help and exit
-  --debug          Enable debug logging to ~/.mmterm/debug-<ts>.log",
+  --version, -V       Print version and exit
+  --help,    -h       Print this help and exit
+  --debug             Enable debug logging to ~/.mmterm/debug-<ts>.log
+  --scope <name>      Use a named session scope (~/.config/mmterm/sessions/<name>.toml)
+  --scope=<name>      Same as --scope <name>
+  -s <name>           Short form of --scope
+  --list-scopes       Print all saved scope names and exit",
         version = env!("MMTERM_VERSION")
     );
+}
+
+/// Extracts the `--scope <name>` / `--scope=<name>` / `-s <name>` value from args.
+pub(crate) fn scope_from_args(args: impl Iterator<Item = String>) -> Option<String> {
+    let args: Vec<String> = args.collect();
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--scope" || args[i] == "-s" {
+            return args.get(i + 1).cloned();
+        }
+        if let Some(val) = args[i].strip_prefix("--scope=") {
+            return Some(val.to_string());
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Returns `true` if `--list-scopes` appears in the given argument iterator.
+pub(crate) fn list_scopes_requested(mut args: impl Iterator<Item = String>) -> bool {
+    args.any(|a| a == "--list-scopes")
 }
 
 /// Returns the debug log path when `--debug` is in argv, otherwise `None`.
@@ -1242,10 +1272,19 @@ fn main() {
         log::info!("debug logging enabled → {path}");
     }
 
+    if list_scopes_requested(std::env::args()) {
+        for name in session::list_scopes() {
+            println!("{name}");
+        }
+        return;
+    }
+
+    let scope = scope_from_args(std::env::args());
+
     Config::write_default_if_missing();
     let config = Config::load();
     let event_loop = EventLoop::new().unwrap();
     let proxy = event_loop.create_proxy();
-    let mut app = App::new(config, proxy);
+    let mut app = App::new(config, proxy, scope);
     event_loop.run_app(&mut app).unwrap();
 }
