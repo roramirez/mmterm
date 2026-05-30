@@ -1514,6 +1514,84 @@ fn visual_arrow_down_moves_cursor() {
     assert_eq!(row, 6);
 }
 
+// ── Visual: page up / page down ──────────────────────────────────────────────
+
+#[test]
+fn visual_page_up_scrolls_full_page() {
+    let mode = visual_at(0, 0, 5, 10);
+    let a = handle_key_inner(
+        &named(NamedKey::PageUp),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryUp(24)));
+}
+
+#[test]
+fn visual_page_down_scrolls_full_page() {
+    let mode = visual_at(0, 0, 5, 10);
+    let a = handle_key_inner(
+        &named(NamedKey::PageDown),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryDown(24)));
+}
+
+#[test]
+fn visual_page_up_with_anchored_selection() {
+    let mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 5,
+        cur_col: 3,
+        cur_row: 10,
+        anchored: true,
+    };
+    let a = handle_key_inner(
+        &named(NamedKey::PageUp),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryUp(24)));
+}
+
+#[test]
+fn visual_page_down_with_anchored_selection() {
+    let mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 5,
+        cur_col: 3,
+        cur_row: 10,
+        anchored: true,
+    };
+    let a = handle_key_inner(
+        &named(NamedKey::PageDown),
+        false,
+        false,
+        false,
+        &mode,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualBoundaryDown(24)));
+}
+
 // ── Visual: catch-all returns None ───────────────────────────────────────────
 
 #[test]

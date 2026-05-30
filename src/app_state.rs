@@ -304,7 +304,7 @@ impl AppState {
         {
             self.mode = InputMode::Visual {
                 start_col,
-                start_row: (start_row + n).min(grid_rows.saturating_sub(1)),
+                start_row: start_row + n,
                 cur_col,
                 cur_row: (cur_row + n).min(grid_rows.saturating_sub(1)),
                 anchored,
@@ -399,11 +399,12 @@ impl AppState {
                     anchored,
                 } = self.mode.clone()
                 {
+                    let grid_rows = self.active_grid_rows();
                     self.mode = InputMode::Visual {
                         start_col: cur_col,
                         start_row: cur_row,
                         cur_col: start_col,
-                        cur_row: start_row,
+                        cur_row: start_row.min(grid_rows.saturating_sub(1)),
                         anchored,
                     };
                 }
@@ -432,7 +433,6 @@ impl AppState {
     }
 
     fn visual_boundary_scroll_up(&mut self, n: usize) {
-        let grid_rows = self.active_grid_rows();
         if let Some(e) = self.active_entry_mut() {
             e.pane.scroll_up(n);
         }
@@ -446,7 +446,7 @@ impl AppState {
         {
             self.mode = InputMode::Visual {
                 start_col,
-                start_row: (start_row + n).min(grid_rows.saturating_sub(1)),
+                start_row: start_row + n,
                 cur_col,
                 cur_row: 0,
                 anchored,

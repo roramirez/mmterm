@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- visual mode selection spanning multiple pages now copies all selected lines; previously `start_row` was clamped to the viewport height, so only the last page of a multi-page selection was copied
+
+### Changed
+- page up / page down now scroll the viewport in visual mode, extending the selection
+
 ### Added
 - test coverage for `app_state`, `command_palette`, and `renderer/overlays` modules: all dispatch_action arms, nudge_half, screenshot mode, rotate panes, search cycling, command palette entry construction, and overlay draw functions
 - test coverage for `views`, `drain`, and `session` modules: pane view collection, tab title building, PTY byte draining, bell flash, clipboard handling, and session I/O round-trips
