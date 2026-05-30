@@ -85,21 +85,15 @@ fn no_zombie_after_child_exits() {
     // Poll until the /proc entry disappears (fully reaped) or the deadline.
     // A transient Z state while the reaper thread is being scheduled is
     // acceptable; we only fail if the process is still a zombie at deadline.
-    let mut last_zombie = false;
     loop {
-        match std::fs::read_to_string(&status_path) {
-            Err(_) => {
-                // /proc entry gone — process fully reaped, test passes.
-                return;
-            }
-            Ok(contents) => {
-                last_zombie = contents
-                    .lines()
-                    .find(|l| l.starts_with("State:"))
-                    .map(|l| l.contains('Z'))
-                    .unwrap_or(false);
-            }
-        }
+        let last_zombie = match std::fs::read_to_string(&status_path) {
+            Err(_) => return, // /proc entry gone — process fully reaped, test passes.
+            Ok(contents) => contents
+                .lines()
+                .find(|l| l.starts_with("State:"))
+                .map(|l| l.contains('Z'))
+                .unwrap_or(false),
+        };
 
         if Instant::now() >= deadline {
             assert!(

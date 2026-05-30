@@ -198,7 +198,6 @@ fn next_bell_wakeup_no_tabs_returns_default() {
 #[test]
 fn next_bell_wakeup_no_active_bell_returns_default() {
     use crate::app_state::TabState;
-    use crate::renderer::FontMetrics;
     use crate::renderer::Renderer;
     use crate::ui::Layout;
     use std::collections::HashMap;
@@ -224,7 +223,6 @@ fn next_bell_wakeup_no_active_bell_returns_default() {
 #[test]
 fn next_bell_wakeup_active_bell_returns_earlier() {
     use crate::app_state::TabState;
-    use crate::renderer::FontMetrics;
     use crate::renderer::Renderer;
     use crate::ui::Layout;
     use std::collections::HashMap;
