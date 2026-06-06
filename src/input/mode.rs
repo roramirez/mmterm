@@ -15,9 +15,11 @@ pub enum InputMode {
     RenameTab {
         buf: String,
     },
-    /// Scrollback search: query holds the pattern being typed
+    /// Scrollback search: query holds the pattern being typed.
+    /// `history_pos` is `Some((idx, len))` while the user browses previous queries with ↑/↓.
     Search {
         query: String,
+        history_pos: Option<(usize, usize)>,
     },
     /// Command palette: query filters actions; selected is index into filtered list
     CommandPalette {

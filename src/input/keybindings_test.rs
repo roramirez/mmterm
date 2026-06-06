@@ -175,6 +175,7 @@ fn ctrl_dot_from_visual_enters_insert() {
 fn ctrl_dot_from_search_enters_insert() {
     let mode = InputMode::Search {
         query: String::new(),
+        history_pos: None,
     };
     let a = handle_key_inner(&char_key("."), true, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::SetMode(InputMode::Insert)));
@@ -1344,6 +1345,7 @@ fn rename_tab_mode_returns_none() {
 fn search_mode_returns_none() {
     let mode = InputMode::Search {
         query: "foo".into(),
+        history_pos: None,
     };
     let a = handle_key_inner(&char_key("a"), false, false, false, &mode, 80, 24, false);
     assert!(matches!(a, Action::None));

@@ -191,6 +191,19 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
   `abs_row ∈ [0, scrollback_len)` is a scrollback line and
   `abs_row ∈ [scrollback_len, scrollback_len + grid.rows)` is a live grid row.
 
+### Search History
+- Stored in `~/.config/mmterm/search_history` (plain text, zsh `EXTENDED_HISTORY` format).
+- Each line: `: <unix_timestamp>:0;<query>` — compatible with standard history tools.
+- `↑` in Search mode loads the previous query (most recent first); current draft saved in `AppState.search_before_history`.
+- `↓` advances toward the newest entry; past the last entry restores the draft.
+- Typing or `Backspace` while browsing history exits navigation (`history_pos` reset to `None`).
+- History saved atomically (`.tmp` → rename) on `Escape` or `Enter` when query is non-empty.
+- Deduplication: repeated queries move to the end (most recent wins).
+- Cap: 50 entries; oldest discarded when limit is exceeded.
+- `InputMode::Search { history_pos: Option<(usize, usize)> }` — `Some((idx, len))` while browsing.
+- Status bar shows `[hist N/M]` alongside the match count while navigating history.
+- `AppState.search_history: Vec<String>` populated from disk at startup via `history::load_search_history()`.
+
 ### Configuration
 - TOML file at `$XDG_CONFIG_HOME/mmterm/config.toml`
   (created with defaults on first run).

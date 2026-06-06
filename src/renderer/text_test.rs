@@ -132,6 +132,7 @@ fn mode_style_returns_badge_for_each_mode() {
     let (label, _) = mode_style(
         &InputMode::Search {
             query: String::new(),
+            history_pos: None,
         },
         false,
         &theme,
@@ -255,6 +256,7 @@ fn draw_status_bar_renders_without_panic() {
         &[],
         &InputMode::Search {
             query: "hello".to_string(),
+            history_pos: None,
         },
         false,
         &[],
@@ -344,6 +346,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &[],
         &InputMode::Search {
             query: String::new(),
+            history_pos: None,
         },
         false,
         &[],
@@ -368,6 +371,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &[],
         &InputMode::Search {
             query: String::new(),
+            history_pos: None,
         },
         false,
         &[],
@@ -1037,6 +1041,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         &[],
         &InputMode::Search {
             query: String::new(),
+            history_pos: None,
         },
         false,
         &[],
@@ -1068,6 +1073,7 @@ fn draw_status_bar_search_no_matches_shows_label() {
         &[],
         &InputMode::Search {
             query: "xyz".to_string(),
+            history_pos: None,
         },
         false,
         &[],

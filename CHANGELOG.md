@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- search history: ↑/↓ in search mode navigates previous queries; status bar shows `[hist N/M]` while browsing
+- search history persisted to `~/.config/mmterm/search_history` in zsh EXTENDED_HISTORY format (`: <unix_ts>:0;<query>`)
+
 ### Changed
 - screenshot mode: arrow keys move the frame; shift+arrows resize only the right/bottom edge (left/top stays fixed)
 

@@ -13,7 +13,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Modal input** — Insert, Normal, Visual, and Search modes (vim-style)
 - **Split panes** — binary-tree layout, horizontal and vertical splits; drag separators or use `Ctrl+Shift+Arrow` to resize
 - **Multi-tab** — independent pane trees and font metrics per tab
-- **Scrollback search** — live match highlighting across 10 000-line buffer
+- **Scrollback search** — live match highlighting across 10 000-line buffer; history navigable with ↑/↓, persisted to `~/.config/mmterm/search_history`
 - **Themes** — 9 built-in themes; custom themes via `~/.config/mmterm/themes/`
 - **OSC 8 hyperlinks** — clickable URLs rendered in the terminal
 - **OSC 52 clipboard sync** — copy/paste over SSH without extra tools
@@ -205,6 +205,8 @@ visual_bell = true   # default: false
 |---|---|
 | `/` | Open search |
 | `Enter` | Next match |
+| `↑` / `↓` | Navigate search history |
+| `Ctrl+C` | Copy current match |
 | `n` / `N` | Next / previous match (Normal mode) |
 | `Escape` | Exit search |
 

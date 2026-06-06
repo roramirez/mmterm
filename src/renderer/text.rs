@@ -700,13 +700,18 @@ impl Renderer {
         px: f32,
         color: u32,
     ) {
-        if let InputMode::Search { query } = mode {
-            let info = if query.is_empty() {
+        if let InputMode::Search { query, history_pos } = mode {
+            let base = if query.is_empty() {
                 "/".to_string()
             } else if search_total == 0 {
                 format!("/{query}  [no matches]")
             } else {
                 format!("/{query}  [{}/{}]", search_current + 1, search_total)
+            };
+            let info = if let Some((pos, len)) = history_pos {
+                format!("{base}  [hist {}/{}]", pos + 1, len)
+            } else {
+                base
             };
             self.draw_str(buf, width, height, x, y, &info, px, false, color);
         }

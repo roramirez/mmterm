@@ -6,6 +6,7 @@ mod config;
 mod drain;
 mod font;
 mod geometry;
+mod history;
 mod input;
 mod input_ops;
 mod logging;
@@ -89,7 +90,8 @@ impl App {
             default_theme()
         });
         let wakeup_pending = Arc::new(AtomicBool::new(false));
-        let state = AppState::new(config, theme);
+        let mut state = AppState::new(config, theme);
+        state.search_history = history::load_search_history();
         Self {
             state,
             window: None,

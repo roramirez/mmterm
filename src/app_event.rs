@@ -38,24 +38,84 @@ fn cursor_icon_for_hover(hover_sep: Option<&SeparatorHandle>, has_url: bool) -> 
 
 impl App {
     pub(super) fn handle_search_key(&mut self, event: &winit::event::KeyEvent) {
-        let query = if let InputMode::Search { query } = &self.state.mode {
+        let query = if let InputMode::Search { query, .. } = &self.state.mode {
             query.clone()
         } else {
             return;
         };
         match &event.logical_key {
             Key::Named(NamedKey::Escape) => {
+                self.state.push_search_history(query);
+                crate::history::save_search_history(&self.state.search_history);
                 self.state.mode = InputMode::Normal;
                 self.state.search_matches.clear();
             }
             Key::Named(NamedKey::Enter) if !self.state.search_matches.is_empty() => {
+                self.state.push_search_history(query);
+                crate::history::save_search_history(&self.state.search_history);
                 let next = (self.state.search_current + 1) % self.state.search_matches.len();
                 self.scroll_to_match(next);
+            }
+            Key::Named(NamedKey::ArrowUp) => {
+                let len = self.state.search_history.len();
+                if len == 0 {
+                    return;
+                }
+                let history_pos = if let InputMode::Search { history_pos, .. } = &self.state.mode {
+                    *history_pos
+                } else {
+                    return;
+                };
+                let new_idx = match history_pos {
+                    None => {
+                        self.state.search_before_history = query.clone();
+                        len - 1
+                    }
+                    Some((0, _)) => 0,
+                    Some((i, _)) => i - 1,
+                };
+                let new_query = self.state.search_history[new_idx].clone();
+                self.state.mode = InputMode::Search {
+                    query: new_query,
+                    history_pos: Some((new_idx, len)),
+                };
+                self.update_search_matches();
+            }
+            Key::Named(NamedKey::ArrowDown) => {
+                let history_pos = if let InputMode::Search { history_pos, .. } = &self.state.mode {
+                    *history_pos
+                } else {
+                    return;
+                };
+                let len = self.state.search_history.len();
+                match history_pos {
+                    None => {}
+                    Some((i, _)) if i + 1 >= len => {
+                        let restored = self.state.search_before_history.clone();
+                        self.state.mode = InputMode::Search {
+                            query: restored,
+                            history_pos: None,
+                        };
+                        self.update_search_matches();
+                    }
+                    Some((i, _)) => {
+                        let new_idx = i + 1;
+                        let new_query = self.state.search_history[new_idx].clone();
+                        self.state.mode = InputMode::Search {
+                            query: new_query,
+                            history_pos: Some((new_idx, len)),
+                        };
+                        self.update_search_matches();
+                    }
+                }
             }
             Key::Named(NamedKey::Backspace) => {
                 let mut q = query;
                 q.pop();
-                self.state.mode = InputMode::Search { query: q };
+                self.state.mode = InputMode::Search {
+                    query: q,
+                    history_pos: None,
+                };
                 self.update_search_matches();
             }
             Key::Character(s) if s == "\x03" || s == "c" => {
@@ -64,7 +124,10 @@ impl App {
             Key::Character(s) => {
                 let mut q = query;
                 q.push_str(s);
-                self.state.mode = InputMode::Search { query: q };
+                self.state.mode = InputMode::Search {
+                    query: q,
+                    history_pos: None,
+                };
                 self.update_search_matches();
             }
             _ => {}
@@ -153,7 +216,7 @@ impl App {
 
     pub(super) fn update_search_matches(&mut self) {
         let query = match &self.state.mode {
-            InputMode::Search { query } => query.clone(),
+            InputMode::Search { query, .. } => query.clone(),
             _ => return,
         };
 

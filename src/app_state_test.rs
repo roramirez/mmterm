@@ -458,6 +458,7 @@ fn update_search_matches_finds_content() {
     }
     s.mode = InputMode::Search {
         query: "needle".to_string(),
+        history_pos: None,
     };
     s.update_search_matches();
     assert!(!s.search_matches.is_empty());
@@ -1108,4 +1109,48 @@ fn dispatch_search_prev_wraps_at_zero() {
     s.search_current = 0;
     s.dispatch_action(Action::SearchPrev);
     assert_eq!(s.search_current, 2);
+}
+
+// ── Search history ────────────────────────────────────────────────────────
+
+#[test]
+fn search_history_saves_nonempty_query() {
+    let mut s = make_state();
+    s.push_search_history("error".to_string());
+    assert_eq!(s.search_history, vec!["error"]);
+}
+
+#[test]
+fn search_history_ignores_empty_query() {
+    let mut s = make_state();
+    s.push_search_history(String::new());
+    assert!(s.search_history.is_empty());
+}
+
+#[test]
+fn search_history_dedup_moves_to_end() {
+    let mut s = make_state();
+    s.push_search_history("foo".to_string());
+    s.push_search_history("bar".to_string());
+    s.push_search_history("foo".to_string());
+    assert_eq!(s.search_history, vec!["bar", "foo"]);
+}
+
+#[test]
+fn search_history_cap_at_50() {
+    let mut s = make_state();
+    for i in 0..55usize {
+        s.push_search_history(format!("query{i}"));
+    }
+    assert_eq!(s.search_history.len(), 50);
+    assert_eq!(s.search_history[0], "query5");
+    assert_eq!(s.search_history[49], "query54");
+}
+
+#[test]
+fn search_history_clears_before_history_on_push() {
+    let mut s = make_state();
+    s.search_before_history = "draft".to_string();
+    s.push_search_history("committed".to_string());
+    assert!(s.search_before_history.is_empty());
 }

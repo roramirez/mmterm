@@ -79,6 +79,8 @@ pub struct AppState {
     pub mouse_selecting: bool,
     pub search_matches: Vec<(usize, usize, usize)>,
     pub search_current: usize,
+    pub search_history: Vec<String>,
+    pub search_before_history: String,
     pub hovered_url: Option<String>,
     pub swallow_next_tab: bool,
     pub theme: ResolvedTheme,
@@ -102,6 +104,8 @@ impl AppState {
             mouse_selecting: false,
             search_matches: Vec::new(),
             search_current: 0,
+            search_history: Vec::new(),
+            search_before_history: String::new(),
             hovered_url: None,
             swallow_next_tab: false,
             theme,
@@ -159,9 +163,21 @@ impl AppState {
 
     // ── Search ───────────────────────────────────────────────────────────────
 
+    pub fn push_search_history(&mut self, query: String) {
+        if query.is_empty() {
+            return;
+        }
+        self.search_history.retain(|q| q != &query);
+        self.search_history.push(query);
+        if self.search_history.len() > 50 {
+            self.search_history.remove(0);
+        }
+        self.search_before_history.clear();
+    }
+
     pub fn update_search_matches(&mut self) {
         let query = match &self.mode {
-            InputMode::Search { query } => query.clone(),
+            InputMode::Search { query, .. } => query.clone(),
             _ => return,
         };
         self.search_matches.clear();
@@ -638,8 +654,10 @@ impl AppState {
             Action::SearchOpen => {
                 self.search_matches.clear();
                 self.search_current = 0;
+                self.search_before_history.clear();
                 self.mode = InputMode::Search {
                     query: String::new(),
+                    history_pos: None,
                 };
                 vec![AppEffect::Redraw]
             }
