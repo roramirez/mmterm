@@ -2227,7 +2227,7 @@ fn ctrl_w_p_opens_screenshot() {
 }
 
 #[test]
-fn screenshot_arrow_right_grows_width() {
+fn screenshot_arrow_right_moves_right() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowRight),
         false,
@@ -2238,90 +2238,15 @@ fn screenshot_arrow_right_grows_width() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScreenshotResize(1, 0)));
+    assert!(matches!(a, Action::ScreenshotMove(20, 0)));
 }
 
 #[test]
-fn screenshot_arrow_left_shrinks_width() {
+fn screenshot_arrow_left_moves_left() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowLeft),
         false,
         false,
-        false,
-        &screenshot_mode(),
-        80,
-        24,
-        false,
-    );
-    assert!(matches!(a, Action::ScreenshotResize(-1, 0)));
-}
-
-#[test]
-fn screenshot_arrow_down_grows_height() {
-    let a = handle_key_inner(
-        &named(NamedKey::ArrowDown),
-        false,
-        false,
-        false,
-        &screenshot_mode(),
-        80,
-        24,
-        false,
-    );
-    assert!(matches!(a, Action::ScreenshotResize(0, 1)));
-}
-
-#[test]
-fn screenshot_arrow_up_shrinks_height() {
-    let a = handle_key_inner(
-        &named(NamedKey::ArrowUp),
-        false,
-        false,
-        false,
-        &screenshot_mode(),
-        80,
-        24,
-        false,
-    );
-    assert!(matches!(a, Action::ScreenshotResize(0, -1)));
-}
-
-#[test]
-fn screenshot_shift_up_moves_up() {
-    let a = handle_key_inner(
-        &named(NamedKey::ArrowUp),
-        false,
-        true,
-        false,
-        &screenshot_mode(),
-        80,
-        24,
-        false,
-    );
-    assert!(matches!(a, Action::ScreenshotMove(0, -20)));
-}
-
-#[test]
-fn screenshot_shift_down_moves_down() {
-    let a = handle_key_inner(
-        &named(NamedKey::ArrowDown),
-        false,
-        true,
-        false,
-        &screenshot_mode(),
-        80,
-        24,
-        false,
-    );
-    assert!(matches!(a, Action::ScreenshotMove(0, 20)));
-}
-
-#[test]
-fn screenshot_shift_left_moves_left() {
-    let a = handle_key_inner(
-        &named(NamedKey::ArrowLeft),
-        false,
-        true,
         false,
         &screenshot_mode(),
         80,
@@ -2332,7 +2257,82 @@ fn screenshot_shift_left_moves_left() {
 }
 
 #[test]
-fn screenshot_shift_right_moves_right() {
+fn screenshot_arrow_down_moves_down() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(0, 20)));
+}
+
+#[test]
+fn screenshot_arrow_up_moves_up() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        false,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotMove(0, -20)));
+}
+
+#[test]
+fn screenshot_shift_up_shrinks_height() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotEdgeResize(0, -1)));
+}
+
+#[test]
+fn screenshot_shift_down_grows_height() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotEdgeResize(0, 1)));
+}
+
+#[test]
+fn screenshot_shift_left_shrinks_width() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        false,
+        true,
+        false,
+        &screenshot_mode(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ScreenshotEdgeResize(-1, 0)));
+}
+
+#[test]
+fn screenshot_shift_right_grows_width() {
     let a = handle_key_inner(
         &named(NamedKey::ArrowRight),
         false,
@@ -2343,7 +2343,7 @@ fn screenshot_shift_right_moves_right() {
         24,
         false,
     );
-    assert!(matches!(a, Action::ScreenshotMove(20, 0)));
+    assert!(matches!(a, Action::ScreenshotEdgeResize(1, 0)));
 }
 
 #[test]

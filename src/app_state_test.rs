@@ -777,33 +777,6 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
     }
 }
 
-// ── nudge_half ────────────────────────────────────────────────────────────────
-
-#[test]
-fn nudge_half_grows_with_positive_delta() {
-    let result = super::nudge_half(100, 1);
-    assert!(result > 100, "positive delta should grow half");
-}
-
-#[test]
-fn nudge_half_shrinks_with_negative_delta() {
-    let result = super::nudge_half(100, -1);
-    assert!(result < 100, "negative delta should shrink half");
-}
-
-#[test]
-fn nudge_half_clamps_at_zero_for_large_negative() {
-    let result = super::nudge_half(10, -10000);
-    assert_eq!(result, 0);
-}
-
-#[test]
-fn nudge_half_minimum_step_is_4() {
-    // For a very small half (e.g. 1), step = max(0, 4) = 4.
-    let result = super::nudge_half(1, 1);
-    assert_eq!(result, 5);
-}
-
 // ── Delegated simple effects ──────────────────────────────────────────────────
 
 #[test]
@@ -993,27 +966,40 @@ fn dispatch_screenshot_open_returns_effect() {
 }
 
 #[test]
-fn dispatch_screenshot_resize_updates_half_dimensions() {
+fn dispatch_screenshot_edge_resize_moves_right_bottom_edge() {
     let mut s = make_state();
+    // cx=400, cy=300, half_w=100, half_h=80
+    // left=300 (fixed), top=220 (fixed), right=500, bottom=380
     s.mode = InputMode::Screenshot {
         cx: 400,
         cy: 300,
         half_w: 100,
         half_h: 80,
     };
-    s.dispatch_action(Action::ScreenshotResize(1, 1));
-    if let InputMode::Screenshot { half_w, half_h, .. } = s.mode {
-        assert!(half_w > 100, "half_w should grow");
-        assert!(half_h > 80, "half_h should grow");
+    s.dispatch_action(Action::ScreenshotEdgeResize(1, 1));
+    if let InputMode::Screenshot {
+        cx,
+        cy,
+        half_w,
+        half_h,
+    } = s.mode
+    {
+        // left = cx - half_w must remain 300
+        assert_eq!(cx - half_w, 300, "left edge must stay fixed");
+        // top = cy - half_h must remain 220
+        assert_eq!(cy - half_h, 220, "top edge must stay fixed");
+        // right and bottom must have grown
+        assert!(cx + half_w > 500, "right edge should grow");
+        assert!(cy + half_h > 380, "bottom edge should grow");
     } else {
         panic!("expected Screenshot mode");
     }
 }
 
 #[test]
-fn dispatch_screenshot_resize_in_non_screenshot_mode_is_noop() {
+fn dispatch_screenshot_edge_resize_in_non_screenshot_mode_is_noop() {
     let mut s = make_state();
-    s.dispatch_action(Action::ScreenshotResize(1, 1));
+    s.dispatch_action(Action::ScreenshotEdgeResize(1, 1));
     assert!(matches!(s.mode, InputMode::Insert));
 }
 

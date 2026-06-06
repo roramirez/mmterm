@@ -173,9 +173,9 @@ A rectangular selection overlay appears centered on the screen.
 
 | Binding | Action |
 |---|---|
-| `←` / `→` | Shrink / grow selection width |
-| `↑` / `↓` | Shrink / grow selection height |
-| `Shift+←/→/↑/↓` | Move the selection center |
+| `←` / `→` / `↑` / `↓` | Move the selection |
+| `Shift+→` / `Shift+←` | Grow / shrink the right edge |
+| `Shift+↓` / `Shift+↑` | Grow / shrink the bottom edge |
 | `Enter` / `Space` | Capture and save PNG |
 | `Esc` | Cancel |
 

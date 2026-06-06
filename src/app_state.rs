@@ -13,12 +13,6 @@ use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
 
 // ── Screenshot helpers ───────────────────────────────────────────────────────
 
-/// Adjust `half` by `delta` steps where each step is 5 % of current size (min 4 px).
-fn nudge_half(half: u32, delta: i32) -> u32 {
-    let step = ((half as f32 * 0.05) as i32).max(4);
-    (half as i32 + delta * step).max(0) as u32
-}
-
 // ── Re-exports so main.rs can still use these types ─────────────────────────
 
 pub struct PaneEntry {
@@ -716,8 +710,8 @@ impl AppState {
                 vec![AppEffect::RotatePanes(false)]
             }
             Action::ScreenshotOpen => vec![AppEffect::ScreenshotOpen],
-            Action::ScreenshotResize(dw, dh) => {
-                self.do_screenshot_resize(dw, dh);
+            Action::ScreenshotEdgeResize(dw, dh) => {
+                self.do_screenshot_edge_resize(dw, dh);
                 vec![AppEffect::Redraw]
             }
             Action::ScreenshotMove(dx, dy) => {
@@ -792,7 +786,7 @@ impl AppState {
         }
     }
 
-    fn do_screenshot_resize(&mut self, dw: i32, dh: i32) {
+    fn do_screenshot_edge_resize(&mut self, dw: i32, dh: i32) {
         let InputMode::Screenshot {
             cx,
             cy,
@@ -802,14 +796,20 @@ impl AppState {
         else {
             return;
         };
-        const MIN_HALF: u32 = 20;
-        let new_half_w = nudge_half(half_w, dw).max(MIN_HALF);
-        let new_half_h = nudge_half(half_h, dh).max(MIN_HALF);
+        const MIN_FULL: i32 = 40;
+        const STEP: i32 = 20;
+
+        let left = cx.saturating_sub(half_w) as i32;
+        let top = cy.saturating_sub(half_h) as i32;
+
+        let new_right = ((cx + half_w) as i32 + dw * STEP).max(left + MIN_FULL);
+        let new_bottom = ((cy + half_h) as i32 + dh * STEP).max(top + MIN_FULL);
+
         self.mode = InputMode::Screenshot {
-            cx,
-            cy,
-            half_w: new_half_w,
-            half_h: new_half_h,
+            cx: (left + (new_right - left) / 2) as u32,
+            cy: (top + (new_bottom - top) / 2) as u32,
+            half_w: ((new_right - left) / 2) as u32,
+            half_h: ((new_bottom - top) / 2) as u32,
         };
     }
 

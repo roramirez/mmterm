@@ -58,9 +58,9 @@ pub enum Action {
     ResizePaneDown,
     ResizePaneUp,
     ScreenshotOpen,
-    /// Resize selection: (dw, dh) — positive = grow, negative = shrink.
-    /// Left/Right controls width; Up/Down controls height.
-    ScreenshotResize(i32, i32),
+    /// Move only the right edge (dw) or bottom edge (dh); left/top stays fixed.
+    /// Positive = grow, negative = shrink.
+    ScreenshotEdgeResize(i32, i32),
     /// Move selection center by (dx, dy) pixels.
     ScreenshotMove(i32, i32),
     ScreenshotCapture,
@@ -139,12 +139,7 @@ pub(crate) fn handle_key_inner(
         InputMode::CommandPalette { .. } => Action::None,
         InputMode::ScreenshotName { .. } => Action::None,
         InputMode::QuitSave => handle_quit_save(key),
-        InputMode::Screenshot {
-            cx,
-            cy,
-            half_w,
-            half_h,
-        } => handle_screenshot(key, shift, *cx, *cy, *half_w, *half_h),
+        InputMode::Screenshot { .. } => handle_screenshot(key, shift),
     }
 }
 
@@ -565,24 +560,21 @@ fn handle_quit_save(key: &Key) -> Action {
 
 const SCREENSHOT_MOVE_STEP: i32 = 20;
 
-fn handle_screenshot(key: &Key, shift: bool, cx: u32, cy: u32, half_w: u32, half_h: u32) -> Action {
+fn handle_screenshot(key: &Key, shift: bool) -> Action {
     if shift {
         return match key {
-            Key::Named(NamedKey::ArrowUp) => Action::ScreenshotMove(0, -SCREENSHOT_MOVE_STEP),
-            Key::Named(NamedKey::ArrowDown) => Action::ScreenshotMove(0, SCREENSHOT_MOVE_STEP),
-            Key::Named(NamedKey::ArrowLeft) => Action::ScreenshotMove(-SCREENSHOT_MOVE_STEP, 0),
-            Key::Named(NamedKey::ArrowRight) => Action::ScreenshotMove(SCREENSHOT_MOVE_STEP, 0),
+            Key::Named(NamedKey::ArrowRight) => Action::ScreenshotEdgeResize(1, 0),
+            Key::Named(NamedKey::ArrowLeft) => Action::ScreenshotEdgeResize(-1, 0),
+            Key::Named(NamedKey::ArrowDown) => Action::ScreenshotEdgeResize(0, 1),
+            Key::Named(NamedKey::ArrowUp) => Action::ScreenshotEdgeResize(0, -1),
             _ => Action::None,
         };
     }
-    let _ = (cx, cy, half_w, half_h);
     match key {
-        // Right/Left grow or shrink the width
-        Key::Named(NamedKey::ArrowRight) => Action::ScreenshotResize(1, 0),
-        Key::Named(NamedKey::ArrowLeft) => Action::ScreenshotResize(-1, 0),
-        // Down/Up grow or shrink the height
-        Key::Named(NamedKey::ArrowDown) => Action::ScreenshotResize(0, 1),
-        Key::Named(NamedKey::ArrowUp) => Action::ScreenshotResize(0, -1),
+        Key::Named(NamedKey::ArrowRight) => Action::ScreenshotMove(SCREENSHOT_MOVE_STEP, 0),
+        Key::Named(NamedKey::ArrowLeft) => Action::ScreenshotMove(-SCREENSHOT_MOVE_STEP, 0),
+        Key::Named(NamedKey::ArrowDown) => Action::ScreenshotMove(0, SCREENSHOT_MOVE_STEP),
+        Key::Named(NamedKey::ArrowUp) => Action::ScreenshotMove(0, -SCREENSHOT_MOVE_STEP),
         Key::Named(NamedKey::Enter) | Key::Named(NamedKey::Space) => Action::ScreenshotCapture,
         Key::Named(NamedKey::Escape) => Action::SetMode(InputMode::Insert),
         _ => Action::None,

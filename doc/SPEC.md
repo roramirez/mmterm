@@ -141,8 +141,8 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 **Step 1 — Region selector (`InputMode::Screenshot`)**
 - Entered with `Ctrl+W p`; exits to Insert mode on `Esc`.
 - `InputMode::Screenshot { cx, cy, half_w, half_h }` — rectangle centered at `(cx, cy)` with independent half-extents.
-- `←`/`→` grow or shrink width; `↑`/`↓` grow or shrink height; each step is 5% of the current half-extent (min 4 px).
-- `Shift+Arrow` moves the selection center 20 px in the given direction.
+- Arrow keys translate the selection 20 px in the given direction.
+- `Shift+→`/`Shift+←` grow or shrink only the right edge (left edge stays fixed); `Shift+↓`/`Shift+↑` grow or shrink only the bottom edge (top edge stays fixed); each step is 20 px.
 - `Enter`/`Space` → transitions to `InputMode::ScreenshotName` (name prompt); capture is taken from the raw pixel buffer **before** overlays are drawn (no selector border in output).
 - Overlay: pixels outside the rectangle are darkened (60 % veil); a 2-px white border frames the selection; a hint line shows key bindings.
 - Status bar badge: `SHOT` (yellow) while the mode is active.
