@@ -45,6 +45,45 @@ The binary is at `target/release/mmterm`.
 
 ## Install
 
+### Quick install (recommended)
+
+Download the prebuilt binary for your platform into `~/.local/bin`:
+
+```sh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/roramirez/mmterm/main/install.sh)"
+```
+
+Supported platforms: Linux x86_64, Linux aarch64, and macOS (Apple Silicon). The script
+verifies the download's SHA-256 checksum before installing and, on Linux, adds an
+application-menu entry. If `~/.local/bin` is not already on your `PATH`, the installer adds
+it to your shell profile (`~/.zshrc` or `~/.bashrc`).
+
+**Prefer to read before you run?**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/roramirez/mmterm/main/install.sh -o install.sh
+less install.sh        # inspect
+sh install.sh
+```
+
+Environment variables:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MMTERM_BIN_DIR` | `~/.local/bin` | Install directory |
+| `MMTERM_VERSION` | latest release | Pin a specific tag, e.g. `v0.5.0` |
+
+### From source
+
+Requires Rust 1.85+ (edition 2024). On Linux you also need a C toolchain and FreeType
+headers (`libfreetype-dev`).
+
+```sh
+cargo install --git https://github.com/roramirez/mmterm
+```
+
+Or from a local checkout:
+
 ```sh
 cargo install --path .
 ```

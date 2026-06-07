@@ -5,12 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+
 ### Security
 - release binaries are now attested with SLSA build provenance via `actions/attest-build-provenance`; verify with `gh attestation verify <file> --repo roramirez/mmterm`
 
 ### Added
 - search history: ↑/↓ in search mode navigates previous queries; status bar shows `[hist N/M]` while browsing
 - search history persisted to `~/.config/mmterm/search_history` in zsh EXTENDED_HISTORY format (`: <unix_ts>:0;<query>`)
+- online curl|sh installer that downloads and verifies prebuilt release binaries
 
 ### Changed
 - screenshot mode: arrow keys move the frame; shift+arrows resize only the right/bottom edge (left/top stays fixed)
