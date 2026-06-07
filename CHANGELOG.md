@@ -5,9 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-07
 
 ### Security
-- release binaries are now attested with SLSA build provenance via `actions/attest-build-provenance`; verify with `gh attestation verify <file> --repo roramirez/mmterm`
+- release binaries are now attested with SLSA build provenance via `actions/attest`; verify with `gh attestation verify <file> --repo roramirez/mmterm`
 
 ### Added
 - search history: ↑/↓ in search mode navigates previous queries; status bar shows `[hist N/M]` while browsing
