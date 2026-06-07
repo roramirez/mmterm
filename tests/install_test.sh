@@ -34,7 +34,7 @@ MMTERM_TEST=1
 check "log is defined" "$(command -v log >/dev/null 2>&1 && echo yes)" "yes"
 
 # detect_platform maps uname output to release artifact names.
-# shellcheck disable=SC2329  # invoked indirectly via detect_platform and setup_desktop
+# shellcheck disable=SC2317  # invoked indirectly via detect_platform and setup_desktop
 uname() { case "$1" in -s) echo "${MOCK_OS}" ;; -m) echo "${MOCK_ARCH}" ;; esac; }
 
 MOCK_OS=Linux  MOCK_ARCH=x86_64        ; check "linux x86_64"  "$(detect_platform)" "mmterm-linux-x86_64"
@@ -126,7 +126,7 @@ PATH="${PATH_BAK}"; HOME="${HOME_BAK}"; SHELL="${SHELL_BAK}"
 rm -rf "${ep_home}"
 
 # setup_desktop is a no-op on non-Linux (returns success).
-# shellcheck disable=SC2329  # invoked indirectly via setup_desktop
+# shellcheck disable=SC2317  # invoked indirectly via setup_desktop
 uname() { echo Darwin; }
 if setup_desktop /tmp/mmterm; then
   check "setup_desktop noop on macos" "ok" "ok"
@@ -145,11 +145,11 @@ e2e_hash="$(sha256_of "${e2e}/release/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/release/checksums-sha256.txt"
 
 # Mocks: serve downloads from local dir; force Linux x86_64; skip real gh provenance.
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 verify_provenance() { return 0; }
 
 # Run main in a subshell so HOME/SHELL/trap/env changes stay isolated.
@@ -171,11 +171,11 @@ printf 'not-the-binary' > "${e2e}/wrongname"
 ( cd "${e2e}" && tar -czf release/mmterm-linux-x86_64.tar.gz wrongname )
 e2e_hash="$(sha256_of "${e2e}/release/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/release/checksums-sha256.txt"
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2329  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
 verify_provenance() { return 0; }
 # shellcheck disable=SC2034  # MMTERM_BIN_DIR is read by main() sourced from install.sh
 if ( HOME="${e2e}/home"; SHELL="/bin/zsh"; MMTERM_BIN_DIR="${e2e}/bin"; main ) >/dev/null 2>&1; then
