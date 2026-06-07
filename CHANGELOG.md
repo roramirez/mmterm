@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- online curl|sh installer that downloads and verifies prebuilt release binaries
+
 ### Changed
 - screenshot mode: arrow keys move the frame; shift+arrows resize only the right/bottom edge (left/top stays fixed)
 
