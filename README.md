@@ -45,16 +45,15 @@ The binary is at `target/release/mmterm`.
 
 ## Install
 
-### Quick install (recommended)
+### Linux (x86_64 / aarch64)
 
-Download the prebuilt binary for your platform into `~/.local/bin`:
+Download the prebuilt binary into `~/.local/bin`:
 
 ```sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/roramirez/mmterm/main/install.sh)"
 ```
 
-Supported platforms: Linux x86_64, Linux aarch64, and macOS (Apple Silicon). The script
-verifies the download's SHA-256 checksum before installing and, on Linux, adds an
+The script verifies the download's SHA-256 checksum before installing and adds an
 application-menu entry. If `~/.local/bin` is not already on your `PATH`, the installer adds
 it to your shell profile (`~/.zshrc` or `~/.bashrc`).
 
@@ -72,6 +71,32 @@ Environment variables:
 |---|---|---|
 | `MMTERM_BIN_DIR` | `~/.local/bin` | Install directory |
 | `MMTERM_VERSION` | latest release | Pin a specific tag, e.g. `v0.5.0` |
+
+### macOS (Apple Silicon)
+
+```sh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/roramirez/mmterm/main/install.sh)"
+```
+
+On macOS this downloads `mmterm-macos-aarch64.dmg`, verifies its checksum, and opens it.
+Drag **mmterm.app** onto the **Applications** folder.
+
+mmterm.app is **ad-hoc signed but not notarized**. The first time you launch it,
+right-click the app and choose **Open**, then confirm in the dialog. You only need to
+do this once. (Depending on your macOS version and how the `.dmg` was obtained,
+double-clicking the first time may be blocked by Gatekeeper — the right-click → Open
+path always works.)
+
+**Verify the build (optional, recommended).** Inspect the installer before running it,
+and verify the release's build provenance with the GitHub CLI:
+
+```sh
+# Inspect the script first
+curl -fsSL https://raw.githubusercontent.com/roramirez/mmterm/main/install.sh | less
+
+# Verify provenance of the downloaded disk image
+gh attestation verify mmterm-macos-aarch64.dmg --repo roramirez/mmterm
+```
 
 ### From source
 

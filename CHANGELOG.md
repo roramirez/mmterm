@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- macOS `.dmg` packaging an ad-hoc-signed `mmterm.app` for drag-to-Applications install
+
+### Changed
+- `install.sh` on macOS now downloads and opens the `.dmg` instead of installing a bare binary
+
+### Removed
+- macOS `.tar.gz` release artifact (replaced by the `.dmg`)
+
 ## [0.6.1] - 2026-06-07
 
 ### Fixed

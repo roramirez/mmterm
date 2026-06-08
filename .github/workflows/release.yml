@@ -26,12 +26,15 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: mmterm-linux-x86_64
+            ext: tar.gz
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             artifact: mmterm-linux-aarch64
+            ext: tar.gz
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: mmterm-macos-aarch64
+            ext: dmg
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
@@ -79,22 +82,31 @@ jobs:
           PKG_CONFIG_ALL_STATIC: ${{ runner.os == 'macOS' && '1' || '' }}
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Linux tarball)
+        if: runner.os == 'Linux'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../${{ matrix.artifact }}.tar.gz mmterm
           cd ../../..
 
+      - name: Package (macOS .dmg)
+        if: runner.os == 'macOS'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sh scripts/make-macos-app.sh \
+            "target/${{ matrix.target }}/release/mmterm" "${VERSION}" .
+          test -f "${{ matrix.artifact }}.${{ matrix.ext }}"
+
       - name: Attest build provenance
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26  # v4.1.0
         with:
-          subject-path: ${{ matrix.artifact }}.tar.gz
+          subject-path: ${{ matrix.artifact }}.${{ matrix.ext }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.tar.gz
+          path: ${{ matrix.artifact }}.${{ matrix.ext }}
 
   release:
     name: Publish GitHub Release
@@ -116,8 +128,9 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
+          gh release create "${REF_NAME}" \
             --generate-notes \
             artifacts/* \
             checksums-sha256.txt

@@ -62,17 +62,18 @@ sha256_of() {
 }
 
 verify_checksum() {
-  # $1 = tarball path, $2 = checksums file, $3 = artifact basename (no extension)
-  expected="$(grep -E "[ /]${3}\.tar\.gz\$" "$2" | awk '{print $1}' | head -n1)"
-  [ -n "${expected}" ] || err "no checksum entry for ${3}.tar.gz"
+  # $1 = artifact path, $2 = checksums file, $3 = artifact filename (with extension)
+  # Match $3 against the basename of each checksums entry (paths are artifacts/-prefixed).
+  expected="$(awk -v f="$3" '{ n=$2; sub(/.*\//, "", n); if (n == f) { print $1; exit } }' "$2")"
+  [ -n "${expected}" ] || err "no checksum entry for $3"
   actual="$(sha256_of "$1")"
-  [ "${expected}" = "${actual}" ] || err "checksum mismatch for ${3}.tar.gz
+  [ "${expected}" = "${actual}" ] || err "checksum mismatch for $3
   expected ${expected}
   actual   ${actual}"
 }
 
 verify_provenance() {
-  # $1 = tarball path. Best-effort: only runs if the gh CLI is present.
+  # $1 = artifact path (tarball or dmg). Best-effort: only runs if the gh CLI is present.
   if have gh; then
     log "verifying build provenance (gh attestation)..."
     gh attestation verify "$1" --repo "${REPO}" >/dev/null 2>&1 \
@@ -155,9 +156,49 @@ ensure_on_path() {
   log "  ${line}"
 }
 
+macos_install() {
+  # $1 = artifact basename (e.g. mmterm-macos-aarch64). Downloads the .dmg, verifies
+  # it, parks it in ~/Downloads, and opens it for drag-to-/Applications.
+  dmg="$1.dmg"
+  dmg_url="$(resolve_url "${dmg}")"
+  checksums_url="$(resolve_url "checksums-sha256.txt")"
+
+  workdir="$(mktemp -d)"
+  trap 'rm -rf "${workdir}"' EXIT
+
+  log "downloading ${dmg}..."
+  fetch "${dmg_url}" "${workdir}/${dmg}"
+  fetch "${checksums_url}" "${workdir}/checksums-sha256.txt"
+
+  log "verifying checksum..."
+  verify_checksum "${workdir}/${dmg}" "${workdir}/checksums-sha256.txt" "${dmg}"
+  verify_provenance "${workdir}/${dmg}"
+
+  dest_dir="${HOME}/Downloads"
+  mkdir -p "${dest_dir}"
+  mv -f "${workdir}/${dmg}" "${dest_dir}/${dmg}"
+
+  log "opening ${dest_dir}/${dmg}..."
+  open "${dest_dir}/${dmg}" || {
+    log "warning: could not open ${dest_dir}/${dmg} automatically."
+    log "open it manually from ~/Downloads to install."
+  }
+
+  log ""
+  log "mmterm downloaded. In the disk-image window that just opened:"
+  log "  drag mmterm.app onto the Applications folder."
+  log "First launch: right-click mmterm.app -> Open (ad-hoc signed, not notarized)."
+}
+
 main() {
-  bin_dir="${MMTERM_BIN_DIR:-${DEFAULT_BIN_DIR}}"
   artifact="$(detect_platform)"
+
+  if [ "$(uname -s)" = "Darwin" ]; then
+    macos_install "${artifact}"
+    return
+  fi
+
+  bin_dir="${MMTERM_BIN_DIR:-${DEFAULT_BIN_DIR}}"
   tarball_url="$(resolve_url "${artifact}.tar.gz")"
   checksums_url="$(resolve_url "checksums-sha256.txt")"
 
@@ -169,7 +210,7 @@ main() {
   fetch "${checksums_url}" "${workdir}/checksums-sha256.txt"
 
   log "verifying checksum..."
-  verify_checksum "${workdir}/${artifact}.tar.gz" "${workdir}/checksums-sha256.txt" "${artifact}"
+  verify_checksum "${workdir}/${artifact}.tar.gz" "${workdir}/checksums-sha256.txt" "${artifact}.tar.gz"
   verify_provenance "${workdir}/${artifact}.tar.gz"
 
   log "installing to ${bin_dir}..."
