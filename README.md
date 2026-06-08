@@ -190,11 +190,11 @@ You can also edit settings live with `Ctrl+,`.
 
 mmterm checks GitHub for a newer release at most once per day (one request on startup).
 
-- **Linux:** when an update is found it is downloaded, checksum-verified, and the binary
-  is silently replaced in the background — the change takes effect the next time you start
-  mmterm. A `↻` hint appears in the status bar once an update has been applied. This only
-  happens for user-writable installs (`~/.local/bin`, `~/.cargo/bin`); system installs are
-  left untouched.
+- **Linux:** by default, an `↑X.Y.Z` badge appears in the status bar when an update is
+  available; re-run the installer to update. You can opt in to **silent background
+  self-update** (download + checksum-verify + atomically replace the binary, applied on
+  next launch) by setting `auto_update_install = true`; this only applies to user-writable
+  installs (`~/.local/bin`, `~/.cargo/bin`), never system installs.
 - **macOS:** an `↑X.Y.Z` badge appears in the status bar; click it to download and open the
   `.dmg`, then drag mmterm.app to Applications.
 
@@ -202,8 +202,8 @@ Disable via `~/.config/mmterm/config.toml`:
 
 ```toml
 [general]
-auto_update_check = false    # turn off the daily check entirely
-auto_update_install = false  # Linux: notify only, never self-replace
+auto_update_check = false    # turn off the daily check + badge entirely
+auto_update_install = true   # Linux: opt in to silent self-replace (default: off)
 ```
 
 ## Key Bindings

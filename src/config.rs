@@ -57,7 +57,7 @@ pub struct GeneralConfig {
     pub visual_bell: bool,
     #[serde(default = "default_true")]
     pub auto_update_check: bool,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub auto_update_install: bool,
 }
 
@@ -68,7 +68,7 @@ impl Default for GeneralConfig {
             screenshot_dir: default_screenshot_dir(),
             visual_bell: false,
             auto_update_check: default_true(),
-            auto_update_install: default_true(),
+            auto_update_install: false,
         }
     }
 }

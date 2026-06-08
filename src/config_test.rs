@@ -276,8 +276,8 @@ fn status_bar_right_preserves_spaces() {
 }
 
 #[test]
-fn general_update_flags_default_true() {
+fn general_update_defaults() {
     let cfg = Config::default();
-    assert!(cfg.general.auto_update_check);
-    assert!(cfg.general.auto_update_install);
+    assert!(cfg.general.auto_update_check); // daily check on by default
+    assert!(!cfg.general.auto_update_install); // silent self-replace opt-in (off)
 }

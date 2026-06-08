@@ -42,10 +42,11 @@ visual_bell = false
 # false disables all update network activity.
 auto_update_check = true
 
-# Linux only: when an update is found, silently download + verify + self-replace the
-# binary in the background (applies on next launch). false = notify only (status-bar
-# badge). On macOS, updating is always user-initiated by clicking the badge.
-auto_update_install = true
+# Linux only, OPT-IN (default false): when an update is found, silently download +
+# verify + self-replace the binary in the background (applies on next launch). Leave
+# false to only show an update-available badge in the status bar. On macOS, updating
+# is always user-initiated by clicking the badge.
+auto_update_install = false
 
 [colors]
 background = "#121212"
