@@ -286,8 +286,9 @@ fn gh_attest_ok(path: &Path) -> bool {
 }
 
 /// Download `file` (TLS-pinned), verify sha256 against `checksums-sha256.txt`,
-/// return the verified path inside `dir`. Fail-closed on any problem.
-fn download_and_verify(file: &str, dir: &Path) -> std::io::Result<PathBuf> {
+/// return the verified path inside `dir` together with the expected hash.
+/// Fail-closed on any problem.
+fn download_and_verify(file: &str, dir: &Path) -> std::io::Result<(PathBuf, String)> {
     let artifact = dir.join(file);
     let sums = dir.join("checksums-sha256.txt");
     fetch(&release_asset_url(file), &artifact)?;
@@ -304,15 +305,39 @@ fn download_and_verify(file: &str, dir: &Path) -> std::io::Result<PathBuf> {
     if !gh_attest_ok(&artifact) {
         return Err(std::io::Error::other("provenance verification failed"));
     }
-    Ok(artifact)
+    Ok((artifact, want))
 }
 
-/// Create a private (0700) directory, including parents. Best-effort on the mode.
-fn create_private_dir(dir: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::create_dir_all(dir)?;
-    let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
-    Ok(())
+/// 128 bits of entropy as lowercase hex, from /dev/urandom (Linux/macOS).
+/// Falls back to pid+nanos-derived bytes only if /dev/urandom is unreadable.
+fn rand_hex16() -> String {
+    use std::io::Read;
+    let mut buf = [0u8; 16];
+    let ok = std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut buf))
+        .is_ok();
+    if !ok {
+        // Extremely unlikely fallback; mix pid + nanos so the name is still unique.
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let mix = (std::process::id() as u128) ^ nanos;
+        buf.copy_from_slice(&mix.to_le_bytes());
+    }
+    buf.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Create a fresh private (0700) temp dir with an unpredictable name, atomically and
+/// fail-closed: errors (AlreadyExists) if anything is squatting the name, and the mode is
+/// applied at creation time (no 0755 window). Returns the created path.
+fn make_private_tmp() -> std::io::Result<PathBuf> {
+    use std::os::unix::fs::DirBuilderExt;
+    let dir = std::env::temp_dir().join(format!("mmterm-upd-{}", rand_hex16()));
+    // Non-recursive create => fails if the dir already exists (fail-closed against squatting).
+    // .mode(0o700) sets the directory mode atomically at mkdir() time.
+    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    Ok(dir)
 }
 
 /// Linux: download the tarball, verify, extract `mmterm`, atomically replace `exe`.
@@ -324,10 +349,13 @@ pub fn apply_linux_update(exe: &Path) -> std::io::Result<()> {
         "x86_64"
     };
     let file = format!("mmterm-linux-{arch}.tar.gz");
-    let dir = std::env::temp_dir().join(format!("mmterm-upd-{}", std::process::id()));
-    create_private_dir(&dir)?;
+    let dir = make_private_tmp()?;
     let result = (|| {
-        let tarball = download_and_verify(&file, &dir)?;
+        let (tarball, expected) = download_and_verify(&file, &dir)?;
+        // Re-verify right before use to close any swap window (defense in depth).
+        if sha256_of(&tarball).as_deref() != Some(expected.as_str()) {
+            return Err(std::io::Error::other("artifact changed after verification"));
+        }
         let status = Command::new("tar")
             .arg("-xzf")
             .arg(&tarball)
@@ -337,7 +365,12 @@ pub fn apply_linux_update(exe: &Path) -> std::io::Result<()> {
         if !status.success() {
             return Err(std::io::Error::other("extract failed"));
         }
-        atomic_replace(exe, &dir.join("mmterm"))
+        let extracted = dir.join("mmterm");
+        let meta = std::fs::symlink_metadata(&extracted)?;
+        if !meta.file_type().is_file() {
+            return Err(std::io::Error::other("archive entry is not a regular file"));
+        }
+        atomic_replace(exe, &extracted)
     })();
     let _ = std::fs::remove_dir_all(&dir);
     result
@@ -347,10 +380,9 @@ pub fn apply_linux_update(exe: &Path) -> std::io::Result<()> {
 #[cfg(target_os = "macos")]
 pub fn apply_macos_update() -> std::io::Result<()> {
     let file = "mmterm-macos-aarch64.dmg";
-    let dir = std::env::temp_dir().join(format!("mmterm-upd-{}", std::process::id()));
-    create_private_dir(&dir)?;
+    let dir = make_private_tmp()?;
     let result = (|| {
-        let dmg = download_and_verify(file, &dir)?;
+        let (dmg, _hash) = download_and_verify(file, &dir)?;
         let dest = dirs_next::download_dir()
             .or_else(dirs_next::home_dir)
             .unwrap_or_else(|| PathBuf::from("."))
