@@ -1,6 +1,5 @@
 //! Window-free font-scaling helpers. Every function takes `scale: Scale` as an
 //! explicit parameter (never reads a window) — the testability seam (spec §5.2.1).
-#![allow(dead_code)] // items consumed by later HiDPI tasks
 use crate::app_state::TabState;
 use crate::dpi::{Logical, Scale};
 use crate::font;
@@ -20,6 +19,8 @@ pub fn apply_font_delta(
 }
 
 /// Reset to the config-default logical size; derive physical metrics.
+// public seam kept for symmetry; production reset routes through apply_font_delta
+#[allow(dead_code)]
 pub fn reset_font_size(config: Logical, scale: Scale, r: &mut Renderer) -> (Logical, FontMetrics) {
     (config, r.make_metrics(scale.px(config)))
 }

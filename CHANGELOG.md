@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - daily update check with a status-bar update badge (opt-out); opt-in silent background self-update on Linux (`general.auto_update_install`); click-to-update badge on macOS
 - macOS `.dmg` packaging an ad-hoc-signed `mmterm.app` for drag-to-Applications install
+- HiDPI display scaling: font and UI chrome scale by the current monitor's DPI and adapt live when the window moves between monitors; `font.size` is now a logical size, backed by new `Logical`/`Physical`/`Scale` type-safe pixel newtypes (`src/dpi.rs`)
 
 ### Changed
 - `install.sh` on macOS now downloads and opens the `.dmg` instead of installing a bare binary

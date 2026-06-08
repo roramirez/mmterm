@@ -467,7 +467,8 @@ impl App {
     fn separator_at_pixel(&self, px: u32, py: u32) -> Option<crate::ui::layout::SeparatorHandle> {
         let tab = &self.state.tabs[self.state.active_tab];
         if !tab.zoomed {
-            tab.layout.separator_at_pixel(px, py, 4)
+            tab.layout
+                .separator_at_pixel_scaled(px, py, 4, self.tab_h(), self.status_h())
         } else {
             None
         }
@@ -607,7 +608,10 @@ impl App {
         };
         let ai = self.state.active_tab;
         self.state.tabs[ai].layout.move_separator(handle, new_pos);
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
         let icon = match handle.dir {
             SplitDir::H => CursorIcon::ColResize,
             SplitDir::V => CursorIcon::RowResize,

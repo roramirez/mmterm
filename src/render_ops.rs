@@ -82,6 +82,10 @@ impl App {
             self.state.cursor_blink = !self.state.cursor_blink;
         }
 
+        // Compute scaled chrome heights before any mutable borrow of self.surface.
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+
         let Some(surface) = &mut self.surface else {
             return;
         };
@@ -99,6 +103,10 @@ impl App {
             self.surface_size = (w, h);
         }
 
+        // Task 15: mirror App.scale into Renderer.scale each frame so all
+        // chrome math uses the current scale even without a ScaleFactorChanged event.
+        self.renderer.scale = self.scale;
+
         let mut buf = surface.buffer_mut().unwrap();
         let pixels: &mut [u32] = &mut buf;
 
@@ -111,10 +119,14 @@ impl App {
 
         let (separators, zoomed, active_id) = {
             let tab = &self.state.tabs[self.state.active_tab];
-            (tab.layout.separators(), tab.zoomed, tab.active)
+            (
+                tab.layout.separators_scaled(tab_h, status_h),
+                tab.zoomed,
+                tab.active,
+            )
         };
 
-        let views = views::collect_pane_views(&self.state, w, h);
+        let views = views::collect_pane_views(&self.state, w, h, tab_h, status_h);
         let tab_titles = views::build_tab_titles(&self.state);
 
         let metrics = self.state.tabs[self.state.active_tab].metrics.clone();

@@ -7,9 +7,11 @@ use crate::terminal::grid::{Cell, CursorShape};
 use crate::terminal::sixel::SixelImage;
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
-use crate::ui::layout::{PANE_PADDING, TAB_BAR_H};
+use crate::ui::layout::{PANE_PADDING, STATUS_BAR_H, TAB_BAR_H};
 
-pub(super) const STATUS_BAR_H: u32 = 22;
+/// Second logical UI-chrome font; physical = STATUS_FONT_LOGICAL × scale,
+/// scaled like the terminal font (spec §5.4).
+pub(crate) const STATUS_FONT_LOGICAL: f32 = 13.0;
 const BADGE_PAD_X: u32 = 8;
 // Dark color for text rendered on bright-colored badges (readable on any saturated hue).
 const BADGE_FG: u32 = 0xff_11_11_1d;
@@ -84,9 +86,8 @@ impl FontMetrics {
 }
 
 pub struct Renderer {
-    #[allow(dead_code)] // consumed by later HiDPI tasks (ScaleFactorChanged re-seed)
+    #[allow(dead_code)] // config-default reference; not used for layout (see doc/LLMs.md)
     pub font_px: f32, // default from config (reference only)
-    pub(super) status_font_px: f32,
     pub glyphs: GlyphCache,
     /// Pixel rect [x, y, w, h] of the update badge drawn last frame, or None.
     /// Set by draw_status_bar; read by the app for click hit-testing.
@@ -96,10 +97,18 @@ pub struct Renderer {
     pub scale: crate::dpi::Scale,
 }
 
-fn apply_bell_flash(buf: &mut [u32], buf_width: u32, buf_height: u32, color: u32, intensity: f32) {
+fn apply_bell_flash(
+    buf: &mut [u32],
+    buf_width: u32,
+    buf_height: u32,
+    color: u32,
+    intensity: f32,
+    tab_h: u32,
+    status_h: u32,
+) {
     let alpha = (intensity * 55.0).round().clamp(0.0, 255.0) as u8;
-    let content_top = TAB_BAR_H;
-    let content_bot = buf_height.saturating_sub(STATUS_BAR_H);
+    let content_top = tab_h;
+    let content_bot = buf_height.saturating_sub(status_h);
     for y in content_top..content_bot {
         for x in 0..buf_width {
             let idx = (y * buf_width + x) as usize;
@@ -115,11 +124,15 @@ impl Renderer {
         let glyphs = GlyphCache::new(font_family);
         Self {
             font_px,
-            status_font_px: 13.0,
             glyphs,
             update_badge_rect: None,
             scale: crate::dpi::Scale::new(1.0),
         }
+    }
+
+    /// Physical chrome font size for the current frame (scaled like the terminal font).
+    pub(crate) fn status_font_px(&self) -> f32 {
+        self.scale.px(crate::dpi::Logical(STATUS_FONT_LOGICAL)).0
     }
 
     /// Callers pass scale.px(logical_font_size) — never a raw config value.
@@ -173,6 +186,8 @@ impl Renderer {
                 buf_height,
                 color_u32(theme.foreground),
                 intensity,
+                self.scale.chrome(TAB_BAR_H),
+                self.scale.chrome(STATUS_BAR_H),
             );
         }
 
@@ -250,11 +265,19 @@ impl Renderer {
             sb_len,
             pane.scroll_offset,
             theme,
+            self.scale,
         );
 
         // Images are only shown at live view; col/row coords are meaningless when scrolled.
         if pane.scroll_offset == 0 {
-            draw_images(buf, buf_width, pane.rect, &grid.images, m);
+            draw_images(
+                buf,
+                buf_width,
+                pane.rect,
+                &grid.images,
+                m,
+                self.scale.chrome(PANE_PADDING),
+            );
         }
     }
 
@@ -340,8 +363,9 @@ impl Renderer {
             .search_matches
             .partition_point(|&(r, _, _)| r < abs_row);
         // Precompute row-invariant values used in the tight cell loop.
-        let cell_y = ry + PANE_PADDING + row as u32 * m.cell_height;
-        let base_x = rx + PANE_PADDING;
+        let pad = self.scale.chrome(PANE_PADDING);
+        let cell_y = ry + pad + row as u32 * m.cell_height;
+        let base_x = rx + pad;
         let cursor_color_u32 = color_u32(grid.cursor_color);
 
         let mut col = 0usize;
@@ -357,7 +381,7 @@ impl Renderer {
             let draw_w = cell_cols * m.cell_width;
             let cell_x = base_x + col as u32 * m.cell_width;
 
-            if cell_out_of_pane_bounds(cell_x, cell_y, draw_w, m.cell_height, rx, ry, rw, rh) {
+            if cell_out_of_pane_bounds(cell_x, cell_y, draw_w, m.cell_height, rx, ry, rw, rh, pad) {
                 col += cell_cols as usize;
                 continue;
             }
@@ -478,15 +502,16 @@ impl Renderer {
         tabs: &[(String, bool, bool)],
         theme: &ResolvedTheme,
     ) {
+        let tab_h = self.scale.chrome(TAB_BAR_H);
         let bar_bg = dim_color(color_u32(theme.background), 0.75);
         let sep_col = color_u32(theme.separator);
-        let fp = self.status_font_px;
+        let fp = self.status_font_px();
         let cw = self.glyphs.rasterize('M', fp, false).1;
 
         // Background
-        fill_rect(buf, width, 0, 0, width, TAB_BAR_H, bar_bg);
+        fill_rect(buf, width, 0, 0, width, tab_h, bar_bg);
         // Bottom separator
-        fill_rect(buf, width, 0, TAB_BAR_H - 1, width, 1, sep_col);
+        fill_rect(buf, width, 0, tab_h - 1, width, 1, sep_col);
 
         let inactive_bg = dim_color(color_u32(theme.background), 0.85);
         let inactive_text = color_u32(theme.palette[8]);
@@ -501,13 +526,13 @@ impl Renderer {
             };
 
             // Badge fill
-            fill_rect(buf, width, cursor_x, 2, tab_w, TAB_BAR_H - 4, badge_bg);
+            fill_rect(buf, width, cursor_x, 2, tab_w, tab_h - 4, badge_bg);
 
             // Label
             self.draw_str(
                 buf,
                 width,
-                TAB_BAR_H,
+                tab_h,
                 cursor_x + 6,
                 2,
                 label,
@@ -572,13 +597,14 @@ impl Renderer {
         fg: u32,
         char_w: u32,
         px: f32,
+        badge_pad: u32,
     ) {
         fill_rect(buf, width, x, y, badge_w, badge_h, badge_color);
         self.draw_badge_label(
             buf,
             width,
             height,
-            x + BADGE_PAD_X,
+            x + badge_pad,
             y,
             badge_h,
             char_w,
@@ -606,7 +632,9 @@ impl Renderer {
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
     ) {
-        let bar_y = height.saturating_sub(STATUS_BAR_H);
+        let status_h = self.scale.chrome(STATUS_BAR_H);
+        let badge_pad = self.scale.chrome(BADGE_PAD_X);
+        let bar_y = height.saturating_sub(status_h);
         let bar_bg = dim_color(color_u32(theme.background), 0.85);
         let sep_color = color_u32(theme.separator);
 
@@ -617,10 +645,10 @@ impl Renderer {
 
         let (label, badge_color) = mode_style(mode, passthrough, theme);
         let badge_fg = BADGE_FG;
-        let px = self.status_font_px;
+        let px = self.status_font_px();
         let char_w = self.glyphs.rasterize('M', px, true).1;
-        let badge_w = label.len() as u32 * char_w + BADGE_PAD_X * 2;
-        let badge_h = STATUS_BAR_H - 4;
+        let badge_w = label.len() as u32 * char_w + badge_pad * 2;
+        let badge_h = status_h - 4;
         let badge_x = 8u32;
         let badge_y = bar_y + 2;
 
@@ -637,6 +665,7 @@ impl Renderer {
             badge_fg,
             char_w,
             px,
+            badge_pad,
         );
 
         // Show search query and match count next to the badge.
@@ -656,12 +685,12 @@ impl Renderer {
         // Show ● REC badge when session logging is active.
         if is_logging {
             let rec_label = "\u{25cf} REC";
-            let rec_w = rec_label.len() as u32 * char_w + BADGE_PAD_X * 2;
+            let rec_w = rec_label.len() as u32 * char_w + badge_pad * 2;
             let rec_color = color_u32(theme.palette[1]); // red/pink
             let rec_x = badge_x + badge_w + 8;
             self.draw_status_badge(
                 buf, width, height, rec_x, badge_y, rec_w, badge_h, rec_label, rec_color, badge_fg,
-                char_w, px,
+                char_w, px, badge_pad,
             );
         }
 
@@ -716,10 +745,11 @@ impl Renderer {
                     (format!("\u{21bb}{v} restart"), color_u32(theme.palette[3]))
                 }
             };
-            let w = text.chars().count() as u32 * char_w + BADGE_PAD_X * 2;
+            let w = text.chars().count() as u32 * char_w + badge_pad * 2;
             let x = width.saturating_sub(w + 8);
             self.draw_status_badge(
                 buf, width, height, x, badge_y, w, badge_h, &text, color, BADGE_FG, char_w, px,
+                badge_pad,
             );
             self.update_badge_rect = Some([x, badge_y, w, badge_h]);
         }
@@ -882,6 +912,7 @@ fn draw_cell_decorations(
     if cell.url.is_some() {
         let is_hovered = cell_url_hovered(cell.url.as_ref().map(|s| s.as_str()), hovered_url);
         let link_color = link_underline_color(theme, is_hovered, pane_is_active, dim_factor);
+        // intentionally 1 physical px at all scales; scale-aware strokes deferred (spec §9)
         draw_clipped_hline(
             buf,
             buf_width,
@@ -909,9 +940,11 @@ fn draw_cursor_overlay(
     match cursor_shape {
         CursorShape::Underline => {
             let ul_y = cell_y + m.cell_height.saturating_sub(2);
+            // intentionally 1 physical px at all scales; scale-aware strokes deferred (spec §9)
             draw_clipped_hline(buf, buf_width, ul_y, cell_x, draw_w, clip, cur32);
         }
         CursorShape::Beam => {
+            // intentionally 1 physical px at all scales; scale-aware strokes deferred (spec §9)
             draw_clipped_vline(buf, buf_width, cell_x, cell_y, m.cell_height, clip, cur32);
         }
         CursorShape::Block => {}
@@ -924,11 +957,12 @@ fn draw_images(
     rect: [u32; 4],
     images: &[SixelImage],
     m: &FontMetrics,
+    padding: u32,
 ) {
     let [rx, ry, ..] = rect;
     for img in images {
-        let img_x = rx + PANE_PADDING + img.col as u32 * m.cell_width;
-        let img_y = ry + PANE_PADDING + img.row as u32 * m.cell_height;
+        let img_x = rx + padding + img.col as u32 * m.cell_width;
+        let img_y = ry + padding + img.row as u32 * m.cell_height;
         for py in 0..img.height {
             for px_i in 0..img.width {
                 blit_sixel_pixel(

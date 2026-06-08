@@ -204,6 +204,18 @@ impl App {
         session::session_path_for(self.scope.as_deref())
     }
 
+    pub(crate) fn tab_h(&self) -> u32 {
+        self.scale.chrome(crate::ui::layout::TAB_BAR_H)
+    }
+
+    pub(crate) fn status_h(&self) -> u32 {
+        self.scale.chrome(crate::ui::layout::STATUS_BAR_H)
+    }
+
+    pub(crate) fn pane_padding(&self) -> u32 {
+        self.scale.chrome(crate::ui::layout::PANE_PADDING)
+    }
+
     fn handle_resize(&mut self, w: u32, h: u32) {
         for tab in &mut self.state.tabs {
             tab.layout.resize(w, h);

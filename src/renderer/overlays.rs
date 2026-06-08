@@ -1,9 +1,8 @@
 use crate::theme::ResolvedTheme;
 use crate::tui_config::ConfigPanel;
+use crate::ui::layout::STATUS_BAR_H;
 
-use super::text::{
-    Renderer, STATUS_BAR_H, blend, color_u32, dim_buffer, draw_rect_border, fill_rect,
-};
+use super::text::{Renderer, blend, color_u32, dim_buffer, draw_rect_border, fill_rect};
 
 // ── Overlay palette ──────────────────────────────────────────────────────────
 // All color constants used by config panel and command palette overlays.
@@ -183,7 +182,7 @@ fn blit_glyph_badge(
 
 impl Renderer {
     fn panel_font_metrics(&mut self) -> (f32, u32, u32) {
-        let fp = self.status_font_px;
+        let fp = self.status_font_px();
         let cw = self.glyphs.rasterize('M', fp, false).1;
         let row_h = (fp * 1.6) as u32 + 4;
         (fp, cw, row_h)
@@ -256,8 +255,10 @@ impl Renderer {
         let panel_w = (bw as f32 * 0.65) as u32;
         // Fixed panel height: title + footer + visible rows (fit inside window)
         let footer_rows = 2u32; // hint + status
-        let max_visible =
-            ((bh.saturating_sub(STATUS_BAR_H + row_h * 2 + row_h * footer_rows)) / row_h).max(4);
+        let max_visible = ((bh
+            .saturating_sub(self.scale.chrome(STATUS_BAR_H) + row_h * 2 + row_h * footer_rows))
+            / row_h)
+            .max(4);
         let panel_h = row_h * (max_visible + 2 + footer_rows);
         let px = (bw - panel_w) / 2;
         let py = (bh.saturating_sub(panel_h)) / 2;
@@ -676,7 +677,7 @@ impl Renderer {
         sel_w: u32,
     ) {
         let hint = "\u{2191}\u{2193}\u{2190}\u{2192} resize   Shift+\u{2191}\u{2193}\u{2190}\u{2192} move   Enter capture   Esc cancel";
-        let fp = self.status_font_px;
+        let fp = self.status_font_px();
         let cw = self.glyphs.rasterize('M', fp, false).1;
         let line_h = (fp * 1.6) as u32;
         let text_y = hint_text_y(top, bottom, line_h, bh);
@@ -818,7 +819,7 @@ impl Renderer {
         bg: u32,
         border: u32,
     ) {
-        let fp = self.status_font_px;
+        let fp = self.status_font_px();
         let cw = self.glyphs.rasterize('M', fp, false).1;
         let line_h = (fp * 1.8) as u32;
         let pad_x = cw * 3;

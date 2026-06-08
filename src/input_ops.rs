@@ -3,7 +3,6 @@ use arboard::Clipboard;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::ui::SplitDir;
-use crate::ui::layout::TAB_BAR_H;
 use crate::{AppEffect, pane_ops, session};
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -102,14 +101,16 @@ impl App {
 
     pub(crate) fn do_auto_split(&mut self) {
         let active = self.tab().active;
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
         let rect = self
             .tab()
             .layout
-            .rects()
+            .rects_scaled(tab_h, status_h)
             .into_iter()
             .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
-            .unwrap_or([0, TAB_BAR_H, 100, 100]);
+            .unwrap_or([0, tab_h, 100, 100]);
         let dir = if rect[2] >= rect[3] {
             SplitDir::H
         } else {
@@ -124,7 +125,10 @@ impl App {
         self.state.tabs[ai]
             .layout
             .nudge_pane(active, split_h, delta);
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
         if let Some(w) = &self.window {
             w.request_redraw();
         }
@@ -133,7 +137,10 @@ impl App {
     pub(crate) fn do_rotate_panes(&mut self, forward: bool) {
         let ai = self.state.active_tab;
         self.state.tabs[ai].layout.rotate_leaves(forward);
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
         self.request_redraw();
     }
 
@@ -208,7 +215,10 @@ impl App {
         };
         self.state.tabs[idx].logical_font_size = new_logical;
         self.state.tabs[idx].metrics = new_metrics;
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
     }
 
     pub(crate) fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {

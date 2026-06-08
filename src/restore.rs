@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::ui::Layout;
-use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
 use crate::{TabState, session};
 
 use super::App;
@@ -51,6 +50,8 @@ impl App {
         if saved.tabs.is_empty() {
             return false;
         }
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
         let metrics = self.renderer.make_metrics(
             self.scale
                 .px(crate::dpi::Logical(self.state.config.font.size)),
@@ -72,12 +73,7 @@ impl App {
                 bell_cooldown_until: None,
                 passthrough: false,
             });
-            let rect = [
-                0,
-                TAB_BAR_H,
-                win_w,
-                win_h.saturating_sub(TAB_BAR_H + STATUS_BAR_H),
-            ];
+            let rect = [0, tab_h, win_w, win_h.saturating_sub(tab_h + status_h)];
             let slot_to_id: Vec<usize> = tab_sess
                 .pane_cwds
                 .iter()
@@ -105,7 +101,8 @@ impl App {
                 self.state.tabs[tab_idx].layout = layout;
                 self.state.tabs[tab_idx].active = active_id;
             }
-            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx]);
+            let pane_padding = self.pane_padding();
+            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
         }
         self.state.active_tab = saved
             .active_tab

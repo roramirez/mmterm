@@ -10,8 +10,6 @@
 //! `Scale::chrome`, and never multiply by scale with a bare `as u32` cast (it
 //! truncates the fraction — round instead, via `Scale::chrome`).
 
-#![allow(dead_code)] // items consumed by later HiDPI tasks
-
 /// A density-independent (logical) pixel value: what the user configures / sees as
 /// a visual "size". `config.font.size` is logical; the clamp 6..=72 is on the logical value.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
@@ -34,6 +32,8 @@ impl Scale {
     }
 
     /// The raw scale value.
+    // used in tests only; `px`/`chrome` are the production conversion points
+    #[allow(dead_code)]
     pub fn get(self) -> f32 {
         self.0
     }

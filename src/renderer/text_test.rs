@@ -9,6 +9,16 @@ use crate::terminal::grid::{Color, CursorShape, GridColors};
 use crate::theme::default_theme;
 use crate::tui_config::ConfigPanel;
 
+// ── Task 20 proxy tests — pure arithmetic, no rendering ──────────────────────
+
+#[test]
+fn chrome_heights_scale() {
+    use crate::dpi::Scale;
+    assert_eq!(Scale::new(2.0).chrome(crate::ui::layout::STATUS_BAR_H), 44);
+    assert_eq!(Scale::new(2.0).chrome(crate::ui::layout::TAB_BAR_H), 44);
+    assert_eq!(Scale::new(1.0).chrome(crate::ui::layout::STATUS_BAR_H), 22);
+}
+
 fn make_renderer() -> Renderer {
     Renderer::new("JetBrainsMono", 16.0)
 }
@@ -1392,6 +1402,15 @@ fn draw_pane_sixel_image_scrolled_up_not_drawn() {
         cursor_shape: CursorShape::Block,
     };
     do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+}
+
+#[test]
+fn status_font_px_scales() {
+    let mut r = Renderer::new("JetBrainsMono", 16.0);
+    r.scale = crate::dpi::Scale::new(2.0);
+    assert!((r.status_font_px() - 26.0).abs() < 0.01); // 13 * 2
+    r.scale = crate::dpi::Scale::new(1.0);
+    assert!((r.status_font_px() - 13.0).abs() < 0.01);
 }
 
 #[test]
