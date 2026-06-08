@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general = 37
-    assert_eq!(panel.fields.len(), 37);
+    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates = 39
+    assert_eq!(panel.fields.len(), 39);
 }
 
 #[test]
@@ -536,8 +536,8 @@ fn palette_collapsed_by_default() {
 #[test]
 fn visible_indices_hides_palette_body() {
     let panel = make_panel();
-    // 37 total - 15 palette body fields = 22 visible
-    assert_eq!(panel.visible_indices().len(), 22);
+    // 39 total - 15 palette body fields = 24 visible
+    assert_eq!(panel.visible_indices().len(), 24);
 }
 
 #[test]
@@ -546,7 +546,7 @@ fn toggle_on_palette_header_expands() {
     panel.selected = F_PALETTE;
     panel.toggle_collapse();
     assert!(!panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 37);
+    assert_eq!(panel.visible_indices().len(), 39);
 }
 
 #[test]
@@ -556,7 +556,7 @@ fn toggle_twice_restores_collapsed() {
     panel.toggle_collapse();
     panel.toggle_collapse();
     assert!(panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 22);
+    assert_eq!(panel.visible_indices().len(), 24);
 }
 
 #[test]
@@ -611,10 +611,10 @@ fn move_up_skips_collapsed_palette() {
 #[test]
 fn move_down_at_last_visible_clamps() {
     let mut panel = make_panel();
-    // F_STATUS_BAR_RIGHT is the last field and is always visible
-    panel.selected = F_STATUS_BAR_RIGHT;
+    // F_AUTO_UPDATE_INSTALL is the last field and is always visible
+    panel.selected = F_AUTO_UPDATE_INSTALL;
     panel.handle_down();
-    assert_eq!(panel.selected, F_STATUS_BAR_RIGHT);
+    assert_eq!(panel.selected, F_AUTO_UPDATE_INSTALL);
 }
 
 #[test]
@@ -646,7 +646,7 @@ fn jump_backward_from_window_lands_on_font() {
 #[test]
 fn jump_forward_wraps_at_last_section() {
     let mut panel = make_panel();
-    panel.selected = F_STATUS_BAR_RIGHT; // Status Bar is the last section
+    panel.selected = F_AUTO_UPDATE_CHECK; // Updates is the last section
     panel.jump_section_forward();
     assert_eq!(panel.selected, F_RESTORE_SESSION); // wraps to first (General)
 }
@@ -654,9 +654,9 @@ fn jump_forward_wraps_at_last_section() {
 #[test]
 fn jump_backward_wraps_at_first_section() {
     let mut panel = make_panel();
-    panel.selected = F_RESTORE_SESSION; // General is now the first section
+    panel.selected = F_RESTORE_SESSION; // General is the first section
     panel.jump_section_backward();
-    assert_eq!(panel.selected, F_STATUS_BAR_RIGHT); // wraps to last (Status Bar)
+    assert_eq!(panel.selected, F_AUTO_UPDATE_CHECK); // wraps to last (Updates)
 }
 
 // ── section_of helper ─────────────────────────────────────────────────────────

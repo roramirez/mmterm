@@ -165,6 +165,7 @@ fn draw_empty_buffer_does_not_panic() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -207,6 +208,7 @@ fn draw_pane_fills_background_color() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
     assert!(buf.iter().any(|&p| p != 0));
 }
@@ -239,6 +241,7 @@ fn draw_tab_bar_renders_without_panic() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -270,6 +273,7 @@ fn draw_status_bar_renders_without_panic() {
         false,
         true,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -300,6 +304,7 @@ fn draw_status_bar_pane_title_centered() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -322,6 +327,7 @@ fn draw_status_bar_pane_title_centered() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 
     assert!(
@@ -360,6 +366,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -385,6 +392,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 
     assert_eq!(
@@ -445,6 +453,7 @@ fn draw_with_bell_flash_does_not_panic() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -474,6 +483,7 @@ fn draw_with_separator_does_not_panic() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -575,6 +585,7 @@ fn do_draw(
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -740,6 +751,7 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
     // Underline row is at rect_y + cell_height - 2 (cell at row 0, rect_y = 22)
     let ul_y = (22 + m.cell_height.saturating_sub(2)) as usize;
@@ -832,6 +844,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
     // Cell (0,0) background pixel: x = 4 (PANE_PADDING), y = 22+4 (TAB_BAR_H+PANE_PADDING)
     let px = 4usize;
@@ -1055,6 +1068,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -1087,6 +1101,7 @@ fn draw_status_bar_search_no_matches_shows_label() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
 }
 
@@ -1260,6 +1275,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         false,
         false,
         &theme,
+        None, // update_badge: wired in Task 9
     );
     // Every pixel in the top-left padding block must equal bg.
     for dy in 0..PANE_PADDING {

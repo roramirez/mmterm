@@ -630,6 +630,22 @@ impl App {
     }
 
     fn handle_left_button(&mut self, state: ElementState) -> bool {
+        #[cfg(target_os = "macos")]
+        if state == ElementState::Pressed
+            && self.state.available_update.is_some()
+            && let (Some([bx, by, bw, bh]), Some((mx, my))) =
+                (self.renderer.update_badge_rect, self.state.mouse_pos)
+        {
+            let (mx, my) = (mx as u32, my as u32);
+            if mx >= bx && mx < bx + bw && my >= by && my < by + bh {
+                std::thread::spawn(|| {
+                    let _ = crate::update::apply_macos_update();
+                });
+                self.state.available_update = None;
+                self.request_redraw();
+                return true;
+            }
+        }
         if state == ElementState::Released && self.state.drag_separator.take().is_some() {
             return true;
         }

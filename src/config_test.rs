@@ -274,3 +274,10 @@ fn status_bar_right_preserves_spaces() {
     let cfg: StatusBarConfig = toml::from_str(toml).unwrap();
     assert_eq!(cfg.right, "%pwd  |  %date{%H:%M}");
 }
+
+#[test]
+fn general_update_flags_default_true() {
+    let cfg = Config::default();
+    assert!(cfg.general.auto_update_check);
+    assert!(cfg.general.auto_update_install);
+}

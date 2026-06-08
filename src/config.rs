@@ -55,6 +55,10 @@ pub struct GeneralConfig {
     pub screenshot_dir: String,
     #[serde(default)]
     pub visual_bell: bool,
+    #[serde(default = "default_true")]
+    pub auto_update_check: bool,
+    #[serde(default = "default_true")]
+    pub auto_update_install: bool,
 }
 
 impl Default for GeneralConfig {
@@ -63,6 +67,8 @@ impl Default for GeneralConfig {
             restore_session: default_true(),
             screenshot_dir: default_screenshot_dir(),
             visual_bell: false,
+            auto_update_check: default_true(),
+            auto_update_install: default_true(),
         }
     }
 }

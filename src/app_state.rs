@@ -85,6 +85,10 @@ pub struct AppState {
     pub swallow_next_tab: bool,
     pub theme: ResolvedTheme,
     pub drag_separator: Option<SeparatorHandle>,
+    /// A newer version is available (drives the status-bar badge).
+    pub available_update: Option<crate::update::Version>,
+    /// An update was self-applied this session (Linux) — drives the "restart" badge.
+    pub update_applied: Option<crate::update::Version>,
 }
 
 impl AppState {
@@ -111,6 +115,8 @@ impl AppState {
             theme,
             config,
             drag_separator: None,
+            available_update: None,
+            update_applied: None,
         }
     }
 

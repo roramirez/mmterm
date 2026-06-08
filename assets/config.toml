@@ -38,6 +38,15 @@ restore_session = true
 # false = only the status bar "●" dot is shown (default).
 visual_bell = false
 
+# Check GitHub once per day for a newer release (one network request on startup).
+# false disables all update network activity.
+auto_update_check = true
+
+# Linux only: when an update is found, silently download + verify + self-replace the
+# binary in the background (applies on next launch). false = notify only (status-bar
+# badge). On macOS, updating is always user-initiated by clicking the badge.
+auto_update_install = true
+
 [colors]
 background = "#121212"
 foreground = "#a0a0a0"

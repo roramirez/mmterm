@@ -13,6 +13,14 @@ const BADGE_PAD_X: u32 = 8;
 // Dark color for text rendered on bright-colored badges (readable on any saturated hue).
 const BADGE_FG: u32 = 0xff_11_11_1d;
 
+/// What the status bar should show about updates (passed in by the app each frame).
+pub enum UpdateBadge {
+    /// A newer version is available (clickable on macOS). e.g. Available("0.7.0").
+    Available(String),
+    /// An update was applied; prompt to restart (Linux). e.g. Applied("0.7.0").
+    Applied(String),
+}
+
 pub struct PaneView<'a> {
     pub grid: &'a Grid,
     pub rect: [u32; 4],
@@ -76,6 +84,9 @@ pub struct Renderer {
     pub font_px: f32, // default from config (reference only)
     pub(super) status_font_px: f32,
     pub glyphs: GlyphCache,
+    /// Pixel rect [x, y, w, h] of the update badge drawn last frame, or None.
+    /// Set by draw_status_bar; read by the app for click hit-testing.
+    pub update_badge_rect: Option<[u32; 4]>,
 }
 
 fn apply_bell_flash(buf: &mut [u32], buf_width: u32, buf_height: u32, color: u32, intensity: f32) {
@@ -99,6 +110,7 @@ impl Renderer {
             font_px,
             status_font_px: 13.0,
             glyphs,
+            update_badge_rect: None,
         }
     }
 
@@ -128,6 +140,7 @@ impl Renderer {
         visual_bell: bool,
         is_logging: bool,
         theme: &ResolvedTheme,
+        update_badge: Option<&UpdateBadge>,
     ) {
         let bg_fill = panes
             .first()
@@ -169,6 +182,7 @@ impl Renderer {
             bell_flash_intensity.is_some(),
             is_logging,
             theme,
+            update_badge,
         );
     }
 
@@ -582,6 +596,7 @@ impl Renderer {
         bell_active: bool,
         is_logging: bool,
         theme: &ResolvedTheme,
+        update_badge: Option<&UpdateBadge>,
     ) {
         let bar_y = height.saturating_sub(STATUS_BAR_H);
         let bar_bg = dim_color(color_u32(theme.background), 0.85);
@@ -684,6 +699,22 @@ impl Renderer {
             px,
             color_u32(theme.palette[8]),
         );
+
+        self.update_badge_rect = None;
+        if let Some(badge) = update_badge {
+            let (text, color) = match badge {
+                UpdateBadge::Available(v) => (format!("\u{2191}{v}"), color_u32(theme.palette[2])),
+                UpdateBadge::Applied(v) => {
+                    (format!("\u{21bb}{v} restart"), color_u32(theme.palette[3]))
+                }
+            };
+            let w = text.chars().count() as u32 * char_w + BADGE_PAD_X * 2;
+            let x = width.saturating_sub(w + 8);
+            self.draw_status_badge(
+                buf, width, height, x, badge_y, w, badge_h, &text, color, BADGE_FG, char_w, px,
+            );
+            self.update_badge_rect = Some([x, badge_y, w, badge_h]);
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

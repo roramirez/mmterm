@@ -29,6 +29,8 @@ const F_COLOR_CUR: usize = 18;
 const F_COLOR_SEL: usize = 19;
 const F_PALETTE: usize = 20; // F_PALETTE + 0..15
 const F_STATUS_BAR_RIGHT: usize = 36;
+const F_AUTO_UPDATE_CHECK: usize = 37;
+const F_AUTO_UPDATE_INSTALL: usize = 38;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -264,6 +266,22 @@ impl ConfigPanel {
             value: cfg.status_bar.right.clone(),
             kind: FieldKind::OptText,
             section: Some("Status Bar"),
+        });
+
+        // ── Updates ─────────────────────────────────────────────────────────
+        fields.push(Field {
+            label: "Auto Update Check",
+            hint: "check GitHub once per day for a newer release",
+            value: cfg.general.auto_update_check.to_string(),
+            kind: FieldKind::Bool,
+            section: Some("Updates"),
+        });
+        fields.push(Field {
+            label: "Auto Update Install",
+            hint: "Linux only: silently self-replace binary when update found",
+            value: cfg.general.auto_update_install.to_string(),
+            kind: FieldKind::Bool,
+            section: None,
         });
 
         let mut collapsed = HashSet::new();
@@ -625,6 +643,14 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid visual_bell — use true or false")?;
 
+        let auto_update_check = get(F_AUTO_UPDATE_CHECK)
+            .parse::<bool>()
+            .map_err(|_| "Invalid auto_update_check — use true or false")?;
+
+        let auto_update_install = get(F_AUTO_UPDATE_INSTALL)
+            .parse::<bool>()
+            .map_err(|_| "Invalid auto_update_install — use true or false")?;
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -653,6 +679,8 @@ impl ConfigPanel {
                 restore_session,
                 screenshot_dir,
                 visual_bell,
+                auto_update_check,
+                auto_update_install,
             },
         })
     }

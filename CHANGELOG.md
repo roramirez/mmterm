@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- daily update check: silent background self-update on Linux, click-to-update badge on macOS (opt-out via `general.auto_update_check` / `auto_update_install`)
 - macOS `.dmg` packaging an ad-hoc-signed `mmterm.app` for drag-to-Applications install
 
 ### Changed

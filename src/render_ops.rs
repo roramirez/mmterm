@@ -143,6 +143,13 @@ impl App {
         let pwd_in_right = self.state.config.status_bar.right.contains("%pwd");
         let pane_title =
             statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_owned.as_deref());
+        let update_badge = if let Some(v) = self.state.update_applied {
+            Some(crate::renderer::UpdateBadge::Applied(v.to_string()))
+        } else {
+            self.state
+                .available_update
+                .map(|v| crate::renderer::UpdateBadge::Available(v.to_string()))
+        };
         self.renderer.draw(
             pixels,
             w,
@@ -162,6 +169,7 @@ impl App {
             self.state.config.general.visual_bell,
             is_logging,
             &self.state.theme,
+            update_badge.as_ref(),
         );
 
         if let Some(([px, py, pw, ph], name)) = self.pending_screenshot.take() {
@@ -195,6 +203,7 @@ impl App {
     }
 
     pub(crate) fn handle_redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
+        self.poll_update();
         let (exited, has_more) = self.drain_all();
         for (tab_idx, pane_id) in exited {
             self.close_pane_on_tab(tab_idx, pane_id, event_loop);

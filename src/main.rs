@@ -27,6 +27,7 @@ mod terminal;
 mod theme;
 mod tui_config;
 mod ui;
+mod update;
 mod views;
 mod winit_handler;
 
@@ -78,6 +79,10 @@ struct App {
     pending_screenshot: Option<([u32; 4], String)>,
     /// Named session scope from `--scope <name>`; `None` means the default session.
     scope: Option<String>,
+    /// Receives the daily update-check outcome.
+    update_rx: Option<std::sync::mpsc::Receiver<crate::update::CheckOutcome>>,
+    /// Receives the result of a Linux background self-apply (Ok(version) on success).
+    update_apply_rx: Option<std::sync::mpsc::Receiver<std::io::Result<crate::update::Version>>>,
 }
 
 impl App {
@@ -92,6 +97,16 @@ impl App {
         let wakeup_pending = Arc::new(AtomicBool::new(false));
         let mut state = AppState::new(config, theme);
         state.search_history = history::load_search_history();
+
+        let mut update_rx = None;
+        if state.config.general.auto_update_check
+            && let Some(current) = crate::update::Version::parse(env!("MMTERM_VERSION"))
+        {
+            let (tx, rx) = std::sync::mpsc::channel();
+            crate::update::spawn_check(current, crate::update::state_path(), tx);
+            update_rx = Some(rx);
+        }
+
         Self {
             state,
             window: None,
@@ -104,6 +119,69 @@ impl App {
             last_pty_data: None,
             pending_screenshot: None,
             scope,
+            update_rx,
+            update_apply_rx: None,
+        }
+    }
+
+    fn poll_update(&mut self) {
+        let mut changed = false;
+
+        // Drain into locals first so we can mutate `self` without holding a
+        // borrow on the channel fields.
+        let mut newer = Vec::new();
+        if let Some(rx) = &self.update_rx {
+            while let Ok(outcome) = rx.try_recv() {
+                if let crate::update::CheckOutcome::Newer(v) = outcome {
+                    newer.push(v);
+                }
+            }
+        }
+        for v in newer {
+            self.on_update_available(v);
+            changed = true;
+        }
+
+        let mut applied = Vec::new();
+        if let Some(rx) = &self.update_apply_rx {
+            while let Ok(res) = rx.try_recv() {
+                applied.push(res);
+            }
+        }
+        // Err results are silent no-ops, leaving the running binary untouched.
+        for v in applied.into_iter().flatten() {
+            self.state.update_applied = Some(v);
+            self.state.available_update = None;
+            changed = true;
+        }
+
+        if changed {
+            self.request_redraw();
+        }
+    }
+
+    fn on_update_available(&mut self, v: crate::update::Version) {
+        #[cfg(target_os = "linux")]
+        {
+            if self.state.config.general.auto_update_install {
+                if let Ok(exe) = std::env::current_exe() {
+                    if let crate::update::InstallTarget::Writable(path) =
+                        crate::update::detect_install_target(&exe, env!("MMTERM_VERSION"))
+                    {
+                        let (tx, rx) = std::sync::mpsc::channel();
+                        std::thread::spawn(move || {
+                            let _ = tx.send(crate::update::apply_linux_update(&path).map(|_| v));
+                        });
+                        self.update_apply_rx = Some(rx);
+                        return;
+                    }
+                }
+            }
+            self.state.available_update = Some(v); // not eligible -> notify only
+        }
+        #[cfg(target_os = "macos")]
+        {
+            self.state.available_update = Some(v);
         }
     }
 
