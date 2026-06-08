@@ -34,7 +34,7 @@ MMTERM_TEST=1
 check "log is defined" "$(command -v log >/dev/null 2>&1 && echo yes)" "yes"
 
 # detect_platform maps uname output to release artifact names.
-# shellcheck disable=SC2317  # invoked indirectly via detect_platform and setup_desktop
+# shellcheck disable=SC2317,SC2329  # invoked indirectly via detect_platform and setup_desktop
 uname() { case "$1" in -s) echo "${MOCK_OS}" ;; -m) echo "${MOCK_ARCH}" ;; esac; }
 
 MOCK_OS=Linux  MOCK_ARCH=x86_64        ; check "linux x86_64"  "$(detect_platform)" "mmterm-linux-x86_64"
@@ -67,15 +67,23 @@ good="$(sha256_of "${vdir}/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${good}" > "${vdir}/checksums-sha256.txt"
 printf 'deadbeef  artifacts/mmterm-linux-aarch64.tar.gz\n' >> "${vdir}/checksums-sha256.txt"
 
-if verify_checksum "${vdir}/mmterm-linux-x86_64.tar.gz" "${vdir}/checksums-sha256.txt" mmterm-linux-x86_64; then
+if verify_checksum "${vdir}/mmterm-linux-x86_64.tar.gz" "${vdir}/checksums-sha256.txt" mmterm-linux-x86_64.tar.gz; then
   check "verify_checksum accepts good hash" "ok" "ok"
 else
   check "verify_checksum accepts good hash" "FAIL" "ok"
 fi
+cp "${vdir}/mmterm-linux-x86_64.tar.gz" "${vdir}/mmterm-macos-aarch64.dmg"
+dmg_hash="$(sha256_of "${vdir}/mmterm-macos-aarch64.dmg")"
+printf '%s  artifacts/mmterm-macos-aarch64.dmg\n' "${dmg_hash}" >> "${vdir}/checksums-sha256.txt"
+if verify_checksum "${vdir}/mmterm-macos-aarch64.dmg" "${vdir}/checksums-sha256.txt" mmterm-macos-aarch64.dmg; then
+  check "verify_checksum accepts dmg" "ok" "ok"
+else
+  check "verify_checksum accepts dmg" "FAIL" "ok"
+fi
 expect_fail "verify_checksum rejects bad hash" \
-  sh -c '. "'"${HERE}"'/install.sh"; verify_checksum "'"${vdir}"'/mmterm-linux-x86_64.tar.gz" "'"${vdir}"'/checksums-sha256.txt" mmterm-linux-aarch64'
+  sh -c '. "'"${HERE}"'/install.sh"; verify_checksum "'"${vdir}"'/mmterm-linux-x86_64.tar.gz" "'"${vdir}"'/checksums-sha256.txt" mmterm-linux-aarch64.tar.gz'
 expect_fail "verify_checksum rejects missing entry" \
-  sh -c '. "'"${HERE}"'/install.sh"; verify_checksum "'"${vdir}"'/mmterm-linux-x86_64.tar.gz" "'"${vdir}"'/checksums-sha256.txt" mmterm-macos-aarch64'
+  sh -c '. "'"${HERE}"'/install.sh"; verify_checksum "'"${vdir}"'/mmterm-linux-x86_64.tar.gz" "'"${vdir}"'/checksums-sha256.txt" mmterm-windows-x86_64.tar.gz'
 rm -rf "${vdir}"
 
 # install_binary copies atomically into the target dir with mode 755.
@@ -126,7 +134,7 @@ PATH="${PATH_BAK}"; HOME="${HOME_BAK}"; SHELL="${SHELL_BAK}"
 rm -rf "${ep_home}"
 
 # setup_desktop is a no-op on non-Linux (returns success).
-# shellcheck disable=SC2317  # invoked indirectly via setup_desktop
+# shellcheck disable=SC2317,SC2329  # invoked indirectly via setup_desktop
 uname() { echo Darwin; }
 if setup_desktop /tmp/mmterm; then
   check "setup_desktop noop on macos" "ok" "ok"
@@ -145,11 +153,11 @@ e2e_hash="$(sha256_of "${e2e}/release/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/release/checksums-sha256.txt"
 
 # Mocks: serve downloads from local dir; force Linux x86_64; skip real gh provenance.
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 verify_provenance() { return 0; }
 
 # Run main in a subshell so HOME/SHELL/trap/env changes stay isolated.
@@ -171,11 +179,11 @@ printf 'not-the-binary' > "${e2e}/wrongname"
 ( cd "${e2e}" && tar -czf release/mmterm-linux-x86_64.tar.gz wrongname )
 e2e_hash="$(sha256_of "${e2e}/release/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/release/checksums-sha256.txt"
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2317  # invoked indirectly inside the main subshell below
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 verify_provenance() { return 0; }
 # shellcheck disable=SC2034  # MMTERM_BIN_DIR is read by main() sourced from install.sh
 if ( HOME="${e2e}/home"; SHELL="/bin/zsh"; MMTERM_BIN_DIR="${e2e}/bin"; main ) >/dev/null 2>&1; then
@@ -186,6 +194,32 @@ fi
 check "e2e missing-binary installs nothing" "$( [ -e "${e2e}/bin/mmterm" ] && echo exists || echo none )" "none"
 rm -rf "${e2e}"
 unset -f fetch uname verify_provenance 2>/dev/null || true
+
+# macOS e2e: fake .dmg release, mock fetch/uname/provenance/open, run real main.
+mac="$(mktemp -d)"
+mkdir -p "${mac}/release" "${mac}/home"
+printf 'fake-dmg-bytes' > "${mac}/release/mmterm-macos-aarch64.dmg"
+mac_hash="$(sha256_of "${mac}/release/mmterm-macos-aarch64.dmg")"
+printf '%s  artifacts/mmterm-macos-aarch64.dmg\n' "${mac_hash}" > "${mac}/release/checksums-sha256.txt"
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
+fetch() { cp "${mac}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
+uname() { case "$1" in -s) echo Darwin ;; -m) echo arm64 ;; esac; }
+# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
+verify_provenance() { return 0; }
+# shellcheck disable=SC2317,SC2329  # 'open' is mocked; record the path it was asked to open
+open() { printf '%s\n' "$1" > "${mac}/opened"; }
+if ( HOME="${mac}/home"; main ) >/dev/null 2>&1; then
+  check "macos e2e main succeeds" "ok" "ok"
+else
+  check "macos e2e main succeeds" "FAIL" "ok"
+fi
+check "macos e2e dmg in Downloads" \
+  "$( [ -f "${mac}/home/Downloads/mmterm-macos-aarch64.dmg" ] && echo yes )" "yes"
+check "macos e2e opened the dmg" \
+  "$(cat "${mac}/opened" 2>/dev/null)" "${mac}/home/Downloads/mmterm-macos-aarch64.dmg"
+rm -rf "${mac}"
+unset -f fetch uname verify_provenance open 2>/dev/null || true
 
 [ "${fails}" -eq 0 ] || { printf '\n%s test(s) failed\n' "${fails}"; exit 1; }
 printf '\nall tests passed\n'
