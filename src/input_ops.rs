@@ -4,7 +4,7 @@ use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::ui::SplitDir;
 use crate::ui::layout::TAB_BAR_H;
-use crate::{AppEffect, font, pane_ops, session};
+use crate::{AppEffect, pane_ops, session};
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
@@ -199,15 +199,16 @@ impl App {
     }
 
     pub(crate) fn change_font_size(&mut self, delta: f32) {
-        let current = self.state.tabs[self.state.active_tab].metrics.font_px;
-        let Some(new_size) = font::apply_delta(current, delta) else {
+        let idx = self.state.active_tab;
+        let logical = self.state.tabs[idx].logical_font_size;
+        let Some((new_logical, new_metrics)) =
+            crate::scaling::apply_font_delta(logical, delta, self.scale, &mut self.renderer)
+        else {
             return;
         };
-        let new_metrics = self.renderer.make_metrics(new_size);
-        let idx = self.state.active_tab;
+        self.state.tabs[idx].logical_font_size = new_logical;
         self.state.tabs[idx].metrics = new_metrics;
         Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
-        log::info!("Tab {} font size: {current} → {new_size}", idx + 1);
     }
 
     pub(crate) fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {

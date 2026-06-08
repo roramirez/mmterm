@@ -32,6 +32,18 @@ fn initial_tabs_empty() {
     assert!(make_state().tabs.is_empty());
 }
 
+// ── HiDPI: logical_font_size field ───────────────────────────────────────
+
+#[test]
+fn new_tab_seeds_logical_font_size() {
+    let mut s = make_state();
+    s.add_empty_tab();
+    assert_eq!(
+        s.tabs[s.active_tab].logical_font_size,
+        crate::dpi::Logical(16.0)
+    );
+}
+
 // ── Tab navigation ────────────────────────────────────────────────────────
 
 #[test]
@@ -831,6 +843,27 @@ fn dispatch_reset_font_size_returns_change_effect() {
         effects
             .iter()
             .any(|e| matches!(e, AppEffect::ChangeFontSize(_)))
+    );
+}
+
+#[test]
+fn dispatch_reset_font_size_emits_logical_delta_to_default() {
+    // Config default is 16.0; tab is at logical 18.0 → delta should be -2.0.
+    let mut s = make_state_with_tabs(1);
+    s.tabs[0].logical_font_size = crate::dpi::Logical(18.0);
+    let effects = s.dispatch_action(Action::ResetFontSize);
+    let delta = effects.iter().find_map(|e| {
+        if let AppEffect::ChangeFontSize(d) = e {
+            Some(*d)
+        } else {
+            None
+        }
+    });
+    assert!(delta.is_some(), "expected ChangeFontSize effect");
+    let d = delta.unwrap();
+    assert!(
+        (d - (-2.0_f32)).abs() < 1e-5,
+        "expected delta -2.0 (default 16 - current 18), got {d}"
     );
 }
 

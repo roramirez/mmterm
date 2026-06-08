@@ -3,6 +3,7 @@ mod app_state;
 mod cli;
 mod command_palette;
 mod config;
+mod dpi;
 mod drain;
 mod font;
 mod geometry;
@@ -18,6 +19,7 @@ mod pty;
 mod render_ops;
 mod renderer;
 mod restore;
+mod scaling;
 mod screenshot;
 mod search;
 mod session;
@@ -83,6 +85,10 @@ struct App {
     update_rx: Option<std::sync::mpsc::Receiver<crate::update::CheckOutcome>>,
     /// Receives the result of a Linux background self-apply (Ok(version) on success).
     update_apply_rx: Option<std::sync::mpsc::Receiver<std::io::Result<crate::update::Version>>>,
+    /// Current-monitor scale (floored >= 1.0). Single source of truth — set in
+    /// resumed() before the first tab and in handle_scale_changed(). No other code
+    /// calls window.scale_factor() (keeps logic unit-testable; spec §5.1).
+    scale: crate::dpi::Scale,
 }
 
 impl App {
@@ -121,6 +127,7 @@ impl App {
             scope,
             update_rx,
             update_apply_rx: None,
+            scale: crate::dpi::Scale::new(1.0),
         }
     }
 
@@ -201,6 +208,22 @@ impl App {
         for tab in &mut self.state.tabs {
             tab.layout.resize(w, h);
         }
+        self.sync_all_pane_sizes();
+    }
+
+    /// Window moved to a different-DPI monitor. Ordering (spec §5.5/§5.7):
+    /// update scale + every tab's metrics + sync_all_pane_sizes (a guard for the
+    /// case where the physical size is unchanged and no Resized follows); do NOT
+    /// layout/redraw here — the Resized event that winit emits next does that at
+    /// the new physical size.
+    fn handle_scale_changed(&mut self, new_scale: f64) {
+        self.scale = crate::dpi::Scale::new(new_scale);
+        self.renderer.scale = self.scale;
+        crate::scaling::recompute_metrics_for_scale(
+            &mut self.state.tabs,
+            self.scale,
+            &mut self.renderer,
+        );
         self.sync_all_pane_sizes();
     }
 }

@@ -51,7 +51,10 @@ impl App {
         if saved.tabs.is_empty() {
             return false;
         }
-        let metrics = self.renderer.make_metrics(self.renderer.font_px);
+        let metrics = self.renderer.make_metrics(
+            self.scale
+                .px(crate::dpi::Logical(self.state.config.font.size)),
+        );
         let home = dirs_next::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
         for tab_sess in &saved.tabs {
             let tab_idx = self.state.tabs.len();
@@ -60,6 +63,7 @@ impl App {
                 layout: Layout::new(0, win_w, win_h),
                 active: 0,
                 metrics: metrics.clone(),
+                logical_font_size: crate::dpi::Logical(self.state.config.font.size),
                 name: tab_sess.name.clone(),
                 zoomed: false,
                 has_activity: false,

@@ -1,4 +1,5 @@
 use super::*;
+use crate::dpi::Physical;
 use std::time::{Duration, Instant};
 
 /// Builds an EventLoop that works from any thread (needed for tests).
@@ -299,12 +300,13 @@ fn next_bell_wakeup_no_active_bell_returns_default() {
     use std::collections::HashMap;
 
     let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(16.0);
+    let metrics = r.make_metrics(Physical(16.0));
     let tab = TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
         metrics,
+        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -326,13 +328,14 @@ fn next_bell_wakeup_active_bell_returns_earlier() {
     use std::collections::HashMap;
 
     let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(16.0);
+    let metrics = r.make_metrics(Physical(16.0));
     let bell_expiry = Instant::now() + Duration::from_millis(50);
     let tab = TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
         metrics,
+        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -357,7 +360,7 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
     use std::collections::HashMap;
 
     let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(16.0);
+    let metrics = r.make_metrics(Physical(16.0));
     let expiry1 = Instant::now() + Duration::from_millis(200);
     let expiry2 = Instant::now() + Duration::from_millis(50);
 
@@ -366,6 +369,7 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
         layout: Layout::new(0, 800, 600),
         active: 0,
         metrics,
+        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
