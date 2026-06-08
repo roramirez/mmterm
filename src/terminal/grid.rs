@@ -5,6 +5,17 @@ use std::sync::Arc;
 const HTTPS_PREFIX_LEN: usize = 8; // "https://"
 const HTTP_PREFIX_LEN: usize = 7; // "http://"
 
+/// OSC 133 shell integration state.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum ShellState {
+    #[default]
+    Unknown, // no OSC 133 received yet
+    PromptStart, // A — prompt is being drawn
+    Prompt,      // B — shell is at prompt, waiting for input
+    Running,     // C — command submitted, output flowing
+    Finished,    // D — command finished
+}
+
 /// DECSCUSR cursor shape (CSI Ps SP q).
 /// Blinking variants use the existing blink_visible flag in PaneView.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -216,6 +227,12 @@ pub struct Grid {
     // Sixel images anchored to live-grid cell coordinates; cleared on clear_screen
     // and alternate-screen transitions.
     pub images: Vec<SixelImage>,
+    // OSC 133 shell integration state machine
+    pub shell_state: ShellState,
+    // Last command exit code from OSC 133 ; D ; <code>
+    pub last_exit_code: Option<i32>,
+    // OSC 777 pending desktop notification (title, body); consumed once per frame by drain.rs
+    pub pending_notification: Option<(String, String)>,
 }
 
 impl Grid {
@@ -279,6 +296,9 @@ impl Grid {
             focus_report: false,
             autowrap: true,
             images: Vec::new(),
+            shell_state: ShellState::Unknown,
+            last_exit_code: None,
+            pending_notification: None,
         }
     }
 
@@ -916,6 +936,9 @@ impl Grid {
         self.application_cursor_keys = false;
         self.charset_drawing = false;
         self.focus_report = false;
+        self.shell_state = ShellState::Unknown;
+        self.last_exit_code = None;
+        self.pending_notification = None;
     }
 }
 

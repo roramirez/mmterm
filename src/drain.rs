@@ -145,4 +145,31 @@ pub(super) fn process_pane_bytes(
         let resp = format!("\x1b]52;c;{encoded}\x1b\\");
         let _ = entry.pty.write_input(resp.as_bytes());
     }
+    if let Some((title, body)) = entry.pane.parser.grid.pending_notification.take() {
+        dispatch_notification(title, body);
+    }
 }
+
+#[cfg(not(test))]
+fn dispatch_notification(title: String, body: String) {
+    #[cfg(target_os = "linux")]
+    std::thread::spawn(move || {
+        let _ = std::process::Command::new("notify-send")
+            .arg(&title)
+            .arg(&body)
+            .status();
+    });
+    #[cfg(target_os = "macos")]
+    std::thread::spawn(move || {
+        let script = format!("display notification {body:?} with title {title:?}");
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .status();
+    });
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let _ = (title, body);
+}
+
+#[cfg(test)]
+fn dispatch_notification(_title: String, _body: String) {}

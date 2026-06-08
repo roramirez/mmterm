@@ -31,6 +31,7 @@ const F_PALETTE: usize = 20; // F_PALETTE + 0..15
 const F_STATUS_BAR_RIGHT: usize = 36;
 const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
+const F_SHELL_INTEGRATION: usize = 39;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -280,6 +281,13 @@ impl ConfigPanel {
             label: "Auto Update Install",
             hint: "Linux only: silently self-replace binary when update found",
             value: cfg.general.auto_update_install.to_string(),
+            kind: FieldKind::Bool,
+            section: None,
+        });
+        fields.push(Field {
+            label: "Shell Integration",
+            hint: "show prompt/exit-code badges and handle OSC 777 desktop notifications",
+            value: cfg.general.shell_integration.to_string(),
             kind: FieldKind::Bool,
             section: None,
         });
@@ -651,6 +659,10 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid auto_update_install — use true or false")?;
 
+        let shell_integration = get(F_SHELL_INTEGRATION)
+            .parse::<bool>()
+            .map_err(|_| "Invalid shell_integration — use true or false")?;
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -681,6 +693,7 @@ impl ConfigPanel {
                 visual_bell,
                 auto_update_check,
                 auto_update_install,
+                shell_integration,
             },
         })
     }

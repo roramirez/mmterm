@@ -1193,6 +1193,87 @@ fn dcs_multiple_sixel_images_accumulate() {
     assert_eq!(p.grid.images.len(), 2, "two images should accumulate");
 }
 
+// ── OSC 133 shell integration ─────────────────────────────────────────────────
+
+#[test]
+fn osc_133_a_sets_prompt_start_and_clears_exit_code() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;D;42\x07");
+    assert_eq!(p.grid.last_exit_code, Some(42));
+    p.process(b"\x1b]133;A\x07");
+    assert_eq!(
+        p.grid.shell_state,
+        super::super::grid::ShellState::PromptStart
+    );
+    assert_eq!(p.grid.last_exit_code, None);
+}
+
+#[test]
+fn osc_133_b_sets_prompt() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;B\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Prompt);
+}
+
+#[test]
+fn osc_133_c_sets_running() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;C\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Running);
+}
+
+#[test]
+fn osc_133_d_no_code_sets_finished() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;D\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Finished);
+    assert_eq!(p.grid.last_exit_code, None);
+}
+
+#[test]
+fn osc_133_d_with_exit_code_127() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;D;127\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Finished);
+    assert_eq!(p.grid.last_exit_code, Some(127));
+}
+
+#[test]
+fn osc_133_d_with_exit_code_0() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;D;0\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Finished);
+    assert_eq!(p.grid.last_exit_code, Some(0));
+}
+
+#[test]
+fn osc_133_unknown_marker_ignored() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]133;Z\x07");
+    assert_eq!(p.grid.shell_state, super::super::grid::ShellState::Unknown);
+}
+
+// ── OSC 777 notifications ─────────────────────────────────────────────────────
+
+#[test]
+fn osc_777_sets_pending_notification() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]777;notify;Build done;exit 0\x07");
+    assert_eq!(
+        p.grid.pending_notification,
+        Some(("Build done".to_string(), "exit 0".to_string()))
+    );
+}
+
+#[test]
+fn osc_777_malformed_does_not_panic() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b]777;notify\x07");
+    assert!(p.grid.pending_notification.is_none());
+    p.process(b"\x1b]777\x07");
+    assert!(p.grid.pending_notification.is_none());
+}
+
 // ── param_or_one ─────────────────────────────────────────────────────────────
 
 #[test]

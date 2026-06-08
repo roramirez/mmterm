@@ -1044,3 +1044,25 @@ fn reposition_cursor_after_reflow_clamps_chunk() {
     assert_eq!(row, 0);
     assert!(col <= 4);
 }
+
+// ── shell integration state ───────────────────────────────────────────────────
+
+#[test]
+fn shell_state_starts_unknown() {
+    let g = make_grid(10, 5);
+    assert_eq!(g.shell_state, super::ShellState::Unknown);
+    assert_eq!(g.last_exit_code, None);
+    assert!(g.pending_notification.is_none());
+}
+
+#[test]
+fn grid_reset_clears_shell_state() {
+    let mut g = make_grid(10, 5);
+    g.shell_state = super::ShellState::Prompt;
+    g.last_exit_code = Some(1);
+    g.pending_notification = Some(("t".into(), "b".into()));
+    g.reset();
+    assert_eq!(g.shell_state, super::ShellState::Unknown);
+    assert_eq!(g.last_exit_code, None);
+    assert!(g.pending_notification.is_none());
+}

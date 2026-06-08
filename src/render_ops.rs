@@ -141,6 +141,20 @@ impl App {
             .get(&active_id)
             .and_then(|e| e.pane.parser.grid.osc_title.as_deref());
         let pwd_in_right = self.state.config.status_bar.right.contains("%pwd");
+        let (shell_state, last_exit_code) = if self.state.config.general.shell_integration {
+            self.state.tabs[self.state.active_tab]
+                .panes
+                .get(&active_id)
+                .map(|e| {
+                    (
+                        e.pane.parser.grid.shell_state,
+                        e.pane.parser.grid.last_exit_code,
+                    )
+                })
+                .unwrap_or((crate::terminal::grid::ShellState::Unknown, None))
+        } else {
+            (crate::terminal::grid::ShellState::Unknown, None)
+        };
         let pane_title =
             statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_owned.as_deref());
         let update_badge = if let Some(v) = self.state.update_applied {
@@ -168,6 +182,8 @@ impl App {
             bell_flash_intensity,
             self.state.config.general.visual_bell,
             is_logging,
+            shell_state,
+            last_exit_code,
             &self.state.theme,
             update_badge.as_ref(),
         );

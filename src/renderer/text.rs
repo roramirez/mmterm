@@ -2,7 +2,7 @@ use super::blit::{blit_color_glyph, blit_glyph_pixels, blit_gray_glyph};
 pub(super) use super::draw_fns::*;
 use super::glyph::GlyphCache;
 use crate::input::InputMode;
-use crate::terminal::grid::{Cell, CursorShape};
+use crate::terminal::grid::{Cell, CursorShape, ShellState};
 use crate::terminal::sixel::SixelImage;
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
@@ -139,6 +139,8 @@ impl Renderer {
         bell_flash_intensity: Option<f32>,
         visual_bell: bool,
         is_logging: bool,
+        shell_state: ShellState,
+        last_exit_code: Option<i32>,
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
     ) {
@@ -181,6 +183,8 @@ impl Renderer {
             pane_title,
             bell_flash_intensity.is_some(),
             is_logging,
+            shell_state,
+            last_exit_code,
             theme,
             update_badge,
         );
@@ -595,6 +599,8 @@ impl Renderer {
         pane_title: Option<&str>,
         bell_active: bool,
         is_logging: bool,
+        shell_state: ShellState,
+        last_exit_code: Option<i32>,
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
     ) {
@@ -645,33 +651,69 @@ impl Renderer {
             color_u32(theme.palette[15]),
         );
 
-        // Show ● REC badge when session logging is active.
+        // Left-cluster secondary indicators — stacked with a running x.
+        let mut left_x = badge_x + badge_w + 8;
+
         if is_logging {
             let rec_label = "\u{25cf} REC";
             let rec_w = rec_label.len() as u32 * char_w + BADGE_PAD_X * 2;
-            let rec_color = color_u32(theme.palette[1]); // red/pink
-            let rec_x = badge_x + badge_w + 8;
+            let rec_color = color_u32(theme.palette[1]);
             self.draw_status_badge(
-                buf, width, height, rec_x, badge_y, rec_w, badge_h, rec_label, rec_color, badge_fg,
-                char_w, px,
+                buf, width, height, left_x, badge_y, rec_w, badge_h, rec_label, rec_color,
+                badge_fg, char_w, px,
             );
+            left_x += rec_w + 4;
         }
 
-        // Show "●" bell indicator when BEL was recently received.
         if bell_active {
-            let dot = "\u{25cf}";
-            let dot_x = badge_x + badge_w + 4;
-            let dot_y = badge_y + 2;
             self.draw_str(
                 buf,
                 width,
                 height,
-                dot_x,
-                dot_y,
-                dot,
+                left_x,
+                badge_y + 2,
+                "\u{25cf}",
                 px,
                 false,
                 color_u32(theme.palette[3]),
+            );
+            left_x += char_w + 6;
+        }
+
+        if shell_state == ShellState::Prompt {
+            self.draw_str(
+                buf,
+                width,
+                height,
+                left_x,
+                badge_y + 2,
+                "\u{203a}",
+                px,
+                false,
+                color_u32(theme.palette[6]),
+            );
+            left_x += char_w + 6;
+        }
+
+        if let Some(code) = last_exit_code
+            && code != 0
+        {
+            let label = format!("\u{2717} {code}");
+            let ecode_w = label.chars().count() as u32 * char_w + BADGE_PAD_X * 2;
+            let ecode_color = color_u32(theme.palette[1]);
+            self.draw_status_badge(
+                buf,
+                width,
+                height,
+                left_x,
+                badge_y,
+                ecode_w,
+                badge_h,
+                &label,
+                ecode_color,
+                badge_fg,
+                char_w,
+                px,
             );
         }
 

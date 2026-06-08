@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - macOS `.dmg` packaging an ad-hoc-signed `mmterm.app` for drag-to-Applications install
 - daily update check that detects a newer release and shows a status-bar update badge (opt-out via `general.auto_update_check`); no binary is downloaded on detection. Automatic background self-update on Linux is strictly opt-in and defaults off (`general.auto_update_install`); macOS shows a click-to-update badge
+- OSC 133 shell integration: status bar shows a `›` prompt indicator when the shell is waiting for input and a `✗ N` badge when the last command exited non-zero (opt-out via `general.shell_integration = false`)
+- OSC 777 desktop notifications: `\e]777;notify;title;body\e\\` triggers `notify-send` (Linux) / `osascript` (macOS) and a brief tab-bar flash
 
 ### Changed
 - `install.sh` on macOS now downloads and opens the `.dmg` instead of installing a bare binary

@@ -164,6 +164,8 @@ fn draw_empty_buffer_does_not_panic() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -207,6 +209,8 @@ fn draw_pane_fills_background_color() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -240,6 +244,8 @@ fn draw_tab_bar_renders_without_panic() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -272,6 +278,8 @@ fn draw_status_bar_renders_without_panic() {
         None,
         false,
         true,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -303,6 +311,8 @@ fn draw_status_bar_pane_title_centered() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -326,6 +336,8 @@ fn draw_status_bar_pane_title_centered() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -365,6 +377,8 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -391,6 +405,8 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -452,6 +468,8 @@ fn draw_with_bell_flash_does_not_panic() {
         Some(1.0),
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -482,6 +500,8 @@ fn draw_with_separator_does_not_panic() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -584,6 +604,8 @@ fn do_draw(
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -750,6 +772,8 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -843,6 +867,8 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1067,6 +1093,8 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1100,6 +1128,8 @@ fn draw_status_bar_search_no_matches_shows_label() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1274,6 +1304,8 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         None,
         false,
         false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1399,4 +1431,192 @@ fn draw_pane_sixel_transparent_pixels_preserved() {
     });
     let pane = make_pane(&grid, &m);
     do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+}
+
+// ── shell integration status bar indicators ───────────────────────────────────
+
+#[test]
+fn status_bar_shows_prompt_badge_when_state_is_prompt() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(16.0);
+    let theme = default_theme();
+
+    let mut buf_with = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_with,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Prompt,
+        None,
+        &theme,
+        None,
+    );
+
+    let mut buf_without = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_without,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
+        &theme,
+        None,
+    );
+
+    assert!(
+        buf_with != buf_without,
+        "prompt badge must produce different pixels than unknown state"
+    );
+}
+
+#[test]
+fn status_bar_shows_exit_code_badge_on_nonzero() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(16.0);
+    let theme = default_theme();
+
+    let mut buf_with = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_with,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Unknown,
+        Some(1),
+        &theme,
+        None,
+    );
+
+    let mut buf_without = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_without,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
+        &theme,
+        None,
+    );
+
+    assert!(
+        buf_with != buf_without,
+        "non-zero exit code badge must produce different pixels than no badge"
+    );
+}
+
+#[test]
+fn status_bar_no_extra_badges_on_unknown_state_and_no_exit_code() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(16.0);
+    let theme = default_theme();
+
+    let mut buf_unknown = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_unknown,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Unknown,
+        None,
+        &theme,
+        None,
+    );
+
+    let mut buf_zero_exit = vec![0u32; 800 * 600];
+    r.draw(
+        &mut buf_zero_exit,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Normal,
+        false,
+        &[],
+        &m,
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        crate::terminal::grid::ShellState::Unknown,
+        Some(0), // zero exit code should not show badge
+        &theme,
+        None,
+    );
+
+    assert_eq!(
+        buf_unknown, buf_zero_exit,
+        "exit code 0 must not produce an extra badge"
+    );
 }
