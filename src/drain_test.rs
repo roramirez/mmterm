@@ -26,6 +26,7 @@ fn make_tab() -> TabState {
         layout: Layout::new(0, 800, 600),
         active: 0,
         metrics: dummy_metrics(),
+        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,

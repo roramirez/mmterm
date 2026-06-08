@@ -3,6 +3,7 @@ use super::{
 };
 use crate::InputMode;
 use crate::config::Config;
+use crate::dpi::Physical;
 use crate::terminal::Grid;
 use crate::terminal::grid::{Color, CursorShape, GridColors};
 use crate::theme::default_theme;
@@ -28,9 +29,22 @@ fn make_grid(cols: usize, rows: usize) -> Grid {
 }
 
 #[test]
+fn renderer_scale_defaults_to_one() {
+    let r = Renderer::new("JetBrainsMono", 16.0);
+    assert_eq!(r.scale.get(), 1.0);
+}
+
+#[test]
+fn renderer_scale_settable() {
+    let mut r = Renderer::new("JetBrainsMono", 16.0);
+    r.scale = crate::dpi::Scale::new(2.0);
+    assert_eq!(r.scale.get(), 2.0);
+}
+
+#[test]
 fn font_metrics_compute_returns_positive_cell_size() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     assert!(m.cell_width > 0);
     assert!(m.cell_height > 0);
     assert!(m.baseline > 0);
@@ -39,7 +53,7 @@ fn font_metrics_compute_returns_positive_cell_size() {
 #[test]
 fn font_metrics_grid_size_for_standard_window() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600);
     assert!(cols > 0);
     assert!(rows > 0);
@@ -48,7 +62,7 @@ fn font_metrics_grid_size_for_standard_window() {
 #[test]
 fn font_metrics_grid_size_for_small_window() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(1, 1);
     assert_eq!(cols, 1);
     assert_eq!(rows, 1);
@@ -143,7 +157,7 @@ fn mode_style_returns_badge_for_each_mode() {
 #[test]
 fn draw_empty_buffer_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -172,7 +186,7 @@ fn draw_empty_buffer_does_not_panic() {
 #[test]
 fn draw_pane_fills_background_color() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let grid = make_grid(cols, rows);
     let pane = PaneView {
@@ -216,7 +230,7 @@ fn draw_pane_fills_background_color() {
 #[test]
 fn draw_tab_bar_renders_without_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -248,7 +262,7 @@ fn draw_tab_bar_renders_without_panic() {
 #[test]
 fn draw_status_bar_renders_without_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -280,7 +294,7 @@ fn draw_status_bar_renders_without_panic() {
 #[test]
 fn draw_status_bar_pane_title_centered() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let theme = default_theme();
 
     // With title: pixels should differ from without title.
@@ -339,7 +353,7 @@ fn draw_status_bar_pane_title_centered() {
 #[test]
 fn draw_status_bar_pane_title_suppressed_in_search() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let theme = default_theme();
 
     // In Search mode the title should not be drawn — buffers must match.
@@ -431,7 +445,7 @@ fn draw_quit_confirm_dims_background() {
 #[test]
 fn draw_with_bell_flash_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -460,7 +474,7 @@ fn draw_with_bell_flash_does_not_panic() {
 #[test]
 fn draw_with_separator_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     let sep = [[200u32, 0u32, 2u32, 600u32]];
@@ -592,7 +606,7 @@ fn do_draw(
 #[test]
 fn draw_pane_with_text_renders_glyphs() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('H');
@@ -607,7 +621,7 @@ fn draw_pane_with_text_renders_glyphs() {
 #[test]
 fn draw_inactive_pane_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('X');
@@ -629,7 +643,7 @@ fn draw_inactive_pane_does_not_panic() {
 #[test]
 fn draw_pane_visual_selection_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('A');
@@ -660,7 +674,7 @@ fn draw_pane_visual_selection_does_not_panic() {
 #[test]
 fn draw_pane_with_search_match_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('f');
@@ -687,7 +701,7 @@ fn draw_pane_with_search_match_does_not_panic() {
 #[test]
 fn draw_pane_with_underline_cell_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('U');
@@ -699,7 +713,7 @@ fn draw_pane_with_underline_cell_does_not_panic() {
 #[test]
 fn draw_pane_osc8_link_without_hover_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('L');
@@ -711,7 +725,7 @@ fn draw_pane_osc8_link_without_hover_does_not_panic() {
 #[test]
 fn draw_pane_osc8_link_with_hover_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('L');
@@ -724,7 +738,7 @@ fn draw_pane_osc8_link_with_hover_does_not_panic() {
 #[test]
 fn draw_pane_osc8_link_paints_underline_without_hover() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('L');
@@ -767,7 +781,7 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
 #[test]
 fn draw_pane_with_strikethrough_cell_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('S');
@@ -779,7 +793,7 @@ fn draw_pane_with_strikethrough_cell_does_not_panic() {
 #[test]
 fn draw_pane_with_dim_cell_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('D');
@@ -791,7 +805,7 @@ fn draw_pane_with_dim_cell_does_not_panic() {
 #[test]
 fn draw_pane_with_reverse_video_cell_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('R');
@@ -806,7 +820,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
     // grid fg=WHITE (#ffffff), bg=BLACK (#000000). With reverse the cell
     // background must be WHITE (the fg), not BLACK (the original bg).
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = Grid::with_colors(
         cols,
@@ -863,7 +877,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
 #[test]
 fn draw_pane_with_scrollback_shows_scrollbar() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     // Push enough lines into scrollback to activate the scrollbar.
@@ -878,7 +892,7 @@ fn draw_pane_with_scrollback_shows_scrollbar() {
 #[test]
 fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     for _ in 0..rows + 10 {
@@ -904,7 +918,7 @@ fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
 #[test]
 fn draw_pane_with_cursor_visible_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let grid = make_grid(cols, rows);
     let pane = PaneView {
@@ -927,7 +941,7 @@ fn draw_pane_backwards_visual_selection_normalises_range() {
     // When cursor is before anchor (backwards selection), the else branch
     // at line 242 normalises the range so rendering still works.
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     for c in "hello world".chars() {
@@ -950,7 +964,7 @@ fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
     // Grid with more cols than the rect can hold → rightmost cells are
     // skipped via the bounds-check at line 232.
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     // Extra columns beyond what the 800px rect fits.
     let mut grid = make_grid(cols + 10, rows);
@@ -975,7 +989,7 @@ fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
 #[test]
 fn draw_pane_with_wide_cont_cell_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('A');
@@ -989,7 +1003,7 @@ fn draw_pane_with_wide_cont_cell_does_not_panic() {
 fn draw_pane_non_current_search_match_uses_match_color() {
     // Two matches; search_current=Some(1) → col 0 is a non-current match (line 278).
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('f');
@@ -1019,7 +1033,7 @@ fn draw_pane_non_current_search_match_uses_match_color() {
 fn draw_pane_inactive_with_url_does_not_panic() {
     // Inactive pane + URL cell → exercises dim_color on the hyperlink underline (line 398).
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.write_char('L');
@@ -1043,7 +1057,7 @@ fn draw_pane_inactive_with_url_does_not_panic() {
 fn draw_status_bar_search_empty_query_shows_slash() {
     // Search mode with empty query → info = "/" (line 948).
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -1076,7 +1090,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
 fn draw_status_bar_search_no_matches_shows_label() {
     // Non-empty query with search_total=0 → "no matches" label (line 950).
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -1165,7 +1179,7 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
     // at the PTY cursor. We detect this by checking that the pixel at the
     // visual cursor position gets the cursor color while the pane is active.
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     for c in "hello".chars() {
@@ -1199,7 +1213,7 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
 fn draw_pane_visual_mode_inactive_pane_no_cursor() {
     // Inactive panes must not show the visual cursor even if mode is Visual.
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let grid = make_grid(cols, rows);
     let mode = InputMode::Visual {
@@ -1232,7 +1246,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
     // color (no glyph pixels written there).
     use crate::ui::layout::PANE_PADDING;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let pad2 = PANE_PADDING * 2;
     let (cols, rows) = m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
     let mut grid = make_grid(cols, rows);
@@ -1295,7 +1309,7 @@ fn pane_padding_grid_size_accounts_for_both_sides() {
     // cols/rows than the unpadded call.
     use crate::ui::layout::PANE_PADDING;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let pad2 = PANE_PADDING * 2;
     let (cols_padded, rows_padded) =
         m.grid_size_for(800u32.saturating_sub(pad2), 556u32.saturating_sub(pad2));
@@ -1314,7 +1328,7 @@ fn pane_padding_grid_size_accounts_for_both_sides() {
 fn draw_pane_with_sixel_image_does_not_panic() {
     use crate::terminal::sixel::SixelImage;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     // 2×6 red image at cell (0, 0)
@@ -1334,7 +1348,7 @@ fn draw_pane_with_sixel_image_does_not_panic() {
 fn draw_pane_sixel_image_wider_than_pane_does_not_panic() {
     use crate::terminal::sixel::SixelImage;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     // Image deliberately wider than the pane (9000 pixels)
@@ -1354,7 +1368,7 @@ fn draw_pane_sixel_image_wider_than_pane_does_not_panic() {
 fn draw_pane_sixel_image_scrolled_up_not_drawn() {
     use crate::terminal::sixel::SixelImage;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     grid.images.push(SixelImage {
@@ -1385,7 +1399,7 @@ fn draw_pane_sixel_transparent_pixels_preserved() {
     // Transparent pixels (alpha=0) must not overwrite the background.
     use crate::terminal::sixel::SixelImage;
     let mut r = make_renderer();
-    let m = r.make_metrics(16.0);
+    let m = r.make_metrics(Physical(16.0));
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let mut grid = make_grid(cols, rows);
     // Fully transparent image

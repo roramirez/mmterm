@@ -102,7 +102,8 @@ impl App {
             .get(self.state.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
-        let metrics = self.renderer.make_metrics(self.renderer.font_px);
+        let logical = crate::dpi::Logical(self.state.config.font.size);
+        let metrics = self.renderer.make_metrics(self.scale.px(logical));
         let layout = Layout::new(0, win_w, win_h);
         let initial_rect = layout
             .rects()
@@ -115,6 +116,7 @@ impl App {
             layout: Layout::new(0, win_w, win_h),
             active: 0,
             metrics,
+            logical_font_size: crate::dpi::Logical(self.state.config.font.size),
             name: None,
             zoomed: false,
             has_activity: false,

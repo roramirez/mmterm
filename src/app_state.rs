@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::config::Config;
+use crate::dpi::Logical;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::renderer::FontMetrics;
@@ -27,6 +28,10 @@ pub struct TabState {
     pub layout: Layout,
     pub active: usize,
     pub metrics: FontMetrics,
+    /// User-facing (density-independent) font size for this tab. Physical px =
+    /// scale.px(logical_font_size). Seeded from config.font.size; mutated by Ctrl±/reset;
+    /// re-derived (not persisted) at startup + on ScaleFactorChanged.
+    pub logical_font_size: Logical,
     pub name: Option<String>,
     pub zoomed: bool,
     pub has_activity: bool,
@@ -534,13 +539,13 @@ impl AppState {
     }
 
     fn do_reset_font_size(&self) -> Vec<AppEffect> {
-        let default = self.config.font.size;
+        let default_logical = self.config.font.size;
         let current = self
             .tabs
             .get(self.active_tab)
-            .map(|t| t.metrics.font_px)
-            .unwrap_or(default);
-        vec![AppEffect::ChangeFontSize(default - current)]
+            .map(|t| t.logical_font_size.0)
+            .unwrap_or(default_logical);
+        vec![AppEffect::ChangeFontSize(default_logical - current)]
     }
 
     // ── Action dispatch ──────────────────────────────────────────────────────
@@ -907,6 +912,7 @@ impl AppState {
             layout: Layout::new(id, 800, 600),
             active: id,
             metrics,
+            logical_font_size: Logical(16.0),
             name: None,
             zoomed: false,
             has_activity: false,
@@ -916,6 +922,31 @@ impl AppState {
             passthrough: false,
         });
         self.active_tab = self.tabs.len() - 1;
+    }
+
+    /// Build a minimal `TabState` with real renderer-derived metrics.
+    /// `logical` is the tab's density-independent font size; metrics are
+    /// computed via `r.make_metrics(Scale::new(1.0).px(logical))`.
+    /// Intended for scaling tests that need a real `FontMetrics`.
+    #[cfg(test)]
+    pub(crate) fn test_tab(r: &mut crate::renderer::Renderer, logical: Logical) -> TabState {
+        use crate::dpi::Scale;
+        use crate::ui::layout::Layout;
+        let metrics = r.make_metrics(Scale::new(1.0).px(logical));
+        TabState {
+            panes: HashMap::new(),
+            layout: Layout::new(0, 800, 600),
+            active: 0,
+            metrics,
+            logical_font_size: logical,
+            name: None,
+            zoomed: false,
+            has_activity: false,
+            bell_flash_start: None,
+            bell_flash_until: None,
+            bell_cooldown_until: None,
+            passthrough: false,
+        }
     }
 
     /// Creates a tab with one real pane (PTY: /bin/true, grid: 80×24).

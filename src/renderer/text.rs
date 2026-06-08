@@ -1,6 +1,7 @@
 use super::blit::{blit_color_glyph, blit_glyph_pixels, blit_gray_glyph};
 pub(super) use super::draw_fns::*;
 use super::glyph::GlyphCache;
+use crate::dpi::Physical;
 use crate::input::InputMode;
 use crate::terminal::grid::{Cell, CursorShape};
 use crate::terminal::sixel::SixelImage;
@@ -50,22 +51,24 @@ pub struct FontMetrics {
 }
 
 impl FontMetrics {
-    pub fn compute(glyphs: &mut GlyphCache, font_px: f32) -> Self {
-        let m = glyphs.metrics('M', font_px, false);
+    /// Compute cell metrics for a PHYSICAL pixel size. Always pass scale.px(logical) — never a raw logical value.
+    pub fn compute(glyphs: &mut GlyphCache, font_px: Physical) -> Self {
+        let m = glyphs.metrics('M', font_px.0, false);
         let cell_width = m.advance_width.ceil() as u32;
         let ascender = m.height as u32;
-        let g = glyphs.metrics('g', font_px, false);
+        let g = glyphs.metrics('g', font_px.0, false);
         let descender = ((-g.ymin).max(0)) as u32;
         let cell_height = ascender + descender + 2;
         let baseline = ascender + 1;
         log::info!(
-            "FontMetrics at {font_px}px: cell={}x{} baseline={}",
+            "FontMetrics at {}px: cell={}x{} baseline={}",
+            font_px.0,
             cell_width,
             cell_height,
             baseline
         );
         Self {
-            font_px,
+            font_px: font_px.0,
             cell_width: cell_width.max(1),
             cell_height: cell_height.max(1),
             baseline,
@@ -81,12 +84,16 @@ impl FontMetrics {
 }
 
 pub struct Renderer {
+    #[allow(dead_code)] // consumed by later HiDPI tasks (ScaleFactorChanged re-seed)
     pub font_px: f32, // default from config (reference only)
     pub(super) status_font_px: f32,
     pub glyphs: GlyphCache,
     /// Pixel rect [x, y, w, h] of the update badge drawn last frame, or None.
     /// Set by draw_status_bar; read by the app for click hit-testing.
     pub update_badge_rect: Option<[u32; 4]>,
+    /// Current display scale. Set by render_ops::redraw() and handle_scale_changed()
+    /// before any draw so all chrome math derives physical px from this value.
+    pub scale: crate::dpi::Scale,
 }
 
 fn apply_bell_flash(buf: &mut [u32], buf_width: u32, buf_height: u32, color: u32, intensity: f32) {
@@ -111,12 +118,13 @@ impl Renderer {
             status_font_px: 13.0,
             glyphs,
             update_badge_rect: None,
+            scale: crate::dpi::Scale::new(1.0),
         }
     }
 
-    /// Compute metrics for a given font size using the shared glyph cache.
-    pub fn make_metrics(&mut self, font_px: f32) -> FontMetrics {
-        FontMetrics::compute(&mut self.glyphs, font_px)
+    /// Callers pass scale.px(logical_font_size) — never a raw config value.
+    pub fn make_metrics(&mut self, px: Physical) -> FontMetrics {
+        FontMetrics::compute(&mut self.glyphs, px)
     }
 
     #[allow(clippy::too_many_arguments)]
