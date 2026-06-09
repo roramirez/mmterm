@@ -39,6 +39,8 @@ pub struct PaneView<'a> {
     pub hovered_url: Option<&'a str>,
     /// Cursor shape requested by the running program via DECSCUSR.
     pub cursor_shape: CursorShape,
+    /// Per-pane cell metrics (font size is per-pane, not per-tab).
+    pub metrics: &'a FontMetrics,
 }
 
 /// Cell layout metrics derived from a specific font size.
@@ -151,7 +153,6 @@ impl Renderer {
         mode: &InputMode,
         passthrough: bool,
         tab_titles: &[(String, bool, bool)],
-        metrics: &FontMetrics,
         search_total: usize,
         search_current: usize,
         right_text: Option<&str>,
@@ -170,7 +171,15 @@ impl Renderer {
         buf.fill(color_u32(bg_fill));
 
         for pane in panes {
-            self.draw_pane(buf, buf_width, pane, mode, metrics, inactive_dim, theme);
+            self.draw_pane(
+                buf,
+                buf_width,
+                pane,
+                mode,
+                pane.metrics,
+                inactive_dim,
+                theme,
+            );
         }
 
         // Draw separators

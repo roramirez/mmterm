@@ -56,7 +56,7 @@ impl App {
     pub(crate) fn pixel_to_cell(&self, pane_id: usize, px: f64, py: f64) -> Option<(usize, usize)> {
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let m = &tab.metrics;
+        let m = &entry.metrics;
         geometry::pixel_to_cell(
             entry.pane.rect,
             m.cell_width,

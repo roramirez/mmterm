@@ -56,6 +56,7 @@ pub fn collect_pane_views<'a>(
             search_current: sc,
             hovered_url: state.hovered_url.as_deref(),
             cursor_shape: entry.pane.parser.grid.cursor_shape,
+            metrics: &entry.metrics,
         }]
     } else {
         let rects = tab.layout.rects_scaled(tab_h, status_h);
@@ -83,6 +84,7 @@ pub fn collect_pane_views<'a>(
                     search_current: sc,
                     hovered_url: state.hovered_url.as_deref(),
                     cursor_shape: entry.pane.parser.grid.cursor_shape,
+                    metrics: &entry.metrics,
                 })
             })
             .collect()

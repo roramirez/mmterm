@@ -36,10 +36,21 @@ fn initial_tabs_empty() {
 
 #[test]
 fn new_tab_seeds_logical_font_size() {
+    use crate::renderer::FontMetrics;
     let mut s = make_state();
     s.add_empty_tab();
+    let m = FontMetrics {
+        font_px: 16.0,
+        cell_width: 8,
+        cell_height: 16,
+        baseline: 13,
+    };
+    let idx = s.active_tab;
+    s.tabs[idx]
+        .panes
+        .insert(1, AppState::test_pane_entry(crate::dpi::Logical(16.0), m));
     assert_eq!(
-        s.tabs[s.active_tab].logical_font_size,
+        s.tabs[idx].panes[&1].logical_font_size,
         crate::dpi::Logical(16.0)
     );
 }
@@ -848,9 +859,20 @@ fn dispatch_reset_font_size_returns_change_effect() {
 
 #[test]
 fn dispatch_reset_font_size_emits_logical_delta_to_default() {
-    // Config default is 16.0; tab is at logical 18.0 → delta should be -2.0.
+    // Config default is 16.0; active pane is at logical 18.0 → delta should be -2.0.
+    use crate::renderer::FontMetrics;
     let mut s = make_state_with_tabs(1);
-    s.tabs[0].logical_font_size = crate::dpi::Logical(18.0);
+    let m = FontMetrics {
+        font_px: 18.0,
+        cell_width: 9,
+        cell_height: 18,
+        baseline: 15,
+    };
+    s.tabs[0]
+        .panes
+        .insert(1, AppState::test_pane_entry(crate::dpi::Logical(18.0), m));
+    s.tabs[0].active = 1;
+
     let effects = s.dispatch_action(Action::ResetFontSize);
     let delta = effects.iter().find_map(|e| {
         if let AppEffect::ChangeFontSize(d) = e {

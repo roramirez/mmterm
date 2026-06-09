@@ -207,17 +207,28 @@ impl App {
 
     pub(crate) fn change_font_size(&mut self, delta: f32) {
         let idx = self.state.active_tab;
-        let logical = self.state.tabs[idx].logical_font_size;
+        let active = self.state.tabs[idx].active;
+        let Some(logical) = self.state.tabs[idx]
+            .panes
+            .get(&active)
+            .map(|e| e.logical_font_size)
+        else {
+            return;
+        };
         let Some((new_logical, new_metrics)) =
             crate::scaling::apply_font_delta(logical, delta, self.scale, &mut self.renderer)
         else {
             return;
         };
-        self.state.tabs[idx].logical_font_size = new_logical;
-        self.state.tabs[idx].metrics = new_metrics;
+        if let Some(entry) = self.state.tabs[idx].panes.get_mut(&active) {
+            entry.logical_font_size = new_logical;
+            entry.metrics = new_metrics;
+        }
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
+        // Re-grids only the active pane: sibling metrics + rects are unchanged,
+        // so their cols/rows don't change and they are left alone.
         Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
     }
 

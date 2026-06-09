@@ -28,7 +28,9 @@ pub fn reset_font_size(config: Logical, scale: Scale, r: &mut Renderer) -> (Logi
 /// Re-derive every tab's metrics for a new scale (winit ScaleFactorChanged). Window-free.
 pub fn recompute_metrics_for_scale(tabs: &mut [TabState], scale: Scale, r: &mut Renderer) {
     for tab in tabs.iter_mut() {
-        tab.metrics = r.make_metrics(scale.px(tab.logical_font_size));
+        for entry in tab.panes.values_mut() {
+            entry.metrics = r.make_metrics(scale.px(entry.logical_font_size));
+        }
     }
 }
 

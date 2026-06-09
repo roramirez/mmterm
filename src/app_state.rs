@@ -21,17 +21,17 @@ pub struct PaneEntry {
     pub pty: crate::pty::PtySession,
     pub rx: Receiver<Vec<u8>>,
     pub log_file: Option<std::fs::File>,
+    /// Per-pane density-independent font size. Physical px = scale.px(logical_font_size).
+    /// Mutated by Ctrl±/reset; re-derived (not persisted) on ScaleFactorChanged.
+    pub logical_font_size: Logical,
+    /// Cell layout derived from `scale.px(logical_font_size)`.
+    pub metrics: FontMetrics,
 }
 
 pub struct TabState {
     pub panes: HashMap<usize, PaneEntry>,
     pub layout: Layout,
     pub active: usize,
-    pub metrics: FontMetrics,
-    /// User-facing (density-independent) font size for this tab. Physical px =
-    /// scale.px(logical_font_size). Seeded from config.font.size; mutated by Ctrl±/reset;
-    /// re-derived (not persisted) at startup + on ScaleFactorChanged.
-    pub logical_font_size: Logical,
     pub name: Option<String>,
     pub zoomed: bool,
     pub has_activity: bool,
@@ -543,7 +543,8 @@ impl AppState {
         let current = self
             .tabs
             .get(self.active_tab)
-            .map(|t| t.logical_font_size.0)
+            .and_then(|t| t.panes.get(&t.active))
+            .map(|e| e.logical_font_size.0)
             .unwrap_or(default_logical);
         vec![AppEffect::ChangeFontSize(default_logical - current)]
     }
@@ -901,18 +902,10 @@ impl AppState {
         use crate::ui::layout::Layout;
         let id = self.next_pane_id;
         self.next_pane_id += 1;
-        let metrics = crate::renderer::FontMetrics {
-            font_px: 16.0,
-            cell_width: 8,
-            cell_height: 16,
-            baseline: 13,
-        };
         self.tabs.push(TabState {
             panes: HashMap::new(),
             layout: Layout::new(id, 800, 600),
             active: id,
-            metrics,
-            logical_font_size: Logical(16.0),
             name: None,
             zoomed: false,
             has_activity: false,
@@ -924,28 +917,41 @@ impl AppState {
         self.active_tab = self.tabs.len() - 1;
     }
 
-    /// Build a minimal `TabState` with real renderer-derived metrics.
-    /// `logical` is the tab's density-independent font size; metrics are
-    /// computed via `r.make_metrics(Scale::new(1.0).px(logical))`.
-    /// Intended for scaling tests that need a real `FontMetrics`.
+    /// Build a real `PaneEntry` (throwaway `/bin/true` PTY) carrying the given
+    /// per-pane font size + metrics. For window-free tests of per-pane sizing.
     #[cfg(test)]
-    pub(crate) fn test_tab(r: &mut crate::renderer::Renderer, logical: Logical) -> TabState {
-        use crate::dpi::Scale;
-        use crate::ui::layout::Layout;
-        let metrics = r.make_metrics(Scale::new(1.0).px(logical));
-        TabState {
-            panes: HashMap::new(),
-            layout: Layout::new(0, 800, 600),
-            active: 0,
-            metrics,
+    pub(crate) fn test_pane_entry(
+        logical: Logical,
+        metrics: crate::renderer::FontMetrics,
+    ) -> PaneEntry {
+        use crate::terminal::grid::{Color, GridColors};
+        use crate::ui::Pane;
+        let (_unused_tx, rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+        let (pty_tx, _pty_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+        let pty = crate::pty::PtySession::spawn_with_shell(
+            80,
+            24,
+            pty_tx,
+            "/bin/true",
+            None,
+            Box::new(|| {}),
+        )
+        .expect("PTY spawn failed");
+        let colors = GridColors {
+            fg: Color::WHITE,
+            bg: Color::BLACK,
+            cursor: Color::WHITE,
+            selection: Color::WHITE,
+            palette: [Color::BLACK; 16],
+        };
+        let pane = Pane::new_with_colors(80, 24, [0, 22, 800, 556], colors, 1000);
+        PaneEntry {
+            pane,
+            pty,
+            rx,
+            log_file: None,
             logical_font_size: logical,
-            name: None,
-            zoomed: false,
-            has_activity: false,
-            bell_flash_start: None,
-            bell_flash_until: None,
-            bell_cooldown_until: None,
-            passthrough: false,
+            metrics,
         }
     }
 
@@ -993,6 +999,13 @@ impl AppState {
                 pty,
                 rx,
                 log_file: None,
+                logical_font_size: Logical(16.0),
+                metrics: crate::renderer::FontMetrics {
+                    font_px: 16.0,
+                    cell_width: 8,
+                    cell_height: 16,
+                    baseline: 13,
+                },
             },
         );
         self.tabs[tab_idx].active = id;

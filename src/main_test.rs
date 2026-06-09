@@ -1,5 +1,4 @@
 use super::*;
-use crate::dpi::Physical;
 use std::time::{Duration, Instant};
 
 /// Builds an EventLoop that works from any thread (needed for tests).
@@ -74,9 +73,13 @@ fn app_change_font_size_increase() {
     if app.state.tabs.is_empty() {
         return;
     }
-    let before = app.state.tabs[0].metrics.font_px;
+    let idx = app.state.active_tab;
+    let active = app.state.tabs[idx].active;
+    let before = app.state.tabs[idx].panes[&active].metrics.font_px;
     app.change_font_size(2.0);
-    let after = app.state.tabs[app.state.active_tab].metrics.font_px;
+    let idx = app.state.active_tab;
+    let active = app.state.tabs[idx].active;
+    let after = app.state.tabs[idx].panes[&active].metrics.font_px;
     assert!(after > before || (after - before).abs() < 0.1);
 }
 
@@ -295,18 +298,13 @@ fn next_bell_wakeup_no_tabs_returns_default() {
 #[test]
 fn next_bell_wakeup_no_active_bell_returns_default() {
     use crate::app_state::TabState;
-    use crate::renderer::Renderer;
     use crate::ui::Layout;
     use std::collections::HashMap;
 
-    let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(Physical(16.0));
     let tab = TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
-        metrics,
-        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -323,19 +321,14 @@ fn next_bell_wakeup_no_active_bell_returns_default() {
 #[test]
 fn next_bell_wakeup_active_bell_returns_earlier() {
     use crate::app_state::TabState;
-    use crate::renderer::Renderer;
     use crate::ui::Layout;
     use std::collections::HashMap;
 
-    let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(Physical(16.0));
     let bell_expiry = Instant::now() + Duration::from_millis(50);
     let tab = TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
-        metrics,
-        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -355,21 +348,16 @@ fn next_bell_wakeup_active_bell_returns_earlier() {
 #[test]
 fn next_bell_wakeup_returns_earliest_of_multiple() {
     use crate::app_state::TabState;
-    use crate::renderer::Renderer;
     use crate::ui::Layout;
     use std::collections::HashMap;
 
-    let mut r = Renderer::new("JetBrainsMono", 16.0);
-    let metrics = r.make_metrics(Physical(16.0));
     let expiry1 = Instant::now() + Duration::from_millis(200);
     let expiry2 = Instant::now() + Duration::from_millis(50);
 
-    let make_tab = |expiry: Option<Instant>, metrics: crate::renderer::FontMetrics| TabState {
+    let make_tab = |expiry: Option<Instant>| TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
-        metrics,
-        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -379,8 +367,8 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
         passthrough: false,
     };
 
-    let tab1 = make_tab(Some(expiry1), metrics.clone());
-    let tab2 = make_tab(Some(expiry2), metrics);
+    let tab1 = make_tab(Some(expiry1));
+    let tab2 = make_tab(Some(expiry2));
 
     let default = Instant::now() + Duration::from_secs(10);
     let result = next_bell_wakeup(&[tab1, tab2], default);

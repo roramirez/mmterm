@@ -21,10 +21,10 @@ impl App {
         let id = self.state.next_pane_id;
         self.state.next_pane_id += 1;
         let [_, _, w, h] = rect;
+        let logical = crate::dpi::Logical(self.state.config.font.size);
+        let metrics = self.renderer.make_metrics(self.scale.px(logical));
         let pad2 = self.scale.chrome(crate::ui::layout::PANE_PADDING) * 2;
-        let (cols, rows) = self.state.tabs[tab_idx]
-            .metrics
-            .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
+        let (cols, rows) = metrics.grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.state.theme;
         let pane = Pane::new_with_colors(
             cols,
@@ -76,6 +76,8 @@ impl App {
                         pty,
                         rx,
                         log_file,
+                        logical_font_size: logical,
+                        metrics,
                     },
                 );
             }
@@ -101,8 +103,6 @@ impl App {
             .get(self.state.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
-        let logical = crate::dpi::Logical(self.state.config.font.size);
-        let metrics = self.renderer.make_metrics(self.scale.px(logical));
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let layout = Layout::new(0, win_w, win_h);
@@ -116,8 +116,6 @@ impl App {
             panes: HashMap::new(),
             layout: Layout::new(0, win_w, win_h),
             active: 0,
-            metrics,
-            logical_font_size: crate::dpi::Logical(self.state.config.font.size),
             name: None,
             zoomed: false,
             has_activity: false,
@@ -187,7 +185,7 @@ impl App {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
                 let pad2 = pane_padding * 2;
-                let (cols, rows) = tab
+                let (cols, rows) = entry
                     .metrics
                     .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
                 if entry.pane.parser.grid.cols != cols || entry.pane.parser.grid.rows != rows {
@@ -283,3 +281,7 @@ pub(super) fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::Fi
         }
     }
 }
+
+#[cfg(test)]
+#[path = "pane_ops_test.rs"]
+mod tests;

@@ -167,7 +167,6 @@ fn mode_style_returns_badge_for_each_mode() {
 #[test]
 fn draw_empty_buffer_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -179,7 +178,6 @@ fn draw_empty_buffer_does_not_panic() {
         &InputMode::Insert,
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -210,6 +208,7 @@ fn draw_pane_fills_background_color() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
@@ -222,7 +221,6 @@ fn draw_pane_fills_background_color() {
         &InputMode::Insert,
         false,
         &[("shell".to_string(), true, false)],
-        &m,
         0,
         0,
         None,
@@ -240,7 +238,6 @@ fn draw_pane_fills_background_color() {
 #[test]
 fn draw_tab_bar_renders_without_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -255,7 +252,6 @@ fn draw_tab_bar_renders_without_panic() {
             ("tab1".to_string(), true, false),
             ("tab2".to_string(), false, true),
         ],
-        &m,
         0,
         0,
         None,
@@ -272,7 +268,6 @@ fn draw_tab_bar_renders_without_panic() {
 #[test]
 fn draw_status_bar_renders_without_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -287,7 +282,6 @@ fn draw_status_bar_renders_without_panic() {
         },
         false,
         &[],
-        &m,
         3,
         1,
         Some("/home/user"),
@@ -304,7 +298,6 @@ fn draw_status_bar_renders_without_panic() {
 #[test]
 fn draw_status_bar_pane_title_centered() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let theme = default_theme();
 
     // With title: pixels should differ from without title.
@@ -318,7 +311,6 @@ fn draw_status_bar_pane_title_centered() {
         &InputMode::Normal,
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -341,7 +333,6 @@ fn draw_status_bar_pane_title_centered() {
         &InputMode::Normal,
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -363,7 +354,6 @@ fn draw_status_bar_pane_title_centered() {
 #[test]
 fn draw_status_bar_pane_title_suppressed_in_search() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let theme = default_theme();
 
     // In Search mode the title should not be drawn — buffers must match.
@@ -380,7 +370,6 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         },
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -406,7 +395,6 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         },
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -455,7 +443,6 @@ fn draw_quit_confirm_dims_background() {
 #[test]
 fn draw_with_bell_flash_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -467,7 +454,6 @@ fn draw_with_bell_flash_does_not_panic() {
         &InputMode::Insert,
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -484,7 +470,6 @@ fn draw_with_bell_flash_does_not_panic() {
 #[test]
 fn draw_with_separator_does_not_panic() {
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     let sep = [[200u32, 0u32, 2u32, 600u32]];
@@ -497,7 +482,6 @@ fn draw_with_separator_does_not_panic() {
         &InputMode::Insert,
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -565,7 +549,7 @@ fn url_hovered_no_match_when_both_none() {
     assert!(!cell_url_hovered(None, None));
 }
 
-fn make_pane<'a>(grid: &'a Grid, m: &crate::renderer::text::FontMetrics) -> PaneView<'a> {
+fn make_pane<'a>(grid: &'a Grid, m: &'a crate::renderer::text::FontMetrics) -> PaneView<'a> {
     let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
     let _ = (cols, rows);
     PaneView {
@@ -579,15 +563,11 @@ fn make_pane<'a>(grid: &'a Grid, m: &crate::renderer::text::FontMetrics) -> Pane
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: m,
     }
 }
 
-fn do_draw(
-    r: &mut Renderer,
-    m: &crate::renderer::text::FontMetrics,
-    panes: &[PaneView<'_>],
-    mode: &InputMode,
-) {
+fn do_draw(r: &mut Renderer, panes: &[PaneView<'_>], mode: &InputMode) {
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -599,7 +579,6 @@ fn do_draw(
         mode,
         false,
         &[("t".to_string(), true, false)],
-        m,
         0,
         0,
         None,
@@ -625,7 +604,7 @@ fn draw_pane_with_text_renders_glyphs() {
     grid.write_char('l');
     grid.write_char('o');
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -646,8 +625,9 @@ fn draw_inactive_pane_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -670,6 +650,7 @@ fn draw_pane_visual_selection_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
     let mode = InputMode::Visual {
         start_col: 0,
@@ -678,7 +659,7 @@ fn draw_pane_visual_selection_does_not_panic() {
         cur_row: 0,
         anchored: true,
     };
-    do_draw(&mut r, &m, &[pane], &mode);
+    do_draw(&mut r, &[pane], &mode);
 }
 
 #[test]
@@ -704,8 +685,9 @@ fn draw_pane_with_search_match_does_not_panic() {
         search_current: Some(0),
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -717,7 +699,7 @@ fn draw_pane_with_underline_cell_does_not_panic() {
     grid.write_char('U');
     grid.cell_mut(0, 0).underline = true;
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -729,7 +711,7 @@ fn draw_pane_osc8_link_without_hover_does_not_panic() {
     grid.write_char('L');
     grid.cell_mut(0, 0).url = Some(std::sync::Arc::new("https://example.com".to_string()));
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -742,7 +724,7 @@ fn draw_pane_osc8_link_with_hover_does_not_panic() {
     grid.cell_mut(0, 0).url = Some(std::sync::Arc::new("https://example.com".to_string()));
     let mut pane = make_pane(&grid, &m);
     pane.hovered_url = Some("https://example.com");
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -765,7 +747,6 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         &InputMode::Insert,
         false,
         &[("t".to_string(), true, false)],
-        &m,
         0,
         0,
         None,
@@ -797,7 +778,7 @@ fn draw_pane_with_strikethrough_cell_does_not_panic() {
     grid.write_char('S');
     grid.cell_mut(0, 0).strikethrough = true;
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -809,7 +790,7 @@ fn draw_pane_with_dim_cell_does_not_panic() {
     grid.write_char('D');
     grid.cell_mut(0, 0).dim = true;
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -821,7 +802,7 @@ fn draw_pane_with_reverse_video_cell_does_not_panic() {
     grid.write_char('R');
     grid.cell_mut(0, 0).reverse = true;
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -858,7 +839,6 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         &InputMode::Insert,
         false,
         &[("t".to_string(), true, false)],
-        &m,
         0,
         0,
         None,
@@ -896,7 +876,7 @@ fn draw_pane_with_scrollback_shows_scrollbar() {
         grid.scroll_up(1);
     }
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -921,8 +901,9 @@ fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -942,8 +923,9 @@ fn draw_pane_with_cursor_visible_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -966,7 +948,7 @@ fn draw_pane_backwards_visual_selection_normalises_range() {
         cur_row: 0,
         anchored: true,
     };
-    do_draw(&mut r, &m, &[pane], &mode);
+    do_draw(&mut r, &[pane], &mode);
 }
 
 #[test]
@@ -992,8 +974,9 @@ fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1006,7 +989,7 @@ fn draw_pane_with_wide_cont_cell_does_not_panic() {
     // Mark col 1 as the right half of a wide char → draw_pane must skip it.
     grid.cell_mut(1, 0).wide_cont = true;
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1035,8 +1018,9 @@ fn draw_pane_non_current_search_match_uses_match_color() {
         search_current: Some(1), // match 0 → non-current, match 1 → current
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1059,15 +1043,15 @@ fn draw_pane_inactive_with_url_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
 fn draw_status_bar_search_empty_query_shows_slash() {
     // Search mode with empty query → info = "/" (line 948).
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -1082,7 +1066,6 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         },
         false,
         &[],
-        &m,
         0,
         0,
         None,
@@ -1100,7 +1083,6 @@ fn draw_status_bar_search_empty_query_shows_slash() {
 fn draw_status_bar_search_no_matches_shows_label() {
     // Non-empty query with search_total=0 → "no matches" label (line 950).
     let mut r = make_renderer();
-    let m = r.make_metrics(Physical(16.0));
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
     r.draw(
@@ -1115,7 +1097,6 @@ fn draw_status_bar_search_no_matches_shows_label() {
         },
         false,
         &[],
-        &m,
         0, // search_total = 0
         0,
         None,
@@ -1214,9 +1195,10 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
     // Must not panic — actual pixel inspection is left to integration testing.
-    do_draw(&mut r, &m, &[pane], &mode);
+    do_draw(&mut r, &[pane], &mode);
 }
 
 #[test]
@@ -1244,8 +1226,9 @@ fn draw_pane_visual_mode_inactive_pane_no_cursor() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &mode);
+    do_draw(&mut r, &[pane], &mode);
 }
 
 // ── PANE_PADDING tests ────────────────────────────────────────────────────
@@ -1276,6 +1259,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
@@ -1289,7 +1273,6 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         &InputMode::Insert,
         false,
         &[("t".to_string(), true, false)],
-        &m,
         0,
         0,
         None,
@@ -1351,7 +1334,7 @@ fn draw_pane_with_sixel_image_does_not_panic() {
         pixels,
     });
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1371,7 +1354,7 @@ fn draw_pane_sixel_image_wider_than_pane_does_not_panic() {
         pixels,
     });
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1400,8 +1383,9 @@ fn draw_pane_sixel_image_scrolled_up_not_drawn() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        metrics: &m,
     };
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }
 
 #[test]
@@ -1431,5 +1415,5 @@ fn draw_pane_sixel_transparent_pixels_preserved() {
         pixels,
     });
     let pane = make_pane(&grid, &m);
-    do_draw(&mut r, &m, &[pane], &InputMode::Insert);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
 }

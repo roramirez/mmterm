@@ -129,7 +129,6 @@ impl App {
         let views = views::collect_pane_views(&self.state, w, h, tab_h, status_h);
         let tab_titles = views::build_tab_titles(&self.state);
 
-        let metrics = self.state.tabs[self.state.active_tab].metrics.clone();
         let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
         let home = std::env::var("HOME").unwrap_or_default();
         let cwd_owned: Option<String> = self.state.tabs[self.state.active_tab]
@@ -171,7 +170,6 @@ impl App {
             &self.state.mode,
             self.state.tabs[self.state.active_tab].passthrough,
             &tab_titles,
-            &metrics,
             self.state.search_matches.len(),
             self.state.search_current,
             right_text.as_deref(),

@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - `install.sh` on macOS now downloads and opens the `.dmg` instead of installing a bare binary
+- scope font size adjustment (ctrl +/-/0) to the active pane instead of the whole tab
 
 ### Removed
 - macOS `.tar.gz` release artifact (replaced by the `.dmg`)

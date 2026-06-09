@@ -25,8 +25,6 @@ fn make_tab() -> TabState {
         panes: HashMap::new(),
         layout: Layout::new(0, 800, 600),
         active: 0,
-        metrics: dummy_metrics(),
-        logical_font_size: crate::dpi::Logical(16.0),
         name: None,
         zoomed: false,
         has_activity: false,
@@ -64,6 +62,8 @@ fn make_pane_entry() -> (PaneEntry, crossbeam_channel::Sender<Vec<u8>>) {
         pty,
         rx: test_rx,
         log_file: None,
+        logical_font_size: crate::dpi::Logical(16.0),
+        metrics: dummy_metrics(),
     };
     (entry, test_tx)
 }
