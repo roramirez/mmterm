@@ -50,6 +50,12 @@ impl ApplicationHandler for App {
         let ctx = softbuffer::Context::new(window.clone()).unwrap();
         let surface = softbuffer::Surface::new(&ctx, window.clone()).unwrap();
 
+        // Scale must be known before the first metrics build so the first frame renders at
+        // the correct physical size (spec §5.1). App.scale is the single source; mirror into
+        // the renderer for chrome math.
+        self.scale = crate::dpi::Scale::new(window.scale_factor());
+        self.renderer.scale = self.scale;
+
         let size = window.inner_size();
         let session_path = self.session_path();
         let did_restore = self.state.config.general.restore_session
@@ -95,6 +101,12 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 self.handle_redraw_requested(event_loop);
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                // inner_size_writer intentionally ignored (`..`): winit emits a Resized
+                // right after with the adjusted physical size, which drives handle_resize +
+                // layout + redraw. Requesting an inner size here would double-resize (spec §5.5).
+                self.handle_scale_changed(scale_factor);
             }
             _ => {}
         }

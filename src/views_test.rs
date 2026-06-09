@@ -15,7 +15,7 @@ fn make_state() -> AppState {
 fn collect_pane_views_empty_tab_returns_empty() {
     let mut state = make_state();
     state.add_empty_tab();
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert!(views.is_empty());
 }
 
@@ -27,7 +27,7 @@ fn collect_pane_views_single_pane_rect_spans_usable_area() {
     // The rect comes from the stored layout, not from the (w,h) argument
     // (which only affects the zoomed full-window path).
     // Usable height = layout_h - TAB_BAR_H - STATUS_BAR_H = 578 - 22 - 22 = 534.
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert_eq!(views.len(), 1);
     let rect = views[0].rect;
     assert_eq!(rect[0], 0);
@@ -40,7 +40,7 @@ fn collect_pane_views_single_pane_rect_spans_usable_area() {
 fn collect_pane_views_single_pane_is_active() {
     let mut state = make_state();
     state.add_test_pane();
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert!(views[0].is_active);
 }
 
@@ -50,7 +50,7 @@ fn collect_pane_views_zoomed_fills_window() {
     state.add_test_pane();
     state.tabs[state.active_tab].zoomed = true;
     let (w, h) = (800u32, 600u32);
-    let views = collect_pane_views(&state, w, h);
+    let views = collect_pane_views(&state, w, h, TAB_BAR_H, STATUS_BAR_H);
     assert_eq!(views.len(), 1);
     let rect = views[0].rect;
     assert_eq!(rect[0], 0);
@@ -66,7 +66,7 @@ fn collect_pane_views_zoomed_no_active_pane_returns_empty() {
     state.add_empty_tab();
     // active points to an id not in panes
     state.tabs[state.active_tab].zoomed = true;
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert!(views.is_empty());
 }
 
@@ -75,7 +75,7 @@ fn collect_pane_views_no_search_returns_empty_matches() {
     let mut state = make_state();
     state.add_test_pane();
     // search_matches is empty by default
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert_eq!(views.len(), 1);
     assert!(views[0].search_matches.is_empty());
     assert!(views[0].search_current.is_none());
@@ -87,7 +87,7 @@ fn collect_pane_views_search_matches_assigned_to_active_pane() {
     state.add_test_pane();
     state.search_matches = vec![(0, 0, 3), (1, 2, 5)];
     state.search_current = 1;
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert_eq!(views.len(), 1);
     assert_eq!(views[0].search_matches.len(), 2);
     assert_eq!(views[0].search_current, Some(1));
@@ -98,7 +98,7 @@ fn collect_pane_views_hovered_url_propagated() {
     let mut state = make_state();
     state.add_test_pane();
     state.hovered_url = Some("https://example.com".into());
-    let views = collect_pane_views(&state, 800, 600);
+    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
     assert_eq!(views[0].hovered_url, Some("https://example.com"));
 }
 

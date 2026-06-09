@@ -3,7 +3,6 @@ use crate::terminal::Color;
 use crate::terminal::grid::{Cell, CursorShape, Grid};
 use crate::terminal::sixel::SixelImage;
 use crate::theme::ResolvedTheme;
-use crate::ui::layout::PANE_PADDING;
 
 // Fixed search match foreground — dark enough for contrast on yellow/orange highlights.
 pub(super) const SEARCH_MATCH_FG: Color = Color::rgb(0x11, 0x11, 0x1d);
@@ -90,9 +89,10 @@ pub(super) fn cell_out_of_pane_bounds(
     ry: u32,
     rw: u32,
     rh: u32,
+    padding: u32,
 ) -> bool {
-    cell_x + draw_w > rx + rw.saturating_sub(PANE_PADDING)
-        || cell_y + cell_height > ry + rh.saturating_sub(PANE_PADDING)
+    cell_x + draw_w > rx + rw.saturating_sub(padding)
+        || cell_y + cell_height > ry + rh.saturating_sub(padding)
 }
 
 pub(super) fn should_draw_glyph(cell: &Cell, blink_visible: bool) -> bool {
@@ -338,6 +338,7 @@ pub(super) fn link_underline_color(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_scrollbar(
     buf: &mut [u32],
     buf_width: u32,
@@ -346,14 +347,17 @@ pub(super) fn draw_scrollbar(
     sb_len: usize,
     scroll_offset: usize,
     theme: &ResolvedTheme,
+    scale: crate::dpi::Scale,
 ) {
     if sb_len == 0 {
         return;
     }
+    let thumb_w = scale.chrome(2);
+    let min_thumb_h = scale.chrome(4) as f32;
     let [rx, ry, rw, rh] = rect;
-    let scrollbar_x = rx + rw.saturating_sub(2);
+    let scrollbar_x = rx + rw.saturating_sub(thumb_w);
     let total = sb_len + grid_rows;
-    let thumb_h = ((grid_rows as f32 / total as f32) * rh as f32).max(4.0) as u32;
+    let thumb_h = ((grid_rows as f32 / total as f32) * rh as f32).max(min_thumb_h) as u32;
     let scroll_pos = sb_len.saturating_sub(scroll_offset);
     let thumb_y = ry + ((scroll_pos as f32 / total as f32) * rh as f32) as u32;
     let color = if scroll_offset == 0 {
@@ -362,7 +366,15 @@ pub(super) fn draw_scrollbar(
         color_u32(theme.palette[4])
     };
     let clamped_h = thumb_h.min((ry + rh).saturating_sub(thumb_y));
-    fill_rect(buf, buf_width, scrollbar_x, thumb_y, 2, clamped_h, color);
+    fill_rect(
+        buf,
+        buf_width,
+        scrollbar_x,
+        thumb_y,
+        thumb_w,
+        clamped_h,
+        color,
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -482,6 +494,25 @@ mod tests {
         let g = (result >> 8) & 0xFF;
         assert!(r > 200);
         assert!(g < 50);
+    }
+
+    // ── Task 21 proxy tests — pane padding scaling ───────────────────────────
+
+    #[test]
+    fn pane_padding_scales() {
+        use crate::dpi::Scale;
+        assert_eq!(Scale::new(2.0).chrome(crate::ui::layout::PANE_PADDING), 8);
+        assert_eq!(Scale::new(1.0).chrome(crate::ui::layout::PANE_PADDING), 4);
+    }
+
+    // ── Task 23 proxy tests — pure arithmetic, no rendering ──────────────────
+
+    #[test]
+    fn scrollbar_dims_scale() {
+        use crate::dpi::Scale;
+        assert_eq!(Scale::new(2.0).chrome(2), 4);
+        assert_eq!(Scale::new(2.0).chrome(4), 8);
+        assert_eq!(Scale::new(1.0).chrome(2), 2);
     }
 
     #[test]

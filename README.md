@@ -206,6 +206,16 @@ auto_update_check = false    # turn off the daily check + badge entirely
 auto_update_install = true   # Linux: opt in to silent self-replace (default: off)
 ```
 
+### HiDPI / display scaling
+
+mmterm renders at the scale factor of the monitor the window is currently on, so text and
+UI chrome are crisp and correctly sized on Retina / high-DPI displays — and it adapts live
+when you drag the window between monitors of different DPI (no restart).
+
+`font.size` (and the `Ctrl+`/`Ctrl-` font controls) are **logical** sizes: the perceived
+size stays consistent across displays of any density. If you previously increased
+`font.size` to compensate for tiny rendering on a HiDPI screen, reset it to a normal value.
+
 ## Key Bindings
 
 ### Global

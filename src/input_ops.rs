@@ -3,8 +3,7 @@ use arboard::Clipboard;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::ui::SplitDir;
-use crate::ui::layout::TAB_BAR_H;
-use crate::{AppEffect, font, pane_ops, session};
+use crate::{AppEffect, pane_ops, session};
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
@@ -102,14 +101,16 @@ impl App {
 
     pub(crate) fn do_auto_split(&mut self) {
         let active = self.tab().active;
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
         let rect = self
             .tab()
             .layout
-            .rects()
+            .rects_scaled(tab_h, status_h)
             .into_iter()
             .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
-            .unwrap_or([0, TAB_BAR_H, 100, 100]);
+            .unwrap_or([0, tab_h, 100, 100]);
         let dir = if rect[2] >= rect[3] {
             SplitDir::H
         } else {
@@ -124,7 +125,10 @@ impl App {
         self.state.tabs[ai]
             .layout
             .nudge_pane(active, split_h, delta);
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
         if let Some(w) = &self.window {
             w.request_redraw();
         }
@@ -133,7 +137,10 @@ impl App {
     pub(crate) fn do_rotate_panes(&mut self, forward: bool) {
         let ai = self.state.active_tab;
         self.state.tabs[ai].layout.rotate_leaves(forward);
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
         self.request_redraw();
     }
 
@@ -199,15 +206,30 @@ impl App {
     }
 
     pub(crate) fn change_font_size(&mut self, delta: f32) {
-        let current = self.state.tabs[self.state.active_tab].metrics.font_px;
-        let Some(new_size) = font::apply_delta(current, delta) else {
+        let idx = self.state.active_tab;
+        let active = self.state.tabs[idx].active;
+        let Some(logical) = self.state.tabs[idx]
+            .panes
+            .get(&active)
+            .map(|e| e.logical_font_size)
+        else {
             return;
         };
-        let new_metrics = self.renderer.make_metrics(new_size);
-        let idx = self.state.active_tab;
-        self.state.tabs[idx].metrics = new_metrics;
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
-        log::info!("Tab {} font size: {current} → {new_size}", idx + 1);
+        let Some((new_logical, new_metrics)) =
+            crate::scaling::apply_font_delta(logical, delta, self.scale, &mut self.renderer)
+        else {
+            return;
+        };
+        if let Some(entry) = self.state.tabs[idx].panes.get_mut(&active) {
+            entry.logical_font_size = new_logical;
+            entry.metrics = new_metrics;
+        }
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        // Re-grids only the active pane: sibling metrics + rects are unchanged,
+        // so their cols/rows don't change and they are left alone.
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
     }
 
     pub(crate) fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {

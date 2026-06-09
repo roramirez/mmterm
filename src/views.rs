@@ -2,7 +2,6 @@ use crate::app_state::AppState;
 use crate::input::InputMode;
 use crate::renderer::PaneView;
 use crate::tabs;
-use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
 
 #[cfg(test)]
 #[path = "views_test.rs"]
@@ -21,7 +20,13 @@ fn search_args(
     }
 }
 
-pub fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneView<'a>> {
+pub fn collect_pane_views<'a>(
+    state: &'a AppState,
+    w: u32,
+    h: u32,
+    tab_h: u32,
+    status_h: u32,
+) -> Vec<PaneView<'a>> {
     let tab = &state.tabs[state.active_tab];
     let active_id = tab.active;
     let has_search = !state.search_matches.is_empty();
@@ -42,7 +47,7 @@ pub fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneVi
         let (sm, sc) = search_args(true, has_search, search_matches, search_current_val);
         vec![PaneView {
             grid: &entry.pane.parser.grid,
-            rect: [0, TAB_BAR_H, w, h.saturating_sub(TAB_BAR_H + STATUS_BAR_H)],
+            rect: [0, tab_h, w, h.saturating_sub(tab_h + status_h)],
             scroll_offset: entry.pane.scroll_offset,
             is_active: true,
             show_cursor,
@@ -51,9 +56,10 @@ pub fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneVi
             search_current: sc,
             hovered_url: state.hovered_url.as_deref(),
             cursor_shape: entry.pane.parser.grid.cursor_shape,
+            metrics: &entry.metrics,
         }]
     } else {
-        let rects = tab.layout.rects();
+        let rects = tab.layout.rects_scaled(tab_h, status_h);
         rects
             .iter()
             .filter_map(|(id, rect)| {
@@ -78,6 +84,7 @@ pub fn collect_pane_views<'a>(state: &'a AppState, w: u32, h: u32) -> Vec<PaneVi
                     search_current: sc,
                     hovered_url: state.hovered_url.as_deref(),
                     cursor_shape: entry.pane.parser.grid.cursor_shape,
+                    metrics: &entry.metrics,
                 })
             })
             .collect()

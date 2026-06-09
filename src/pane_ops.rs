@@ -5,7 +5,6 @@ use std::sync::atomic::Ordering;
 use crossbeam_channel::unbounded;
 
 use crate::terminal::grid::GridColors;
-use crate::ui::layout::{PANE_PADDING, TAB_BAR_H};
 use crate::ui::{Layout, Pane, SplitDir};
 use crate::{PaneEntry, TabState, logging, pty, tabs};
 use winit::event_loop::ActiveEventLoop;
@@ -22,10 +21,10 @@ impl App {
         let id = self.state.next_pane_id;
         self.state.next_pane_id += 1;
         let [_, _, w, h] = rect;
-        let pad2 = PANE_PADDING * 2;
-        let (cols, rows) = self.state.tabs[tab_idx]
-            .metrics
-            .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
+        let logical = crate::dpi::Logical(self.state.config.font.size);
+        let metrics = self.renderer.make_metrics(self.scale.px(logical));
+        let pad2 = self.scale.chrome(crate::ui::layout::PANE_PADDING) * 2;
+        let (cols, rows) = metrics.grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.state.theme;
         let pane = Pane::new_with_colors(
             cols,
@@ -77,6 +76,8 @@ impl App {
                         pty,
                         rx,
                         log_file,
+                        logical_font_size: logical,
+                        metrics,
                     },
                 );
             }
@@ -102,19 +103,19 @@ impl App {
             .get(self.state.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
-        let metrics = self.renderer.make_metrics(self.renderer.font_px);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
         let layout = Layout::new(0, win_w, win_h);
         let initial_rect = layout
-            .rects()
+            .rects_scaled(tab_h, status_h)
             .first()
             .map(|(_, r)| *r)
-            .unwrap_or([0, TAB_BAR_H, win_w, win_h]);
+            .unwrap_or([0, tab_h, win_w, win_h]);
         let tab_idx = self.state.tabs.len();
         self.state.tabs.push(TabState {
             panes: HashMap::new(),
             layout: Layout::new(0, win_w, win_h),
             active: 0,
-            metrics,
             name: None,
             zoomed: false,
             has_activity: false,
@@ -166,16 +167,25 @@ impl App {
         if tab.active == pane_id {
             tab.active = new_focus.unwrap_or_else(|| *tab.panes.keys().next().unwrap());
         }
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
     }
 
-    pub(crate) fn sync_pane_sizes_tab(tab: &mut TabState) {
-        let rects = tab.layout.rects();
+    pub(crate) fn sync_pane_sizes_tab(
+        tab: &mut TabState,
+        tab_h: u32,
+        status_h: u32,
+        pane_padding: u32,
+    ) {
+        // rows*cell_height may be < pane_h by up to (cell_height-1)px — intentional bottom gutter; do not force equality.
+        let rects = tab.layout.rects_scaled(tab_h, status_h);
         for (id, rect) in rects {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
-                let pad2 = PANE_PADDING * 2;
-                let (cols, rows) = tab
+                let pad2 = pane_padding * 2;
+                let (cols, rows) = entry
                     .metrics
                     .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
                 if entry.pane.parser.grid.cols != cols || entry.pane.parser.grid.rows != rows {
@@ -187,22 +197,27 @@ impl App {
     }
 
     pub(crate) fn sync_all_pane_sizes(&mut self) {
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
         for tab in &mut self.state.tabs {
-            Self::sync_pane_sizes_tab(tab);
+            Self::sync_pane_sizes_tab(tab, tab_h, status_h, pane_padding);
         }
     }
 
     pub(crate) fn do_split(&mut self, dir: SplitDir) {
         self.tab_mut().zoomed = false;
         let active = self.tab().active;
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
         let active_rect = self
             .tab()
             .layout
-            .rects()
+            .rects_scaled(tab_h, status_h)
             .into_iter()
             .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
-            .unwrap_or([0, TAB_BAR_H, 100, 100]);
+            .unwrap_or([0, tab_h, 100, 100]);
 
         let new_rect = match dir {
             SplitDir::H => {
@@ -220,7 +235,8 @@ impl App {
         tab.layout.split(active, new_id, dir);
         tab.active = new_id;
         let idx = self.state.active_tab;
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
     }
 
     pub(crate) fn do_close_pane(&mut self, event_loop: &ActiveEventLoop) {
@@ -236,7 +252,10 @@ impl App {
         tab.panes.remove(&active);
         tab.active = new_focus.unwrap_or_else(|| *tab.panes.keys().next().unwrap());
         let idx = self.state.active_tab;
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx]);
+        let tab_h = self.tab_h();
+        let status_h = self.status_h();
+        let pane_padding = self.pane_padding();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
     }
 }
 
@@ -262,3 +281,7 @@ pub(super) fn open_log_file(pane_id: usize, log_dir: &str) -> Option<std::fs::Fi
         }
     }
 }
+
+#[cfg(test)]
+#[path = "pane_ops_test.rs"]
+mod tests;

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::config::Config;
+use crate::dpi::Logical;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::renderer::FontMetrics;
@@ -20,13 +21,17 @@ pub struct PaneEntry {
     pub pty: crate::pty::PtySession,
     pub rx: Receiver<Vec<u8>>,
     pub log_file: Option<std::fs::File>,
+    /// Per-pane density-independent font size. Physical px = scale.px(logical_font_size).
+    /// Mutated by Ctrl±/reset; re-derived (not persisted) on ScaleFactorChanged.
+    pub logical_font_size: Logical,
+    /// Cell layout derived from `scale.px(logical_font_size)`.
+    pub metrics: FontMetrics,
 }
 
 pub struct TabState {
     pub panes: HashMap<usize, PaneEntry>,
     pub layout: Layout,
     pub active: usize,
-    pub metrics: FontMetrics,
     pub name: Option<String>,
     pub zoomed: bool,
     pub has_activity: bool,
@@ -534,13 +539,14 @@ impl AppState {
     }
 
     fn do_reset_font_size(&self) -> Vec<AppEffect> {
-        let default = self.config.font.size;
+        let default_logical = self.config.font.size;
         let current = self
             .tabs
             .get(self.active_tab)
-            .map(|t| t.metrics.font_px)
-            .unwrap_or(default);
-        vec![AppEffect::ChangeFontSize(default - current)]
+            .and_then(|t| t.panes.get(&t.active))
+            .map(|e| e.logical_font_size.0)
+            .unwrap_or(default_logical);
+        vec![AppEffect::ChangeFontSize(default_logical - current)]
     }
 
     // ── Action dispatch ──────────────────────────────────────────────────────
@@ -896,17 +902,10 @@ impl AppState {
         use crate::ui::layout::Layout;
         let id = self.next_pane_id;
         self.next_pane_id += 1;
-        let metrics = crate::renderer::FontMetrics {
-            font_px: 16.0,
-            cell_width: 8,
-            cell_height: 16,
-            baseline: 13,
-        };
         self.tabs.push(TabState {
             panes: HashMap::new(),
             layout: Layout::new(id, 800, 600),
             active: id,
-            metrics,
             name: None,
             zoomed: false,
             has_activity: false,
@@ -916,6 +915,44 @@ impl AppState {
             passthrough: false,
         });
         self.active_tab = self.tabs.len() - 1;
+    }
+
+    /// Build a real `PaneEntry` (throwaway `/bin/true` PTY) carrying the given
+    /// per-pane font size + metrics. For window-free tests of per-pane sizing.
+    #[cfg(test)]
+    pub(crate) fn test_pane_entry(
+        logical: Logical,
+        metrics: crate::renderer::FontMetrics,
+    ) -> PaneEntry {
+        use crate::terminal::grid::{Color, GridColors};
+        use crate::ui::Pane;
+        let (_unused_tx, rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+        let (pty_tx, _pty_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+        let pty = crate::pty::PtySession::spawn_with_shell(
+            80,
+            24,
+            pty_tx,
+            "/bin/true",
+            None,
+            Box::new(|| {}),
+        )
+        .expect("PTY spawn failed");
+        let colors = GridColors {
+            fg: Color::WHITE,
+            bg: Color::BLACK,
+            cursor: Color::WHITE,
+            selection: Color::WHITE,
+            palette: [Color::BLACK; 16],
+        };
+        let pane = Pane::new_with_colors(80, 24, [0, 22, 800, 556], colors, 1000);
+        PaneEntry {
+            pane,
+            pty,
+            rx,
+            log_file: None,
+            logical_font_size: logical,
+            metrics,
+        }
     }
 
     /// Creates a tab with one real pane (PTY: /bin/true, grid: 80×24).
@@ -962,6 +999,13 @@ impl AppState {
                 pty,
                 rx,
                 log_file: None,
+                logical_font_size: Logical(16.0),
+                metrics: crate::renderer::FontMetrics {
+                    font_px: 16.0,
+                    cell_width: 8,
+                    cell_height: 16,
+                    baseline: 13,
+                },
             },
         );
         self.tabs[tab_idx].active = id;

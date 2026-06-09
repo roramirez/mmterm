@@ -48,14 +48,15 @@ impl App {
     }
 
     pub(crate) fn pane_at_pixel(&self, px: f64, py: f64) -> Option<usize> {
-        let rects = self.tab().layout.rects();
+        let (tab_h, status_h) = (self.tab_h(), self.status_h());
+        let rects = self.tab().layout.rects_scaled(tab_h, status_h);
         geometry::pane_at_pixel(&rects, px, py)
     }
 
     pub(crate) fn pixel_to_cell(&self, pane_id: usize, px: f64, py: f64) -> Option<(usize, usize)> {
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let m = &tab.metrics;
+        let m = &entry.metrics;
         geometry::pixel_to_cell(
             entry.pane.rect,
             m.cell_width,

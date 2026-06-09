@@ -1,6 +1,7 @@
 pub const STATUS_BAR_H: u32 = 22;
 pub const TAB_BAR_H: u32 = 22;
 pub const PANE_PADDING: u32 = 4;
+// intentionally 1 physical px at all scales; scale-aware strokes deferred (spec §9)
 const SEP: u32 = 1;
 pub const NUDGE_STEP: f32 = 0.05;
 const RATIO_MIN: f32 = 0.1;
@@ -292,21 +293,42 @@ impl Layout {
         }
     }
 
-    fn usable_h(&self) -> u32 {
-        self.height.saturating_sub(STATUS_BAR_H + TAB_BAR_H)
+    /// Usable height between the bars, given PHYSICAL chrome heights.
+    pub fn usable_h_for(&self, tab_h: u32, status_h: u32) -> u32 {
+        self.height.saturating_sub(tab_h + status_h)
     }
 
     pub fn rects(&self) -> Vec<(usize, [u32; 4])> {
+        self.rects_scaled(TAB_BAR_H, STATUS_BAR_H)
+    }
+
+    /// Pane rects given PHYSICAL chrome heights (panes start at y = tab_h).
+    pub fn rects_scaled(&self, tab_h: u32, status_h: u32) -> Vec<(usize, [u32; 4])> {
         let mut out = Vec::new();
-        self.root
-            .compute_rects(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
+        self.root.compute_rects(
+            0,
+            tab_h,
+            self.width,
+            self.usable_h_for(tab_h, status_h),
+            &mut out,
+        );
         out
     }
 
     pub fn separators(&self) -> Vec<[u32; 4]> {
+        self.separators_scaled(TAB_BAR_H, STATUS_BAR_H)
+    }
+
+    /// Separators given PHYSICAL chrome heights.
+    pub fn separators_scaled(&self, tab_h: u32, status_h: u32) -> Vec<[u32; 4]> {
         let mut out = Vec::new();
-        self.root
-            .separators(0, TAB_BAR_H, self.width, self.usable_h(), &mut out);
+        self.root.separators(
+            0,
+            tab_h,
+            self.width,
+            self.usable_h_for(tab_h, status_h),
+            &mut out,
+        );
         out
     }
 
@@ -339,14 +361,26 @@ impl Layout {
     /// Returns a handle to the separator within `margin` pixels of `(px, py)`,
     /// or `None` if no separator is that close.
     pub fn separator_at_pixel(&self, px: u32, py: u32, margin: u32) -> Option<SeparatorHandle> {
+        self.separator_at_pixel_scaled(px, py, margin, TAB_BAR_H, STATUS_BAR_H)
+    }
+
+    /// Hit-test a separator given PHYSICAL chrome heights.
+    pub fn separator_at_pixel_scaled(
+        &self,
+        px: u32,
+        py: u32,
+        margin: u32,
+        tab_h: u32,
+        status_h: u32,
+    ) -> Option<SeparatorHandle> {
         let mut counter = 0usize;
         self.root.find_sep_at_pixel(
             px,
             py,
             0,
-            TAB_BAR_H,
+            tab_h,
             self.width,
-            self.usable_h(),
+            self.usable_h_for(tab_h, status_h),
             margin,
             &mut counter,
         )

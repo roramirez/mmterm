@@ -497,6 +497,57 @@ fn roundtrip_three_pane_nested() {
     }
 }
 
+// ── *_scaled / usable_h_for ──────────────────────────────────────────────────
+
+#[test]
+fn usable_h_1x() {
+    let l = Layout::new(0, W, H);
+    assert_eq!(
+        l.usable_h_for(TAB_BAR_H, STATUS_BAR_H),
+        H - TAB_BAR_H - STATUS_BAR_H
+    );
+}
+
+#[test]
+fn usable_h_2x() {
+    let l = Layout::new(0, W, H);
+    assert_eq!(l.usable_h_for(44, 44), H - 88);
+}
+
+#[test]
+fn rects_1x_pane_top_at_22() {
+    let l = Layout::new(0, W, H);
+    let rects = l.rects_scaled(TAB_BAR_H, STATUS_BAR_H);
+    assert_eq!(rects[0].1[1], 22);
+}
+
+#[test]
+fn rects_2x_pane_top_at_44() {
+    let l = Layout::new(0, W, H);
+    let rects = l.rects_scaled(44, 44);
+    assert_eq!(rects[0].1[1], 44);
+}
+
+#[test]
+fn pixel_in_tab_bar_not_in_any_pane_at_2x() {
+    // At 2× scale the physical tab-bar height is 44 px.
+    // A physical y=30 is inside the tab bar and must NOT land in any pane rect.
+    // A physical y=50 is below the tab bar and MUST land in a pane rect.
+    let l = Layout::new(0, W, H);
+    let rects = l.rects_scaled(44, 44); // 2× chrome heights
+    // rect tuple: (pane_id, [x, y, w, h]) — [1]=y, [3]=h
+    let hit_at_30 = rects.iter().any(|(_, r)| 30u32 >= r[1] && 30 < r[1] + r[3]);
+    assert!(
+        !hit_at_30,
+        "y=30 is inside the 44px tab bar and must not hit any pane"
+    );
+    let hit_at_50 = rects.iter().any(|(_, r)| 50u32 >= r[1] && 50 < r[1] + r[3]);
+    assert!(
+        hit_at_50,
+        "y=50 is below the 44px tab bar and must hit a pane"
+    );
+}
+
 // ── best_dir_candidate ───────────────────────────────────────────────────────
 
 #[test]
