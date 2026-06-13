@@ -94,14 +94,12 @@ check "binary executable"  "$( [ -x "${idir}/bin/mmterm" ] && echo yes )" "yes"
 check "no temp leftover"   "$( find "${idir}/bin" -name '.mmterm.*' 2>/dev/null | wc -l | tr -d ' ' )" "0"
 rm -rf "${idir}" "${src}"
 
-# verify_provenance is a no-op (success) when gh is absent.
-if ! command -v gh >/dev/null 2>&1; then
-  if verify_provenance /nonexistent; then
-    check "provenance skipped without gh" "ok" "ok"
-  else
-    check "provenance skipped without gh" "FAIL" "ok"
-  fi
-fi
+# Regression guard: the quick install must not depend on the gh CLI. Older
+# distros (e.g. Debian 13 ships gh 2.46, predating the `attestation` subcommand
+# added in 2.49) used to abort here with a misleading provenance error.
+# Integrity is verified from the public checksums file alone.
+check "install.sh has no gh dependency" \
+  "$(grep -cE 'gh attestation|verify_provenance' "${HERE}/install.sh")" "0"
 
 # ensure_on_path: already-on-PATH does nothing and writes nothing.
 ep_home="$(mktemp -d)"
@@ -143,7 +141,8 @@ else
 fi
 unset -f uname 2>/dev/null || true
 
-# End-to-end: fake local release, mock fetch/uname/provenance, run real main.
+# End-to-end: fake local release, mock fetch/uname, run real main. No gh involved
+# — verification is checksum-only, exactly as on a machine without the gh CLI.
 e2e="$(mktemp -d)"
 mkdir -p "${e2e}/release" "${e2e}/home"
 printf '#!/bin/sh\necho "mmterm 9.9.9 (test)"\n' > "${e2e}/mmterm"
@@ -152,13 +151,11 @@ chmod 755 "${e2e}/mmterm"
 e2e_hash="$(sha256_of "${e2e}/release/mmterm-linux-x86_64.tar.gz")"
 printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/release/checksums-sha256.txt"
 
-# Mocks: serve downloads from local dir; force Linux x86_64; skip real gh provenance.
+# Mocks: serve downloads from local dir; force Linux x86_64.
 # shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
 # shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
-verify_provenance() { return 0; }
 
 # Run main in a subshell so HOME/SHELL/trap/env changes stay isolated.
 # shellcheck disable=SC2034  # MMTERM_BIN_DIR is read by main() sourced from install.sh
@@ -170,7 +167,7 @@ fi
 check "e2e installs binary" "$( [ -x "${e2e}/bin/mmterm" ] && echo yes )" "yes"
 check "e2e binary runs"     "$( "${e2e}/bin/mmterm" )" "mmterm 9.9.9 (test)"
 rm -rf "${e2e}"
-unset -f fetch uname verify_provenance 2>/dev/null || true
+unset -f fetch uname 2>/dev/null || true
 
 # main aborts (does not install) when the tarball lacks the 'mmterm' binary.
 e2e="$(mktemp -d)"
@@ -183,8 +180,6 @@ printf '%s  artifacts/mmterm-linux-x86_64.tar.gz\n' "${e2e_hash}" > "${e2e}/rele
 fetch() { cp "${e2e}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
 # shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac; }
-# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
-verify_provenance() { return 0; }
 # shellcheck disable=SC2034  # MMTERM_BIN_DIR is read by main() sourced from install.sh
 if ( HOME="${e2e}/home"; SHELL="/bin/zsh"; MMTERM_BIN_DIR="${e2e}/bin"; main ) >/dev/null 2>&1; then
   check "e2e aborts on missing binary" "installed" "aborted"
@@ -193,9 +188,9 @@ else
 fi
 check "e2e missing-binary installs nothing" "$( [ -e "${e2e}/bin/mmterm" ] && echo exists || echo none )" "none"
 rm -rf "${e2e}"
-unset -f fetch uname verify_provenance 2>/dev/null || true
+unset -f fetch uname 2>/dev/null || true
 
-# macOS e2e: fake .dmg release, mock fetch/uname/provenance/open, run real main.
+# macOS e2e: fake .dmg release, mock fetch/uname/open, run real main. Checksum-only.
 mac="$(mktemp -d)"
 mkdir -p "${mac}/release" "${mac}/home"
 printf 'fake-dmg-bytes' > "${mac}/release/mmterm-macos-aarch64.dmg"
@@ -205,8 +200,6 @@ printf '%s  artifacts/mmterm-macos-aarch64.dmg\n' "${mac_hash}" > "${mac}/releas
 fetch() { cp "${mac}/release/$(basename "$1")" "$2" 2>/dev/null || return 1; }
 # shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
 uname() { case "$1" in -s) echo Darwin ;; -m) echo arm64 ;; esac; }
-# shellcheck disable=SC2317,SC2329  # invoked indirectly inside the main subshell below
-verify_provenance() { return 0; }
 # shellcheck disable=SC2317,SC2329  # 'open' is mocked; record the path it was asked to open
 open() { printf '%s\n' "$1" > "${mac}/opened"; }
 if ( HOME="${mac}/home"; main ) >/dev/null 2>&1; then
@@ -219,7 +212,7 @@ check "macos e2e dmg in Downloads" \
 check "macos e2e opened the dmg" \
   "$(cat "${mac}/opened" 2>/dev/null)" "${mac}/home/Downloads/mmterm-macos-aarch64.dmg"
 rm -rf "${mac}"
-unset -f fetch uname verify_provenance open 2>/dev/null || true
+unset -f fetch uname open 2>/dev/null || true
 
 [ "${fails}" -eq 0 ] || { printf '\n%s test(s) failed\n' "${fails}"; exit 1; }
 printf '\nall tests passed\n'
