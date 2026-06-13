@@ -81,11 +81,42 @@ pub fn handle_key(
     if event.state != ElementState::Pressed {
         return Action::None;
     }
-    let ctrl = modifiers.state().control_key();
-    let shift = modifiers.state().shift_key();
-    let alt = modifiers.state().alt_key();
-    handle_key_inner(
+    let st = modifiers.state();
+    handle_key_modified(
         &event.logical_key,
+        st.control_key(),
+        st.shift_key(),
+        st.alt_key(),
+        st.super_key(),
+        mode,
+        grid_cols,
+        grid_rows,
+        application_cursor_keys,
+    )
+}
+
+/// Routes a key by its modifier flags. Split from `handle_key` so the modifier
+/// dispatch is unit-testable without constructing winit `Modifiers`/`KeyEvent`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn handle_key_modified(
+    key: &Key,
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    cmd: bool,
+    mode: &InputMode,
+    grid_cols: usize,
+    grid_rows: usize,
+    application_cursor_keys: bool,
+) -> Action {
+    // macOS Command (⌘) / Linux Super shortcuts take priority. When Super is
+    // held we run the mapped action or swallow the key (Action::None) so a bare
+    // ⌘<key> never leaks to the PTY.
+    if cmd {
+        return cmd_action(key).unwrap_or(Action::None);
+    }
+    handle_key_inner(
+        key,
         ctrl,
         shift,
         alt,
@@ -168,6 +199,39 @@ fn ctrl_shift_action(key: &Key) -> Option<Action> {
         Key::Named(NamedKey::PageDown) => Some(Action::MoveTabRight),
         Key::Named(NamedKey::Home) => Some(Action::ScrollToTop),
         Key::Named(NamedKey::End) => Some(Action::ScrollToBottom),
+        _ => None,
+    }
+}
+
+// macOS Command (⌘) / Linux Super shortcuts. Mirrors mmterm's Ctrl / Ctrl+Shift
+// bindings so the platform-standard shortcuts work (⌘V paste, ⌘C copy, ⌘T new
+// tab, ⌘1..9 select tab, …). Returns None for unmapped keys.
+fn cmd_char_action(s: &str) -> Option<Action> {
+    if let Some(d) = s.chars().next().and_then(|c| c.to_digit(10))
+        && d >= 1
+    {
+        return Some(Action::GoToTab((d - 1) as usize));
+    }
+    match s.to_lowercase().as_str() {
+        "v" => Some(Action::Paste),
+        "c" => Some(Action::Copy),
+        "n" | "t" => Some(Action::NewTab),
+        "w" => Some(Action::CloseTab),
+        "q" => Some(Action::Quit),
+        "," => Some(Action::OpenConfig),
+        "f" => Some(Action::SearchOpen),
+        "k" => Some(Action::ClearScrollback),
+        "+" => Some(Action::IncreaseFontSize),
+        "-" => Some(Action::DecreaseFontSize),
+        // ⌘= and ⌘0 both reset the font size to the configured default.
+        "=" | "0" => Some(Action::ResetFontSize),
+        _ => None,
+    }
+}
+
+fn cmd_action(key: &Key) -> Option<Action> {
+    match key {
+        Key::Character(s) => cmd_char_action(s),
         _ => None,
     }
 }

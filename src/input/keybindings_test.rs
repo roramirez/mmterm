@@ -2443,3 +2443,173 @@ fn ctrl_alt_b_also_toggles_passthrough() {
     let a = handle_key_inner(&char_key("b"), true, false, true, &insert(), 80, 24, false);
     assert!(matches!(a, Action::TogglePassthrough));
 }
+
+// ── cmd_action (macOS ⌘ / Linux Super) ──────────────────────────────────────
+
+#[test]
+fn cmd_v_pastes() {
+    assert!(matches!(cmd_action(&char_key("v")), Some(Action::Paste)));
+}
+
+#[test]
+fn cmd_c_copies() {
+    assert!(matches!(cmd_action(&char_key("c")), Some(Action::Copy)));
+}
+
+#[test]
+fn cmd_n_and_t_new_tab() {
+    assert!(matches!(cmd_action(&char_key("n")), Some(Action::NewTab)));
+    assert!(matches!(cmd_action(&char_key("t")), Some(Action::NewTab)));
+}
+
+#[test]
+fn cmd_w_closes_tab() {
+    assert!(matches!(cmd_action(&char_key("w")), Some(Action::CloseTab)));
+}
+
+#[test]
+fn cmd_q_quits() {
+    assert!(matches!(cmd_action(&char_key("q")), Some(Action::Quit)));
+}
+
+#[test]
+fn cmd_comma_opens_config() {
+    assert!(matches!(
+        cmd_action(&char_key(",")),
+        Some(Action::OpenConfig)
+    ));
+}
+
+#[test]
+fn cmd_f_opens_search() {
+    assert!(matches!(
+        cmd_action(&char_key("f")),
+        Some(Action::SearchOpen)
+    ));
+}
+
+#[test]
+fn cmd_k_clears_scrollback() {
+    assert!(matches!(
+        cmd_action(&char_key("k")),
+        Some(Action::ClearScrollback)
+    ));
+}
+
+#[test]
+fn cmd_font_size_keys() {
+    assert!(matches!(
+        cmd_action(&char_key("+")),
+        Some(Action::IncreaseFontSize)
+    ));
+    assert!(matches!(
+        cmd_action(&char_key("-")),
+        Some(Action::DecreaseFontSize)
+    ));
+    // ⌘= and ⌘0 both reset to the default font size.
+    assert!(matches!(
+        cmd_action(&char_key("=")),
+        Some(Action::ResetFontSize)
+    ));
+    assert!(matches!(
+        cmd_action(&char_key("0")),
+        Some(Action::ResetFontSize)
+    ));
+}
+
+#[test]
+fn cmd_digits_go_to_tab() {
+    assert!(matches!(
+        cmd_action(&char_key("1")),
+        Some(Action::GoToTab(0))
+    ));
+    assert!(matches!(
+        cmd_action(&char_key("5")),
+        Some(Action::GoToTab(4))
+    ));
+    assert!(matches!(
+        cmd_action(&char_key("9")),
+        Some(Action::GoToTab(8))
+    ));
+}
+
+#[test]
+fn cmd_is_case_insensitive() {
+    assert!(matches!(cmd_action(&char_key("V")), Some(Action::Paste)));
+    assert!(matches!(cmd_action(&char_key("W")), Some(Action::CloseTab)));
+}
+
+#[test]
+fn cmd_unmapped_char_is_none() {
+    assert!(cmd_action(&char_key("a")).is_none());
+    assert!(cmd_action(&char_key("z")).is_none());
+}
+
+#[test]
+fn cmd_named_key_is_none() {
+    assert!(cmd_action(&named(NamedKey::Enter)).is_none());
+    assert!(cmd_action(&named(NamedKey::ArrowUp)).is_none());
+}
+
+#[test]
+fn handle_key_modified_cmd_routes_to_cmd_action() {
+    // Super/⌘ held → cmd_action wins regardless of other modifier flags.
+    let a = handle_key_modified(
+        &char_key("v"),
+        false,
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::Paste));
+}
+
+#[test]
+fn handle_key_modified_cmd_swallows_unmapped() {
+    // Super/⌘ + unmapped key is swallowed (never leaks to the PTY).
+    let a = handle_key_modified(
+        &char_key("a"),
+        false,
+        false,
+        false,
+        true,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn handle_key_modified_without_cmd_falls_through() {
+    // No Super → normal handling; Ctrl+Shift+V still pastes, plain "a" is sent.
+    let paste = handle_key_modified(
+        &char_key("v"),
+        true,
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(paste, Action::Paste));
+    let typed = handle_key_modified(
+        &char_key("a"),
+        false,
+        false,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(typed, Action::SendToPty(_)));
+}

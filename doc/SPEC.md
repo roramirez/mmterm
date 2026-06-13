@@ -482,6 +482,28 @@ writing a file.
 | `Ctrl+\` | Enter Normal mode |
 | `Ctrl+B` | Toggle passthrough mode (see below) |
 
+### macOS Command (⌘) / Super
+
+The platform-standard ⌘ shortcuts are routed when the Super modifier is held
+(macOS Command; Linux/Windows Super key). They take priority over mode dispatch;
+while Super is held an unmapped key is swallowed (never sent to the PTY). Inactive
+in passthrough mode.
+
+| Binding | Action |
+|---|---|
+| `⌘V` | Paste |
+| `⌘C` | Copy selection (Visual mode) |
+| `⌘N` / `⌘T` | New tab |
+| `⌘W` | Close tab |
+| `⌘1`..`⌘9` | Jump to tab by position |
+| `⌘Q` | Quit |
+| `⌘,` | Open config panel |
+| `⌘F` | Open scrollback search |
+| `⌘K` | Clear scrollback |
+| `⌘+` | Increase font size |
+| `⌘-` | Decrease font size |
+| `⌘=` / `⌘0` | Reset font size |
+
 ### Pane Management (`Ctrl+W` prefix)
 
 | Binding | Action |
