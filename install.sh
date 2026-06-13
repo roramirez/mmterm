@@ -72,15 +72,6 @@ verify_checksum() {
   actual   ${actual}"
 }
 
-verify_provenance() {
-  # $1 = artifact path (tarball or dmg). Best-effort: only runs if the gh CLI is present.
-  if have gh; then
-    log "verifying build provenance (gh attestation)..."
-    gh attestation verify "$1" --repo "${REPO}" >/dev/null 2>&1 \
-      || err "provenance verification failed for $1"
-  fi
-}
-
 install_binary() {
   # $1 = source binary, $2 = target bin dir. Atomic: temp file + mv.
   mkdir -p "$2"
@@ -172,7 +163,6 @@ macos_install() {
 
   log "verifying checksum..."
   verify_checksum "${workdir}/${dmg}" "${workdir}/checksums-sha256.txt" "${dmg}"
-  verify_provenance "${workdir}/${dmg}"
 
   dest_dir="${HOME}/Downloads"
   mkdir -p "${dest_dir}"
@@ -211,7 +201,6 @@ main() {
 
   log "verifying checksum..."
   verify_checksum "${workdir}/${artifact}.tar.gz" "${workdir}/checksums-sha256.txt" "${artifact}.tar.gz"
-  verify_provenance "${workdir}/${artifact}.tar.gz"
 
   log "installing to ${bin_dir}..."
   tar -xzf "${workdir}/${artifact}.tar.gz" -C "${workdir}"

@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `install.sh` quick install failed on systems with an older `gh` CLI (e.g. Debian 13, which ships gh 2.46 without the `attestation` subcommand): `gh attestation verify` errored with `unknown command "attestation"` and the script reported a misleading "provenance verification failed". The quick install no longer depends on `gh` at all — integrity is verified solely against the public `checksums-sha256.txt` (SHA-256), which needs no authentication
+
 ## [0.7.0] - 2026-06-09
 
 ### Added
