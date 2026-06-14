@@ -801,6 +801,77 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
     }
 }
 
+// ── Mouse-wheel scroll adjusts Visual selection (regression for viewport_scroll) ──
+
+#[test]
+fn viewport_scroll_up_adjusts_visual_selection() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..30 {
+            e.pane.parser.grid.scroll_up(1);
+        }
+    }
+    s.mode = InputMode::Visual {
+        start_col: 1,
+        start_row: 2,
+        cur_col: 3,
+        cur_row: 4,
+        anchored: true,
+    };
+    s.viewport_scroll(3.0); // positive = scroll up
+    let InputMode::Visual {
+        start_row, cur_row, ..
+    } = s.mode
+    else {
+        panic!("expected Visual mode");
+    };
+    assert_eq!(start_row, 5, "anchor must shift down when scrolling up");
+    assert_eq!(cur_row, 7, "cursor must shift down when scrolling up");
+}
+
+#[test]
+fn viewport_scroll_down_adjusts_visual_selection() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..10 {
+            e.pane.parser.grid.scroll_up(1);
+        }
+        e.pane.scroll_offset = 5;
+    }
+    s.mode = InputMode::Visual {
+        start_col: 1,
+        start_row: 6,
+        cur_col: 3,
+        cur_row: 8,
+        anchored: true,
+    };
+    s.viewport_scroll(-2.0); // negative = scroll down
+    let InputMode::Visual {
+        start_row, cur_row, ..
+    } = s.mode
+    else {
+        panic!("expected Visual mode");
+    };
+    assert_eq!(start_row, 4, "anchor must shift up when scrolling down");
+    assert_eq!(cur_row, 6, "cursor must shift up when scrolling down");
+}
+
+#[test]
+fn viewport_scroll_outside_visual_mode_does_not_crash() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..10 {
+            e.pane.parser.grid.scroll_up(1);
+        }
+    }
+    s.mode = InputMode::Insert;
+    s.viewport_scroll(3.0);
+    assert!(matches!(s.mode, InputMode::Insert));
+}
+
 // ── Delegated simple effects ──────────────────────────────────────────────────
 
 #[test]

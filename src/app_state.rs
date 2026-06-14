@@ -510,6 +510,18 @@ impl AppState {
         self.adjust_visual_scroll_down(n);
     }
 
+    /// Scroll the active pane's viewport by `lines` (positive = up, negative = down),
+    /// adjusting any active Visual selection so it tracks the content.
+    /// Called by mouse-wheel events; tested separately from dispatch_action.
+    pub(crate) fn viewport_scroll(&mut self, lines: f32) {
+        let n = lines.abs().ceil() as usize;
+        if lines > 0.0 {
+            self.do_scroll_up(n);
+        } else {
+            self.do_scroll_down(n);
+        }
+    }
+
     fn do_scroll_top(&mut self) {
         if let Some(e) = self.active_entry_mut() {
             e.pane.scroll_top();
