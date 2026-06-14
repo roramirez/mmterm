@@ -205,6 +205,12 @@ pub(crate) fn handle_key_inner(
     grid_rows: usize,
     application_cursor_keys: bool,
 ) -> Action {
+    // Alt+Tab is swallowed (never leaks ESC-Tab to the PTY), matching pre-keymap
+    // behavior. Passthrough mode bypasses handle_key_inner, so it still sends raw.
+    if alt && !ctrl && matches!(key, Key::Named(NamedKey::Tab)) {
+        return Action::None;
+    }
+
     // Ctrl+C copies the selection while in Visual mode (else falls through to
     // raw 0x03 in Insert). Not a Global keymap row because that would also
     // intercept Ctrl+C in Insert.

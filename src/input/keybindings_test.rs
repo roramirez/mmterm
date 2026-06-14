@@ -72,6 +72,80 @@ fn dispatch_cmd_v_pastes_via_keymap() {
 }
 
 #[test]
+fn dispatch_alt_tab_is_swallowed() {
+    // Alt+Tab must not leak ESC-Tab to the PTY (preserves pre-keymap behavior).
+    let a = handle_key_modified(
+        &km(),
+        &named(NamedKey::Tab),
+        false,
+        false,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn dispatch_alt_shift_tab_is_swallowed() {
+    // The guard ignores Shift, so Alt+Shift+Tab is swallowed too (no ESC-backtab leak).
+    let a = handle_key_modified(
+        &km(),
+        &named(NamedKey::Tab),
+        false,
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::None));
+}
+
+#[test]
+fn dispatch_alt_tab_is_swallowed_in_normal_and_visual() {
+    // The guard precedes the mode match, so Alt+Tab is swallowed in every mode.
+    for mode in [normal(), visual()] {
+        let a = handle_key_modified(
+            &km(),
+            &named(NamedKey::Tab),
+            false,
+            false,
+            true,
+            false,
+            &mode,
+            80,
+            24,
+            false,
+        );
+        assert!(matches!(a, Action::None));
+    }
+}
+
+#[test]
+fn dispatch_ctrl_alt_tab_falls_through_to_tab_byte() {
+    // The guard excludes ctrl, so Ctrl+Alt+Tab falls through to the Tab byte.
+    let a = handle_key_modified(
+        &km(),
+        &named(NamedKey::Tab),
+        true,
+        false,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[b'\t']));
+}
+
+#[test]
 fn dispatch_cmd_v_pastes_in_normal_mode_too() {
     // Global scope: cmd+v works regardless of mode.
     let a = handle_key_modified(
