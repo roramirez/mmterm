@@ -452,6 +452,60 @@ writing a file.
 
 ## Key Bindings Reference
 
+### Configurable Keymap
+
+mmterm's modifier shortcuts are a single data-driven table (`src/input/keymap.rs`).
+`default_keymap()` defines all built-in Global-scope shortcuts as data; the user's
+`[keybindings]` config overlays the same table.
+
+**Config format**
+
+```toml
+[keybindings]
+"cmd+v"     = "paste"      # override / add a binding
+"cmd+k"     = "none"       # disable a built-in default
+"ctrl+e"    = "new_tab"    # add a new shortcut
+"ctrl+w x"  = "close_pane" # chord (space-separated tail key)
+```
+
+**Grammar**
+- Modifiers (order-insensitive, `+`-joined): `ctrl` `shift` `alt` `cmd`.
+  `cmd` resolves to Command (⌘) on macOS and Super on Linux/Windows.
+- Key token: a single character (`v` `,` `+` `=`) or a named key
+  (`enter` `escape` `tab` `space` `backspace` `delete` `pageup` `pagedown`
+  `home` `end` `arrowup/down/left/right` `f1`..`f12`); letters are case-insensitive.
+- Chord: a space-separated tail key after a prefix (today only `ctrl+w`).
+- `"none"` disables the matching built-in (returns the key to its raw terminal meaning).
+
+**Merge semantics**
+- Defaults always load; a valid entry inserts/replaces; `"none"` removes; an empty
+  table = full defaults.
+- Invalid entries are skipped, `log::warn!`-ed, counted, and surfaced as a transient
+  status-bar notice `"N keybindings invalid — see log"`. The app always starts.
+- Validation rejects: unparseable bindings, unknown action names, and **bare
+  unmodified-character** bindings in Global scope (they would shadow literal typing).
+
+**Bindable action names**
+
+| Name | Action |
+|---|---|
+| `paste`, `copy` | clipboard |
+| `new_tab`, `close_tab`, `next_tab`, `prev_tab`, `move_tab_left`, `move_tab_right`, `rename_tab` | tabs |
+| `go_to_tab_1`..`go_to_tab_9` | select tab N |
+| `split_horizontal`, `split_vertical`, `auto_split`, `close_pane` | splits |
+| `focus_left/right/up/down`, `focus_next` | pane focus |
+| `zoom_pane`, `rotate_panes_forward`, `rotate_panes_backward` | pane layout |
+| `resize_pane_left/right/up/down` | pane resize |
+| `scroll_page_up`, `scroll_page_down`, `scroll_to_top`, `scroll_to_bottom`, `clear_scrollback` | scroll |
+| `search_open`, `search_next`, `search_prev` | search |
+| `increase_font_size`, `decrease_font_size`, `reset_font_size` | font |
+| `open_config`, `open_command_palette`, `toggle_fullscreen`, `toggle_log`, `toggle_passthrough`, `screenshot_open`, `quit` | app / ui |
+| `cycle_mode`, `enter_normal_mode` | mode |
+| `ctrl_w_prefix` | start a `Ctrl+W` chord |
+
+Modal (`normal:` / `visual:`) remapping is a future phase; literal text and cursor/PTY
+encoding are never bindable — they are the fallback when no binding matches.
+
 ### Global (all modes)
 
 | Binding | Action |
@@ -481,6 +535,28 @@ writing a file.
 | `Ctrl+.` | Cycle mode (Insert → Normal → Visual → Insert) |
 | `Ctrl+\` | Enter Normal mode |
 | `Ctrl+B` | Toggle passthrough mode (see below) |
+
+### macOS Command (⌘) / Super
+
+The platform-standard ⌘ shortcuts are routed when the Super modifier is held
+(macOS Command; Linux/Windows Super key). They take priority over mode dispatch;
+while Super is held an unmapped key is swallowed (never sent to the PTY). Inactive
+in passthrough mode.
+
+| Binding | Action |
+|---|---|
+| `⌘V` | Paste |
+| `⌘C` | Copy selection (Visual mode) |
+| `⌘N` / `⌘T` | New tab |
+| `⌘W` | Close tab |
+| `⌘1`..`⌘9` | Jump to tab by position |
+| `⌘Q` | Quit |
+| `⌘,` | Open config panel |
+| `⌘F` | Open scrollback search |
+| `⌘K` | Clear scrollback |
+| `⌘+` | Increase font size |
+| `⌘-` | Decrease font size |
+| `⌘=` / `⌘0` | Reset font size |
 
 ### Pane Management (`Ctrl+W` prefix)
 

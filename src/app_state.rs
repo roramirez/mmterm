@@ -2,13 +2,14 @@ use arboard::Clipboard;
 use crossbeam_channel::Receiver;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::config::tui_config::ConfigPanel;
 use crate::dpi::Logical;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
+use crate::input::keymap::KeyMap;
 use crate::renderer::FontMetrics;
 use crate::theme::ResolvedTheme;
 use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
@@ -100,10 +101,26 @@ pub struct AppState {
     pub available_update: Option<crate::update::Version>,
     /// An update was self-applied this session (Linux) — drives the "restart" badge.
     pub update_applied: Option<crate::update::Version>,
+    /// Merged keymap (built once at startup from `config.keybindings`).
+    pub keymap: KeyMap,
+    /// Number of invalid keybinding entries skipped at load (drives the notice).
+    pub keymap_invalid_count: usize,
+    /// When set (and in the future), the status bar shows the invalid-keymap notice.
+    pub keymap_notice_until: Option<Instant>,
 }
 
 impl AppState {
     pub fn new(config: Config, theme: ResolvedTheme) -> Self {
+        let (keymap, keymap_errors) = KeyMap::from_config(&config.keybindings);
+        for e in &keymap_errors {
+            log::warn!("invalid keybinding: {e:?}");
+        }
+        let keymap_invalid_count = keymap_errors.len();
+        let keymap_notice_until = if keymap_invalid_count > 0 {
+            Some(Instant::now() + Duration::from_secs(6))
+        } else {
+            None
+        };
         Self {
             tabs: Vec::new(),
             active_tab: 0,
@@ -128,6 +145,22 @@ impl AppState {
             drag_separator: None,
             available_update: None,
             update_applied: None,
+            keymap,
+            keymap_invalid_count,
+            keymap_notice_until,
+        }
+    }
+
+    /// The transient invalid-keymap notice text, if active.
+    pub fn keymap_notice(&self) -> Option<String> {
+        let until = self.keymap_notice_until?;
+        if Instant::now() < until && self.keymap_invalid_count > 0 {
+            Some(format!(
+                "{} keybindings invalid — see log",
+                self.keymap_invalid_count
+            ))
+        } else {
+            None
         }
     }
 

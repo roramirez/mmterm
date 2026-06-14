@@ -76,3 +76,20 @@ palette = [
   "#a3babf",
   "#f8f8f2",
 ]
+
+[keybindings]
+# Override, add, or disable keyboard shortcuts. Format:
+#   "binding" = "action-name"      ("none" disables a built-in default)
+# Modifiers (order-insensitive, joined with '+'): ctrl shift alt cmd
+#   cmd resolves to Command (⌘) on macOS and Super on Linux/Windows.
+# Key tokens: a single character (v , + =) or a named key
+#   (enter escape tab space backspace delete pageup pagedown home end
+#    arrowup arrowdown arrowleft arrowright f1..f12).
+# Chord (Ctrl+W prefix): a space-separated tail key, e.g. "ctrl+w x".
+# Bare unmodified characters are rejected in global scope (they would shadow typing).
+# Examples (commented out — empty table = full built-in defaults):
+#   "cmd+v"    = "paste"
+#   "cmd+k"    = "none"
+#   "ctrl+e"   = "new_tab"
+#   "ctrl+w x" = "close_pane"
+# See doc/SPEC.md "Configurable Keymap" for the full action-name list.

@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::config::{
-    ColorsConfig, Config, FontConfig, GeneralConfig, LogConfig, ShellConfig, StatusBarConfig,
-    TerminalConfig, ThemeConfig, WindowConfig,
+    ColorsConfig, Config, FontConfig, GeneralConfig, KeybindingsConfig, LogConfig, ShellConfig,
+    StatusBarConfig, TerminalConfig, ThemeConfig, WindowConfig,
 };
 use crate::theme::{list_themes, themes_dir};
 
@@ -87,6 +87,8 @@ pub struct ConfigPanel {
     pub status: Option<String>,
     /// Section names that are currently collapsed (body fields hidden).
     pub collapsed: HashSet<&'static str>,
+    /// User keybinding overrides, carried through unchanged (not editable here).
+    pub keybindings: KeybindingsConfig,
 }
 
 impl ConfigPanel {
@@ -294,6 +296,7 @@ impl ConfigPanel {
             edit_buf: String::new(),
             status: None,
             collapsed,
+            keybindings: cfg.keybindings.clone(),
         }
     }
 
@@ -682,6 +685,7 @@ impl ConfigPanel {
                 auto_update_check,
                 auto_update_install,
             },
+            keybindings: self.keybindings.clone(),
         })
     }
 

@@ -5,11 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- configurable keymap: override, add, or disable modifier shortcuts (Ctrl / Ctrl+Shift / Alt / ⌘-Super and `Ctrl+W` chords) from a new `[keybindings]` config table; `"binding" = "action-name"` (`"none"` disables a default); invalid entries are skipped, logged, and surfaced as a transient status-bar notice
+- macOS Command (⌘) / Linux Super keyboard shortcuts: ⌘V paste, ⌘C copy, ⌘N/⌘T new tab, ⌘W close tab, ⌘1–⌘9 select tab, ⌘Q quit, ⌘, config, ⌘F search, ⌘K clear scrollback, ⌘+/⌘-/⌘= font size. Previously only Ctrl/Ctrl+Shift bindings were recognized, so ⌘V did not paste on macOS (these ⌘ defaults are now user-overridable via [keybindings])
+
 ### Changed
 - reorganize `src/` flat files into module subdirectories: `config/`, `session/`, `theme/`, `input/` (+ motion, mouse), `ui/` (+ command_palette, statusbar, tabs), `renderer/` (+ views, render_ops, screenshot)
 - move VT parsing to per-pane background threads with a 1 MB bounded channel; eliminates terminal freezes during heavy output (e.g. `find /`) and keeps Ctrl+C responsive regardless of backlog size
 
 ### Fixed
+- `Ctrl+W` chord tails are now matched case-insensitively (except `R`), so shifted tails like `Ctrl+W V` / `Ctrl+W S` split panes again
 - mouse selection highlight now tracks content when the viewport is scrolled during a drag
 - `install.sh` quick install failed on systems with an older `gh` CLI (e.g. Debian 13, which ships gh 2.46 without the `attestation` subcommand): `gh attestation verify` errored with `unknown command "attestation"` and the script reported a misleading "provenance verification failed". The quick install no longer depends on `gh` at all — integrity is verified solely against the public `checksums-sha256.txt` (SHA-256), which needs no authentication
 

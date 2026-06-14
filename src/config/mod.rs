@@ -1,6 +1,7 @@
 pub mod tui_config;
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::terminal::grid::Color;
@@ -39,7 +40,16 @@ pub struct Config {
 
     #[serde(default)]
     pub general: GeneralConfig,
+
+    #[serde(default)]
+    pub keybindings: KeybindingsConfig,
 }
+
+/// User keybinding overrides: `"binding" = "action-name"` (or `"none"` to
+/// disable a default). Empty map = full built-in defaults. Parsed into the
+/// merged `KeyMap` at startup; see `src/input/keymap.rs`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct KeybindingsConfig(pub BTreeMap<String, String>);
 
 fn default_true() -> bool {
     true

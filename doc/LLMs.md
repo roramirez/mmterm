@@ -10,7 +10,8 @@ Full spec: `doc/SPEC.md`. This file is the dense implementation reference.
 | `src/main.rs` | `App`; event loop; winit wiring; `wakeup_pending` |
 | `src/app_state.rs` | `AppState`, `TabState`, `PaneEntry`, `AppEffect`; action dispatch |
 | `src/drain.rs` | `ParseEffect` enum; `spawn_parser_thread`; `drain_effects` |
-| `src/input/keybindings.rs` | `Action` enum; `handle_key`, `handle_ctrl_w` |
+| `src/input/keybindings.rs` | `Action` enum; literal/PTY encoding + not-yet-tabled per-mode handlers (Insert/Normal/Visual/QuitSave/Screenshot) |
+| `src/input/keymap.rs` | `KeyMap`, `BindingKey`, `Mods`, `KeyToken`, `ModeClass`, `default_keymap()`, binding parser, `action_from_name`/`name_of_action` registry — single source of truth for shortcut bindings |
 | `src/input/mode.rs` | `InputMode` enum (Insert / Normal / Visual / QuitSave) |
 | `src/pty/session.rs` | `PtySession` — fork PTY, spawn shell, read/write bytes |
 | `src/terminal/grid.rs` | `Grid`, `Cell`, `Color` — VT cell grid + scrollback |
@@ -98,6 +99,18 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 - Renderer draws cells with a non-None URL with blue underline (`#89b4fa`)
 - `App.hovered_url: Option<String>` — updated on `CursorMoved`; cursor switches to `Pointer` when hovering a link
 - Left-click on a linked cell opens the URL via `xdg-open` (Linux) / `open` (macOS)
+
+## Configurable Keymap (implemented)
+
+- Single source of truth: `src/input/keymap.rs`. `default_keymap()` returns all built-in Global-scope shortcuts (Ctrl, Ctrl+Shift, Alt, ⌘/Super, `Ctrl+W` chords) AS DATA.
+- `KeyMap::from_config(&KeybindingsConfig)` overlays the user's `[keybindings]` table onto a copy of the defaults: valid `binding=action` inserts/replaces; `binding="none"` removes; invalid entries are skipped + collected as `KeymapError` (Parse / UnknownAction / ShadowsInput).
+- Dispatch: `handle_key` → `handle_key_modified(keymap, ...)` builds `(Mods, KeyToken)`, calls `keymap.lookup(ModeClass::Global, &bkey)` FIRST. Hit → `action_from_name(name, DispatchCtx { grid_rows, mode })`. Miss → if `cmd` held, swallow (`Action::None`); else fall through to `handle_key_inner` (encoding/per-mode fallback).
+- `Ctrl+W` chords: `handle_ctrl_w(keymap, event)` → `handle_ctrl_w_keymap` looks up a `BindingKey { mods: ctrl, token: 'w', chord_tail: Some((no_mods, tail)) }`. Tail token is NOT lowercased, so `Ctrl+W R` (rotate backward) stays distinct from `Ctrl+W r` (forward).
+- `cmd` token = ⌘ (macOS) / Super (Linux/Win); winit reports both via `super_key()` → the `cmd` flag.
+- Map stores `&'static str` action names (not `Action` — several variants aren't `Clone` and some need runtime context). `intern_known_name` interns validated names; keep it in sync with `action_from_name`.
+- `AppState` builds the merged `KeyMap` once in `new()` and stores `keymap`, `keymap_invalid_count`, `keymap_notice_until`. `render_ops` surfaces `keymap_notice()` into the status bar `right_text` (transient ~6 s).
+- Config: `KeybindingsConfig(BTreeMap<String,String>)` newtype, `#[serde(default)]` field on `Config`; documented example block lives in `assets/config.toml`. No `F_*`/`Field` in `tui_config.rs` — a dynamic map has no Field representation; keybindings are file-configured.
+- Out of scope (Phase 2): `normal:` / `visual:` modal remapping (rows not yet populated); arbitrary new chord prefixes.
 
 ## Core Types (abbreviated)
 
@@ -209,10 +222,12 @@ One line per entry, imperative mood, lowercase first letter. Example:
 - regex search with copy-match and clear-scrollback actions
 ```
 
-### 1. Keybinding
-- Add variant to `Action` in `src/input/keybindings.rs`
-- Return it from `handle_key` or `handle_ctrl_w`
-- Handle it in the `match action` block(s) in `src/main.rs` (two blocks: `ctrl_w_pending` path and normal path)
+### 1. Keybinding / Action
+- Add a variant to `Action` in `src/input/keybindings.rs` (only if a new action type is needed)
+- Add a `name ↔ Action` entry to the registry in `src/input/keymap.rs` (`action_from_name` + `name_of_action`)
+- Add a default row to `default_keymap()` in `src/input/keymap.rs`
+- Handle the `Action` in `AppState::dispatch_action` (`src/app_state.rs`) if not already handled
+- Literal text / cursor / PTY-byte encoding is NOT a keymap binding — it stays in `handle_insert`/`cursor_seq`/`encode_*` (the fallback)
 
 ### 2. Config option
 - Add field to the right `*Config` struct in `src/config.rs` with `#[serde(default = "fn_name")]`

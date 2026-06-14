@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use super::*;
+use crate::config::KeybindingsConfig;
 use crate::config::tui_config::{ConfigPanel, Field, FieldKind};
 
 fn make_panel(value: &str, kind: FieldKind) -> ConfigPanel {
@@ -17,6 +18,7 @@ fn make_panel(value: &str, kind: FieldKind) -> ConfigPanel {
         edit_buf: String::new(),
         status: None,
         collapsed: HashSet::new(),
+        keybindings: KeybindingsConfig::default(),
     }
 }
 
@@ -298,6 +300,7 @@ fn make_section_panel(collapsed: bool) -> ConfigPanel {
         edit_buf: String::new(),
         status: None,
         collapsed: c,
+        keybindings: KeybindingsConfig::default(),
     }
 }
 

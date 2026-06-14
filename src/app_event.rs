@@ -456,6 +456,7 @@ impl App {
             self.tab_mut().passthrough = false;
             self.request_redraw();
         } else {
+            // Passthrough bypasses the keymap entirely (raw PTY bytes).
             let action = handle_key_passthrough(event, &self.modifiers, app_cursor);
             if let crate::input::keybindings::Action::SendToPty(bytes) = action {
                 self.do_send_to_pty(bytes);
@@ -496,6 +497,7 @@ impl App {
         }
 
         let action = handle_key(
+            &self.state.keymap,
             &event,
             &self.modifiers,
             &self.state.mode,
@@ -561,7 +563,7 @@ impl App {
         }
         if self.state.ctrl_w_pending {
             self.state.ctrl_w_pending = false;
-            let action = handle_ctrl_w(event);
+            let action = handle_ctrl_w(&self.state.keymap, event);
             self.execute_action(action, event_loop);
             return true;
         }

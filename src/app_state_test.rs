@@ -1280,3 +1280,31 @@ fn search_history_clears_before_history_on_push() {
     s.push_search_history("committed".to_string());
     assert!(s.search_before_history.is_empty());
 }
+
+// ── Keymap wiring ───────────────────────────────────────────────────────────
+
+#[test]
+fn appstate_builds_default_keymap_with_clean_config() {
+    let cfg = Config::default();
+    let theme = crate::theme::default_theme();
+    let st = AppState::new(cfg, theme);
+    assert_eq!(st.keymap_invalid_count, 0);
+    assert!(st.keymap_notice().is_none());
+    // sanity: a known default is present.
+    assert!(!st.keymap.is_empty());
+}
+
+#[test]
+fn appstate_counts_invalid_keybindings_and_sets_notice() {
+    let mut cfg = Config::default();
+    cfg.keybindings
+        .0
+        .insert("ctrl+".to_string(), "new_tab".to_string()); // parse error
+    cfg.keybindings
+        .0
+        .insert("e".to_string(), "new_tab".to_string()); // shadows input
+    let theme = crate::theme::default_theme();
+    let st = AppState::new(cfg, theme);
+    assert_eq!(st.keymap_invalid_count, 2);
+    assert!(st.keymap_notice().is_some());
+}

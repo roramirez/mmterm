@@ -179,11 +179,12 @@ impl App {
             let views = views::collect_pane_views(&self.state, &guards, w, h, tab_h, status_h);
 
             let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
-            let right_text = statusbar::resolve(
+            let configured_right = statusbar::resolve(
                 &self.state.config.status_bar.right,
                 cwd_raw.as_deref(),
                 &Local::now(),
             );
+            let right_text = self.state.keymap_notice().or(configured_right);
             let bell_flash_intensity =
                 bell_flash_intensity(self.state.tabs[self.state.active_tab].bell_flash_start);
             let pane_title_raw = pane_osc_title_raw.as_deref();

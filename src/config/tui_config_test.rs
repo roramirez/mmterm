@@ -689,3 +689,29 @@ fn collapsed_count_font_is_1() {
     // Font section has F_FONT_FAMILY (header) + F_FONT_SIZE (body)
     assert_eq!(panel.collapsed_count("Font"), 1);
 }
+
+// ── keybindings round-trip ───────────────────────────────────────────────────
+
+#[test]
+fn build_config_preserves_keybindings() {
+    // The TUI editor has no Field for keybindings (a dynamic map). Round-tripping
+    // a Config through from_config -> build_config must keep the table intact.
+    use crate::config::KeybindingsConfig;
+    let mut cfg = Config::default();
+    cfg.keybindings = KeybindingsConfig(
+        [
+            (
+                "ctrl+shift+p".to_string(),
+                "open_command_palette".to_string(),
+            ),
+            ("ctrl+w x".to_string(), "close_pane".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    );
+
+    let panel = ConfigPanel::from_config(&cfg);
+    let rebuilt = panel.build_config().expect("build_config should succeed");
+
+    assert_eq!(rebuilt.keybindings.0, cfg.keybindings.0);
+}

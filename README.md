@@ -238,6 +238,27 @@ size stays consistent across displays of any density. If you previously increase
 | `Ctrl+Shift+K` | Clear scrollback |
 | `Ctrl+Shift+L` | Toggle session logging for active pane |
 
+#### macOS (⌘ Command)
+
+On macOS the platform-standard ⌘ shortcuts are also available (Linux/Windows: the Super key):
+
+| Binding | Action |
+|---|---|
+| `⌘V` | Paste |
+| `⌘C` | Copy selection (Visual mode) |
+| `⌘N` / `⌘T` | New tab |
+| `⌘W` | Close tab |
+| `⌘1`..`⌘9` | Jump to tab by position |
+| `⌘Q` | Quit |
+| `⌘,` | Open config panel |
+| `⌘F` | Open scrollback search |
+| `⌘K` | Clear scrollback |
+| `⌘+` | Increase font size |
+| `⌘-` | Decrease font size |
+| `⌘=` / `⌘0` | Reset font size |
+
+While ⌘/Super is held, an unmapped key is ignored (never sent to the shell). ⌘ shortcuts are inactive in passthrough mode (`Ctrl+B`).
+
 ### Modes
 
 | Binding | Action |
@@ -334,8 +355,8 @@ Navigate freely to position the cursor, press `v` to set the selection anchor, t
 
 | Binding | Action |
 |---|---|
-| `Ctrl+Shift+C` | Copy selection |
-| `Ctrl+Shift+V` | Paste |
+| `Ctrl+Shift+C` / `⌘C` | Copy selection |
+| `Ctrl+Shift+V` / `⌘V` | Paste |
 
 ## Architecture
 

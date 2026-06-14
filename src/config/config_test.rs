@@ -281,3 +281,42 @@ fn general_update_defaults() {
     assert!(cfg.general.auto_update_check); // daily check on by default
     assert!(!cfg.general.auto_update_install); // silent self-replace opt-in (off)
 }
+
+#[test]
+fn config_default_keybindings_is_empty() {
+    let cfg = Config::default();
+    assert!(cfg.keybindings.0.is_empty());
+}
+
+#[test]
+fn config_deserializes_keybindings_table() {
+    let toml = r#"
+[font]
+family = "X"
+size = 12.0
+
+[keybindings]
+"cmd+v" = "paste"
+"ctrl+e" = "new_tab"
+"#;
+    let cfg: Config = toml::from_str(toml).expect("parse");
+    assert_eq!(
+        cfg.keybindings.0.get("cmd+v").map(String::as_str),
+        Some("paste")
+    );
+    assert_eq!(
+        cfg.keybindings.0.get("ctrl+e").map(String::as_str),
+        Some("new_tab")
+    );
+}
+
+#[test]
+fn config_missing_keybindings_defaults_empty() {
+    let toml = r#"
+[font]
+family = "X"
+size = 12.0
+"#;
+    let cfg: Config = toml::from_str(toml).expect("parse");
+    assert!(cfg.keybindings.0.is_empty());
+}
