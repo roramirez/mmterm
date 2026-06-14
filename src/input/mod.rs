@@ -1,4 +1,5 @@
 pub mod keybindings;
+pub mod keymap;
 mod mode;
 pub mod motion;
 pub mod mouse;
