@@ -454,3 +454,69 @@ fn roundtrip_active_tab_out_of_bounds_preserved() {
     // save_to does not clamp — the index is stored as-is
     assert_eq!(loaded.active_tab, 99);
 }
+
+// ── scrollback_path_for ───────────────────────────────────────────────────────
+
+#[test]
+fn scrollback_path_for_none_scope() {
+    let p = scrollback_path_for(None, 0, 0);
+    assert!(
+        p.ends_with(".mmterm/default/tab-0-pane-0.txt"),
+        "{}",
+        p.display()
+    );
+}
+
+#[test]
+fn scrollback_path_for_named_scope() {
+    let p = scrollback_path_for(Some("work"), 1, 2);
+    assert!(
+        p.ends_with(".mmterm/work/tab-1-pane-2.txt"),
+        "{}",
+        p.display()
+    );
+}
+
+// ── save_scrollback / load_scrollback ─────────────────────────────────────────
+
+#[test]
+fn scrollback_save_load_roundtrip() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("tab-0-pane-0.txt");
+    let lines = vec!["hello".to_string(), "world".to_string()];
+    super::save_scrollback(&path, &lines).expect("save failed");
+    let loaded = super::load_scrollback(&path);
+    assert_eq!(loaded, lines);
+}
+
+#[test]
+fn scrollback_load_missing_returns_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("nonexistent.txt");
+    assert!(super::load_scrollback(&path).is_empty());
+}
+
+#[test]
+fn scrollback_save_creates_parent_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("work").join("tab-0-pane-0.txt");
+    assert!(!path.parent().unwrap().exists());
+    super::save_scrollback(&path, &["line".to_string()]).expect("save failed");
+    assert!(path.exists());
+}
+
+#[test]
+fn scrollback_save_atomic_no_tmp_leftover() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("tab-0-pane-0.txt");
+    super::save_scrollback(&path, &["x".to_string()]).unwrap();
+    assert!(!path.with_extension("txt.tmp").exists());
+}
+
+#[test]
+fn scrollback_save_empty_slice_produces_empty_load() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("empty.txt");
+    super::save_scrollback(&path, &[]).unwrap();
+    assert!(super::load_scrollback(&path).is_empty());
+}

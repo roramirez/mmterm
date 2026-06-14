@@ -718,6 +718,108 @@ impl Grid {
         self.scrollback.len()
     }
 
+    /// Extract scrollback + live grid as plain text for session persistence.
+    /// Wide-char placeholder cells (wide_cont) are skipped so icons and other
+    /// double-width glyphs don't leave a phantom space when restored.
+    /// Trailing whitespace per line and trailing empty lines are stripped.
+    pub fn scrollback_as_text(&self) -> Vec<String> {
+        fn cells_to_string(cells: impl Iterator<Item = (char, bool)>) -> String {
+            let mut s = String::new();
+            for (c, wide_cont) in cells {
+                if !wide_cont {
+                    s.push(c);
+                }
+            }
+            s.trim_end().to_string()
+        }
+
+        let mut lines = Vec::with_capacity(self.scrollback.len() + self.rows);
+        for row in &self.scrollback {
+            lines.push(cells_to_string(row.iter().map(|c| (c.c, c.wide_cont))));
+        }
+        for r in 0..self.rows {
+            lines.push(cells_to_string((0..self.cols).map(|c| {
+                let cell = self.cell(c, r);
+                (cell.c, cell.wide_cont)
+            })));
+        }
+        while lines.last().map(|l: &String| l.is_empty()).unwrap_or(false) {
+            lines.pop();
+        }
+        lines
+    }
+
+    /// Convert one saved plain-text line into a full row of cells, padded to
+    /// `cols`. Wide Unicode characters (display width 2) become wide+wide_cont
+    /// cell pairs; characters past `cols` are dropped.
+    fn line_to_cells(&self, line: &str) -> Vec<Cell> {
+        use unicode_width::UnicodeWidthChar;
+        let mut row: Vec<Cell> = Vec::with_capacity(self.cols);
+        for c in line.chars() {
+            if row.len() >= self.cols {
+                break;
+            }
+            let w = c.width().unwrap_or(1);
+            if w == 2 && row.len() + 1 < self.cols {
+                let mut wide = cell_with_colors(c, self.default_fg, self.default_bg);
+                wide.wide = true;
+                row.push(wide);
+                let mut cont = cell_with_colors(' ', self.default_fg, self.default_bg);
+                cont.wide_cont = true;
+                row.push(cont);
+            } else if w != 2 {
+                row.push(cell_with_colors(c, self.default_fg, self.default_bg));
+            }
+        }
+        while row.len() < self.cols {
+            row.push(cell_with_colors(' ', self.default_fg, self.default_bg));
+        }
+        row
+    }
+
+    /// Populate the scrollback buffer from saved plain-text lines.
+    /// Wide Unicode characters (display width 2) are stored as wide+wide_cont cell pairs.
+    /// Existing scrollback is cleared. Lines beyond `scrollback_max` (oldest) are dropped.
+    pub fn inject_scrollback_lines(&mut self, lines: &[String]) {
+        self.scrollback.clear();
+        self.scrollback_wrapped.clear();
+        let start = lines.len().saturating_sub(self.scrollback_max);
+        for line in &lines[start..] {
+            self.scrollback.push_back(self.line_to_cells(line));
+            self.scrollback_wrapped.push_back(false);
+        }
+    }
+
+    /// Restore saved text after a session reload: the most recent lines fill the
+    /// live screen so the incoming shell prompt continues right below them, and
+    /// older lines go to scrollback. The cursor is parked on the row after the
+    /// last restored line, leaving the bottom row free for that first prompt.
+    ///
+    /// Any content already written to the live grid (e.g. a prompt the freshly
+    /// spawned shell printed before this runs) is overwritten — restore is
+    /// expected to run immediately after spawn, before the shell emits output.
+    pub fn restore_screen(&mut self, lines: &[String]) {
+        // Reserve the bottom row for the incoming prompt.
+        let avail = self.rows.saturating_sub(1).max(1);
+        let live_count = lines.len().min(avail);
+        let split = lines.len() - live_count;
+        self.inject_scrollback_lines(&lines[..split]);
+
+        let blank = cell_with_colors(' ', self.default_fg, self.default_bg);
+        self.cells.fill(blank);
+        for wrapped in self.row_wrapped.iter_mut() {
+            *wrapped = false;
+        }
+        for (r, line) in lines[split..].iter().enumerate() {
+            let base = r * self.cols;
+            for (c, cell) in self.line_to_cells(line).into_iter().enumerate() {
+                self.cells[base + c] = cell;
+            }
+        }
+        self.cursor_row = live_count.min(self.rows - 1);
+        self.cursor_col = 0;
+    }
+
     pub fn selected_text(
         &self,
         sc: usize,

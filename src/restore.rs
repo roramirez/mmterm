@@ -12,7 +12,8 @@ impl App {
             .state
             .tabs
             .iter()
-            .map(|tab| {
+            .enumerate()
+            .map(|(tab_i, tab)| {
                 let (node, id_order) = tab.layout.to_saved_node();
                 let active_slot = id_order
                     .iter()
@@ -27,6 +28,15 @@ impl App {
                             .unwrap_or_else(|| home.clone())
                     })
                     .collect();
+                for (slot, id) in id_order.iter().enumerate() {
+                    if let Some(e) = tab.panes.get(id) {
+                        let lines = e.pane.grid.read().unwrap().scrollback_as_text();
+                        let path = session::scrollback_path_for(self.scope.as_deref(), tab_i, slot);
+                        if let Err(err) = session::save_scrollback(&path, &lines) {
+                            log::warn!("failed to save scrollback tab={tab_i} slot={slot}: {err}");
+                        }
+                    }
+                }
                 session::SavedTab {
                     name: tab.name.clone(),
                     active_pane: active_slot,
@@ -54,7 +64,7 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let home = dirs_next::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
-        for tab_sess in &saved.tabs {
+        for (tab_i, tab_sess) in saved.tabs.iter().enumerate() {
             let tab_idx = self.state.tabs.len();
             self.state.tabs.push(TabState {
                 panes: HashMap::new(),
@@ -98,6 +108,18 @@ impl App {
             }
             let pane_padding = self.pane_padding();
             Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
+            for (slot, &pane_id) in slot_to_id.iter().enumerate() {
+                let path = session::scrollback_path_for(self.scope.as_deref(), tab_i, slot);
+                let lines = session::load_scrollback(&path);
+                if !lines.is_empty()
+                    && let Some(entry) = self.state.tabs[tab_idx].panes.get_mut(&pane_id)
+                {
+                    // Seed the live screen with the saved tail so the new shell
+                    // prompt continues right where the session left off; the view
+                    // stays pinned to the bottom (scroll_offset 0).
+                    entry.pane.grid.write().unwrap().restore_screen(&lines);
+                }
+            }
         }
         self.state.active_tab = saved
             .active_tab
