@@ -200,8 +200,8 @@ impl App {
         let Some(entry) = self.state.tabs[tab_idx].panes.get(&active) else {
             return;
         };
-        let grid = &entry.pane.parser.grid;
-        let text = search::extract_match_text(grid, abs_row, col, len);
+        let grid = entry.pane.grid.read().unwrap();
+        let text = search::extract_match_text(&grid, abs_row, col, len);
         if !text.is_empty() {
             let cb = self
                 .state
@@ -227,8 +227,8 @@ impl App {
         let active = self.state.tabs[tab_idx].active;
 
         if let Some(entry) = self.state.tabs[tab_idx].panes.get(&active) {
-            self.state.search_matches =
-                search::compute_search_matches(&entry.pane.parser.grid, &query);
+            let grid = entry.pane.grid.read().unwrap();
+            self.state.search_matches = search::compute_search_matches(&grid, &query);
         }
 
         if !self.state.search_matches.is_empty() {
@@ -249,7 +249,10 @@ impl App {
         let (sb_len, grid_rows) = self.state.tabs[tab_idx]
             .panes
             .get(&active)
-            .map(|e| (e.pane.parser.grid.scrollback.len(), e.pane.parser.grid.rows))
+            .map(|e| {
+                let g = e.pane.grid.read().unwrap();
+                (g.scrollback.len(), g.rows)
+            })
             .unwrap_or((0, 24));
 
         let new_offset = search::compute_scroll_offset(abs_row, sb_len, grid_rows);
@@ -277,7 +280,7 @@ impl App {
         let t = &self.state.theme;
         for tab in &mut self.state.tabs {
             for entry in tab.panes.values_mut() {
-                let g = &mut entry.pane.parser.grid;
+                let mut g = entry.pane.grid.write().unwrap();
                 g.palette = t.palette;
                 g.default_fg = t.foreground;
                 g.default_bg = t.background;
@@ -437,11 +440,8 @@ impl App {
         tab.panes
             .get(&tab.active)
             .map(|e| {
-                (
-                    e.pane.parser.grid.cols,
-                    e.pane.parser.grid.rows,
-                    e.pane.parser.grid.application_cursor_keys,
-                )
+                let g = e.pane.grid.read().unwrap();
+                (g.cols, g.rows, g.application_cursor_keys)
             })
             .unwrap_or((80, 24, false))
     }

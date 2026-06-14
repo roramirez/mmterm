@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::{Mutex, RwLock};
 
-use crossbeam_channel::unbounded;
+use crossbeam_channel::{bounded, unbounded};
 
-use crate::terminal::grid::GridColors;
+use crate::drain;
+use crate::terminal::grid::{Grid, GridColors};
 use crate::ui::{Layout, Pane, SplitDir};
 use crate::{PaneEntry, TabState, logging, pty, tabs};
 use winit::event_loop::ActiveEventLoop;
@@ -26,10 +28,9 @@ impl App {
         let pad2 = self.scale.chrome(crate::ui::layout::PANE_PADDING) * 2;
         let (cols, rows) = metrics.grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.state.theme;
-        let pane = Pane::new_with_colors(
+        let grid = Arc::new(RwLock::new(Grid::with_colors(
             cols,
             rows,
-            rect,
             GridColors {
                 fg: t.foreground,
                 bg: t.background,
@@ -38,8 +39,13 @@ impl App {
                 palette: t.palette,
             },
             self.state.config.terminal.scrollback_lines,
-        );
-        let (tx, rx) = unbounded::<Vec<u8>>();
+        )));
+        let pane = Pane::new(grid.clone(), rect);
+        // Bounded channel caps PTY output backlog at ~1 MB (256 × 4 KB chunks),
+        // matching WezTerm's socketpair size. Provides natural backpressure:
+        // when full the PTY reader blocks, slowing the child process rather than
+        // allowing unbounded memory growth during heavy output (e.g. find /).
+        let (pty_tx, pty_rx) = bounded::<Vec<u8>>(256);
         let shell = self
             .state
             .config
@@ -48,34 +54,52 @@ impl App {
             .clone()
             .or_else(|| std::env::var("SHELL").ok())
             .unwrap_or_else(|| "/bin/bash".to_string());
+        // Wakeup fires from the parser thread after each parsed batch.
+        // Uses the app-level wakeup_pending flag (same Arc the main thread reads)
+        // so the parser can cooperatively yield when the render thread is behind.
         let proxy = self.proxy.clone();
-        let wakeup_pending = Arc::clone(&self.wakeup_pending);
+        let app_wakeup_pending = Arc::clone(&self.wakeup_pending);
         let wakeup = Box::new(move || {
-            if !wakeup_pending.swap(true, Ordering::AcqRel) {
+            if !app_wakeup_pending.swap(true, Ordering::AcqRel) {
                 let _ = proxy.send_event(());
             }
         });
         match pty::PtySession::spawn_with_shell(
             cols as u16,
             rows as u16,
-            tx,
+            pty_tx,
             &shell,
             cwd.as_ref(),
-            wakeup,
+            // PTY reader thread no longer calls wakeup; parser thread handles it.
+            Box::new(|| {}),
         ) {
             Ok(pty) => {
-                let log_file = if self.state.config.logging.auto_log {
+                let log_file_opt = if self.state.config.logging.auto_log {
                     open_log_file(id, &self.state.config.logging.log_dir)
                 } else {
                     None
                 };
+                let log_file = Arc::new(Mutex::new(log_file_opt));
+                let pending_resize: Arc<Mutex<Option<(usize, usize)>>> = Arc::new(Mutex::new(None));
+                let (effects_tx, effects_rx) = unbounded::<drain::ParseEffect>();
+                let parser_thread = drain::spawn_parser_thread(drain::ParserThreadArgs {
+                    rx: pty_rx,
+                    grid,
+                    log_file: log_file.clone(),
+                    effects_tx,
+                    wakeup_pending: Arc::clone(&self.wakeup_pending),
+                    pending_resize: pending_resize.clone(),
+                    wakeup,
+                });
                 self.state.tabs[tab_idx].panes.insert(
                     id,
                     PaneEntry {
                         pane,
                         pty,
-                        rx,
+                        effects_rx,
                         log_file,
+                        pending_resize,
+                        _parser_thread: parser_thread,
                         logical_font_size: logical,
                         metrics,
                     },
@@ -188,8 +212,19 @@ impl App {
                 let (cols, rows) = entry
                     .metrics
                     .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
-                if entry.pane.parser.grid.cols != cols || entry.pane.parser.grid.rows != rows {
-                    entry.pane.resize(cols, rows, rect);
+                let (grid_cols, grid_rows) = {
+                    let g = entry.pane.grid.read().unwrap();
+                    (g.cols, g.rows)
+                };
+                if grid_cols != cols || grid_rows != rows {
+                    // Update rect immediately so the renderer uses the new layout
+                    // on the very next frame (no lock needed — rect is main-thread state).
+                    entry.pane.rect = rect;
+                    // Signal the parser thread to apply grid.resize() within its
+                    // existing write lock. This avoids blocking the event loop on
+                    // grid.write() while the parser holds it (up to ~36 ms), keeping
+                    // resize fluid even during heavy output.
+                    *entry.pending_resize.lock().unwrap() = Some((cols, rows));
                     let _ = entry.pty.resize(cols as u16, rows as u16);
                 }
             }

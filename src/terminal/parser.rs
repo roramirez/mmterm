@@ -1,4 +1,4 @@
-use super::grid::{Color, CursorShape, Grid, GridColors};
+use super::grid::{Color, CursorShape, Grid};
 
 fn param_or_one(p: u16) -> usize {
     p.max(1) as usize
@@ -9,27 +9,25 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use vte::{Params, Parser, Perform};
 
 pub struct TerminalParser {
-    pub grid: Grid,
     parser: Parser,
 }
 
-impl TerminalParser {
-    pub fn new_with_colors(
-        cols: usize,
-        rows: usize,
-        colors: GridColors,
-        scrollback_max: usize,
-    ) -> Self {
+impl Default for TerminalParser {
+    fn default() -> Self {
         Self {
-            grid: Grid::with_colors(cols, rows, colors, scrollback_max),
             parser: Parser::new(),
         }
     }
+}
 
-    pub fn process(&mut self, bytes: &[u8]) {
-        // vte requires a mutable performer; we route through a wrapper
+impl TerminalParser {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn process(&mut self, bytes: &[u8], grid: &mut Grid) {
         let mut performer = Performer {
-            grid: &mut self.grid,
+            grid,
             dcs_kind: None,
             sixel_decoder: None,
             sixel_col: 0,

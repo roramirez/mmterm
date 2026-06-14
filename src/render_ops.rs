@@ -126,70 +126,114 @@ impl App {
             )
         };
 
-        let views = views::collect_pane_views(&self.state, w, h, tab_h, status_h);
-        let tab_titles = views::build_tab_titles(&self.state);
-
-        let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
+        // Read grid metadata that needs a read-lock BEFORE acquiring render guards.
+        // Acquiring the same grid's read-lock twice from the same thread (once via
+        // guards, once for cwd/osc_title) can deadlock when a writer is waiting
+        // (writer-preference RwLock semantics).
         let home = std::env::var("HOME").unwrap_or_default();
-        let cwd_owned: Option<String> = self.state.tabs[self.state.active_tab]
+        // Read grid metadata and logging state in separate lock acquisitions.
+        // log_file.lock() must not be held while grid.read() is held:
+        // the parser thread acquires log_file.lock first, then grid.write;
+        // holding grid.read + waiting for log_file can stall both threads.
+        let (cwd_raw, pane_osc_title_raw) = self.state.tabs[self.state.active_tab]
             .panes
             .get(&active_id)
-            .and_then(|e| e.pane.parser.grid.cwd.as_deref())
-            .map(|p| statusbar::shorten_home(p, &home));
-        let right_text = statusbar::resolve(
-            &self.state.config.status_bar.right,
-            cwd_owned.as_deref(),
-            &Local::now(),
-        );
-        let bell_flash_intensity =
-            bell_flash_intensity(self.state.tabs[self.state.active_tab].bell_flash_start);
+            .map(|e| {
+                let g = e.pane.grid.read().unwrap();
+                let cwd = g.cwd.clone().map(|p| statusbar::shorten_home(&p, &home));
+                let osc_title = g.osc_title.clone();
+                (cwd, osc_title)
+            })
+            .unwrap_or((None, None));
         let is_logging = self.state.tabs[self.state.active_tab]
             .panes
             .get(&active_id)
-            .is_some_and(|e| e.log_file.is_some());
-        let pane_title_raw = self.state.tabs[self.state.active_tab]
-            .panes
-            .get(&active_id)
-            .and_then(|e| e.pane.parser.grid.osc_title.as_deref());
-        let pwd_in_right = self.state.config.status_bar.right.contains("%pwd");
-        let pane_title =
-            statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_owned.as_deref());
-        let update_badge = if let Some(v) = self.state.update_applied {
-            Some(crate::renderer::UpdateBadge::Applied(v.to_string()))
-        } else {
-            self.state
-                .available_update
-                .map(|v| crate::renderer::UpdateBadge::Available(v.to_string()))
-        };
-        self.renderer.draw(
-            pixels,
-            w,
-            h,
-            &views,
-            draw_separators,
-            &self.state.mode,
-            self.state.tabs[self.state.active_tab].passthrough,
-            &tab_titles,
-            self.state.search_matches.len(),
-            self.state.search_current,
-            right_text.as_deref(),
-            pane_title,
-            self.state.config.window.inactive_dim,
-            bell_flash_intensity,
-            self.state.config.general.visual_bell,
-            is_logging,
-            &self.state.theme,
-            update_badge.as_ref(),
-        );
+            .is_some_and(|e| e.log_file.lock().unwrap().is_some());
 
-        if let Some(([px, py, pw, ph], name)) = self.pending_screenshot.take() {
-            match screenshot::save_screenshot(
+        // build_tab_titles acquires short-lived read-locks (osc_title) on pane grids.
+        // It must run BEFORE the render guards block — holding read-locks via guards
+        // while also acquiring new read-locks causes a deadlock when the parser thread
+        // is waiting for the write-lock (Linux RwLock writer-preference blocks new readers).
+        let tab_titles = views::build_tab_titles(&self.state);
+
+        // Clone grid Arcs so guards are independent of &self.state lifetime.
+        // This allows &mut self.state after the rendering block (e.g. screenshot clipboard).
+        let grid_arcs: Vec<(
+            usize,
+            std::sync::Arc<std::sync::RwLock<crate::terminal::Grid>>,
+        )> = {
+            let tab = &self.state.tabs[self.state.active_tab];
+            tab.panes
+                .iter()
+                .map(|(id, e)| (*id, e.pane.grid.clone()))
+                .collect()
+        };
+
+        let screenshot_outcome = {
+            let guards: Vec<(usize, std::sync::RwLockReadGuard<crate::terminal::Grid>)> = grid_arcs
+                .iter()
+                .map(|(id, arc)| (*id, arc.read().unwrap()))
+                .collect();
+            let views = views::collect_pane_views(&self.state, &guards, w, h, tab_h, status_h);
+
+            let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
+            let right_text = statusbar::resolve(
+                &self.state.config.status_bar.right,
+                cwd_raw.as_deref(),
+                &Local::now(),
+            );
+            let bell_flash_intensity =
+                bell_flash_intensity(self.state.tabs[self.state.active_tab].bell_flash_start);
+            let pane_title_raw = pane_osc_title_raw.as_deref();
+            let pwd_in_right = self.state.config.status_bar.right.contains("%pwd");
+            let pane_title =
+                statusbar::pane_title_for_display(pane_title_raw, pwd_in_right, cwd_raw.as_deref());
+            let update_badge = if let Some(v) = self.state.update_applied {
+                Some(crate::renderer::UpdateBadge::Applied(v.to_string()))
+            } else {
+                self.state
+                    .available_update
+                    .map(|v| crate::renderer::UpdateBadge::Available(v.to_string()))
+            };
+            self.renderer.draw(
                 pixels,
                 w,
-                [px, py, pw, ph],
-                &self.state.config.general.screenshot_dir,
-                &name,
-            ) {
+                h,
+                &views,
+                draw_separators,
+                &self.state.mode,
+                self.state.tabs[self.state.active_tab].passthrough,
+                &tab_titles,
+                self.state.search_matches.len(),
+                self.state.search_current,
+                right_text.as_deref(),
+                pane_title,
+                self.state.config.window.inactive_dim,
+                bell_flash_intensity,
+                self.state.config.general.visual_bell,
+                is_logging,
+                &self.state.theme,
+                update_badge.as_ref(),
+            );
+
+            // Capture screenshot before overlays; views/guards still alive here.
+            self.pending_screenshot
+                .take()
+                .map(|([px, py, pw, ph], name)| {
+                    screenshot::save_screenshot(
+                        pixels,
+                        w,
+                        [px, py, pw, ph],
+                        &self.state.config.general.screenshot_dir,
+                        &name,
+                    )
+                })
+            // guards, views dropped at end of block
+        };
+
+        // Apply screenshot result after views/guards are dropped (needs &mut self.state).
+        if let Some(result) = screenshot_outcome {
+            match result {
                 Ok(path) => self
                     .state
                     .copy_text_to_clipboard(path.to_string_lossy().into_owned()),
@@ -214,13 +258,10 @@ impl App {
 
     pub(crate) fn handle_redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         self.poll_update();
-        let (exited, has_more) = self.drain_all();
+        let exited = self.drain_effects();
         for (tab_idx, pane_id) in exited {
             self.close_pane_on_tab(tab_idx, pane_id, event_loop);
         }
         self.redraw();
-        if has_more && let Some(w) = &self.window {
-            w.request_redraw();
-        }
     }
 }

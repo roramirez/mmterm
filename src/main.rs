@@ -55,7 +55,6 @@ use config::Config;
 use renderer::Renderer;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::time::Instant;
 use winit::event::Modifiers;
 use winit::event_loop::{EventLoop, EventLoopProxy};
 use winit::window::Window;
@@ -74,9 +73,6 @@ struct App {
     proxy: EventLoopProxy<()>,
     surface_size: (u32, u32),
     wakeup_pending: Arc<AtomicBool>,
-    /// Timestamp of the last frame where PTY data was actually consumed.
-    /// Used to drive a vsync-style render loop while output is flowing.
-    last_pty_data: Option<Instant>,
     /// Pending screenshot crop [x, y, w, h]; captured in redraw() before overlays are drawn.
     pending_screenshot: Option<([u32; 4], String)>,
     /// Named session scope from `--scope <name>`; `None` means the default session.
@@ -122,7 +118,6 @@ impl App {
             proxy,
             surface_size: (0, 0),
             wakeup_pending,
-            last_pty_data: None,
             pending_screenshot: None,
             scope,
             update_rx,

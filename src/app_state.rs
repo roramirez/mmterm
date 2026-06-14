@@ -1,6 +1,7 @@
 use arboard::Clipboard;
 use crossbeam_channel::Receiver;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::config::Config;
@@ -19,8 +20,13 @@ use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
 pub struct PaneEntry {
     pub pane: Pane,
     pub pty: crate::pty::PtySession,
-    pub rx: Receiver<Vec<u8>>,
-    pub log_file: Option<std::fs::File>,
+    pub effects_rx: Receiver<crate::drain::ParseEffect>,
+    pub log_file: Arc<Mutex<Option<std::fs::File>>>,
+    /// Non-blocking resize request: main thread writes Some((cols, rows));
+    /// parser thread applies grid.resize() within its existing write lock and
+    /// clears the Option. Avoids blocking the event loop on grid.write().
+    pub pending_resize: Arc<Mutex<Option<(usize, usize)>>>,
+    pub(crate) _parser_thread: std::thread::JoinHandle<()>,
     /// Per-pane density-independent font size. Physical px = scale.px(logical_font_size).
     /// Mutated by Ctrl±/reset; re-derived (not persisted) on ScaleFactorChanged.
     pub logical_font_size: Logical,
@@ -199,8 +205,8 @@ impl AppState {
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
         if let Some(entry) = self.tabs[tab_idx].panes.get(&active) {
-            self.search_matches =
-                crate::search::compute_search_matches(&entry.pane.parser.grid, &query);
+            let grid = entry.pane.grid.read().unwrap();
+            self.search_matches = crate::search::compute_search_matches(&grid, &query);
         }
         if !self.search_matches.is_empty() {
             self.scroll_to_match(0);
@@ -221,7 +227,10 @@ impl AppState {
         let (sb_len, grid_rows) = self.tabs[tab_idx]
             .panes
             .get(&active)
-            .map(|e| (e.pane.parser.grid.scrollback.len(), e.pane.parser.grid.rows))
+            .map(|e| {
+                let g = e.pane.grid.read().unwrap();
+                (g.scrollback.len(), g.rows)
+            })
             .unwrap_or((0, 24));
         let new_offset = crate::search::compute_scroll_offset(abs_row, sb_len, grid_rows);
         if let Some(entry) = self.tabs[tab_idx].panes.get_mut(&active) {
@@ -253,7 +262,7 @@ impl AppState {
 
     fn active_grid_rows(&self) -> usize {
         self.active_entry()
-            .map(|e| e.pane.parser.grid.rows)
+            .map(|e| e.pane.grid.read().unwrap().rows)
             .unwrap_or(1)
     }
 
@@ -277,7 +286,7 @@ impl AppState {
             return;
         };
         let (nc, nr) = motion(
-            &entry.pane.parser.grid,
+            &entry.pane.grid.read().unwrap(),
             entry.pane.scroll_offset,
             cur_col,
             cur_row,
@@ -353,7 +362,8 @@ impl AppState {
                 if e.pane.scroll_offset > 0 {
                     (0, 0)
                 } else {
-                    (e.pane.parser.grid.cursor_col, e.pane.parser.grid.cursor_row)
+                    let g = e.pane.grid.read().unwrap();
+                    (g.cursor_col, g.cursor_row)
                 }
             })
             .unwrap_or((0, 0))
@@ -370,14 +380,16 @@ impl AppState {
             anchored: true,
         } = self.mode.clone()
         {
-            if let Some(entry) = self.active_entry() {
-                let text = entry.pane.parser.grid.selected_text(
+            let text = self.active_entry().map(|entry| {
+                entry.pane.grid.read().unwrap().selected_text(
                     start_col,
                     start_row,
                     cur_col,
                     cur_row,
                     entry.pane.scroll_offset,
-                );
+                )
+            });
+            if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
             }
             self.mode = InputMode::Insert;
@@ -386,15 +398,12 @@ impl AppState {
 
     fn do_visual_yank_line(&mut self) {
         if let InputMode::Visual { cur_row, .. } = self.mode.clone() {
-            if let Some(entry) = self.active_entry() {
-                let cols = entry.pane.parser.grid.cols.saturating_sub(1);
-                let text = entry.pane.parser.grid.selected_text(
-                    0,
-                    cur_row,
-                    cols,
-                    cur_row,
-                    entry.pane.scroll_offset,
-                );
+            let text = self.active_entry().map(|entry| {
+                let grid = entry.pane.grid.read().unwrap();
+                let cols = grid.cols.saturating_sub(1);
+                grid.selected_text(0, cur_row, cols, cur_row, entry.pane.scroll_offset)
+            });
+            if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
             }
             self.mode = InputMode::Insert;
@@ -790,10 +799,12 @@ impl AppState {
 
     fn do_clear_scrollback(&mut self) {
         if let Some(e) = self.active_entry_mut() {
-            e.pane.parser.grid.scrollback.clear();
-            e.pane.parser.grid.clear_screen();
-            e.pane.parser.grid.cursor_col = 0;
-            e.pane.parser.grid.cursor_row = 0;
+            let mut g = e.pane.grid.write().unwrap();
+            g.scrollback.clear();
+            g.clear_screen();
+            g.cursor_col = 0;
+            g.cursor_row = 0;
+            drop(g);
             e.pane.scroll_bottom();
         }
         if !self.tabs.is_empty() {
@@ -936,10 +947,14 @@ impl AppState {
         logical: Logical,
         metrics: crate::renderer::FontMetrics,
     ) -> PaneEntry {
-        use crate::terminal::grid::{Color, GridColors};
+        use crate::drain;
+        use crate::terminal::grid::{Color, Grid, GridColors};
         use crate::ui::Pane;
-        let (_unused_tx, rx) = crossbeam_channel::unbounded::<Vec<u8>>();
-        let (pty_tx, _pty_rx) = crossbeam_channel::unbounded::<Vec<u8>>();
+        use crossbeam_channel::unbounded;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::{Arc, Mutex, RwLock};
+
+        let (pty_tx, pty_rx) = unbounded::<Vec<u8>>();
         let pty = crate::pty::PtySession::spawn_with_shell(
             80,
             24,
@@ -949,19 +964,38 @@ impl AppState {
             Box::new(|| {}),
         )
         .expect("PTY spawn failed");
-        let colors = GridColors {
-            fg: Color::WHITE,
-            bg: Color::BLACK,
-            cursor: Color::WHITE,
-            selection: Color::WHITE,
-            palette: [Color::BLACK; 16],
-        };
-        let pane = Pane::new_with_colors(80, 24, [0, 22, 800, 556], colors, 1000);
+        let grid = Arc::new(RwLock::new(Grid::with_colors(
+            80,
+            24,
+            GridColors {
+                fg: Color::WHITE,
+                bg: Color::BLACK,
+                cursor: Color::WHITE,
+                selection: Color::WHITE,
+                palette: [Color::BLACK; 16],
+            },
+            1000,
+        )));
+        let pane = Pane::new(grid.clone(), [0, 22, 800, 556]);
+        let log_file = Arc::new(Mutex::new(None));
+        let pending_resize = Arc::new(Mutex::new(None));
+        let (effects_tx, effects_rx) = unbounded::<drain::ParseEffect>();
+        let parser_thread = drain::spawn_parser_thread(drain::ParserThreadArgs {
+            rx: pty_rx,
+            grid,
+            log_file: log_file.clone(),
+            effects_tx,
+            wakeup_pending: Arc::new(AtomicBool::new(false)),
+            pending_resize: pending_resize.clone(),
+            wakeup: Box::new(|| {}),
+        });
         PaneEntry {
             pane,
             pty,
-            rx,
-            log_file: None,
+            effects_rx,
+            log_file,
+            pending_resize,
+            _parser_thread: parser_thread,
             logical_font_size: logical,
             metrics,
         }
@@ -971,29 +1005,31 @@ impl AppState {
     /// The PTY exits immediately — use for grid/state tests only, not I/O.
     #[cfg(test)]
     pub fn add_test_pane(&mut self) {
-        use crate::terminal::grid::{Color, GridColors};
+        use crate::drain;
+        use crate::terminal::grid::{Color, Grid, GridColors};
         use crate::ui::layout::Layout;
         use crossbeam_channel::unbounded;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::{Arc, Mutex, RwLock};
 
         if self.tabs.is_empty() {
             self.add_empty_tab();
         }
         let id = self.next_pane_id;
         self.next_pane_id += 1;
-        let (tx, rx) = unbounded();
+        let (pty_tx, pty_rx) = unbounded::<Vec<u8>>();
         let pty = crate::pty::PtySession::spawn_with_shell(
             80,
             24,
-            tx,
+            pty_tx,
             "/bin/true",
             None,
             Box::new(|| {}),
         )
         .expect("PTY spawn failed");
-        let pane = Pane::new_with_colors(
+        let grid = Arc::new(RwLock::new(Grid::with_colors(
             80,
             24,
-            [0, 22, 800, 556],
             GridColors {
                 fg: Color::WHITE,
                 bg: Color::BLACK,
@@ -1002,15 +1038,30 @@ impl AppState {
                 palette: [Color::BLACK; 16],
             },
             1000,
-        );
+        )));
+        let pane = Pane::new(grid.clone(), [0, 22, 800, 556]);
+        let log_file = Arc::new(Mutex::new(None));
+        let pending_resize = Arc::new(Mutex::new(None));
+        let (effects_tx, effects_rx) = unbounded::<drain::ParseEffect>();
+        let parser_thread = drain::spawn_parser_thread(drain::ParserThreadArgs {
+            rx: pty_rx,
+            grid,
+            log_file: log_file.clone(),
+            effects_tx,
+            wakeup_pending: Arc::new(AtomicBool::new(false)),
+            pending_resize: pending_resize.clone(),
+            wakeup: Box::new(|| {}),
+        });
         let tab_idx = self.active_tab;
         self.tabs[tab_idx].panes.insert(
             id,
             PaneEntry {
                 pane,
                 pty,
-                rx,
-                log_file: None,
+                effects_rx,
+                log_file,
+                pending_resize,
+                _parser_thread: parser_thread,
                 logical_font_size: Logical(16.0),
                 metrics: crate::renderer::FontMetrics {
                     font_px: 16.0,

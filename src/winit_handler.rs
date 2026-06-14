@@ -120,14 +120,9 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        const FRAME_16MS: Duration = Duration::from_millis(16);
-
-        if self.last_pty_data.is_some() {
-            self.request_redraw();
-            event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + FRAME_16MS));
-            return;
-        }
-
+        // Rendering while PTY output is flowing is driven by wakeup() calls from
+        // parser threads. Here we only need to schedule the cursor-blink tick
+        // and any pending bell-flash expiry wakeup.
         let blink_dur = Duration::from_millis(self.state.config.window.cursor_blink_ms as u64);
         let elapsed = self.state.blink_last.elapsed();
         if elapsed >= blink_dur {

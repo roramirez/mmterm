@@ -92,7 +92,7 @@ impl App {
             .tabs
             .get_mut(tab_idx)
             .and_then(|t| t.panes.get_mut(&pane_id))
-            && entry.pane.parser.grid.focus_report
+            && entry.pane.grid.read().unwrap().focus_report
         {
             let seq: &[u8] = if gained { b"\x1b[I" } else { b"\x1b[O" };
             let _ = entry.pty.write_input(seq);
@@ -148,11 +148,12 @@ impl App {
         let active = self.tab().active;
         let log_dir = self.state.config.logging.log_dir.clone();
         if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-            if entry.log_file.is_some() {
-                entry.log_file = None;
+            let mut guard = entry.log_file.lock().unwrap();
+            if guard.is_some() {
+                *guard = None;
                 log::info!("Logging stopped for pane {active}");
             } else {
-                entry.log_file = pane_ops::open_log_file(active, &log_dir);
+                *guard = pane_ops::open_log_file(active, &log_dir);
             }
         }
     }
@@ -167,7 +168,8 @@ impl App {
         if let Some(text) = text {
             let active = self.tab().active;
             if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-                let data = bracketed_paste_encode(&text, entry.pane.parser.grid.bracketed_paste);
+                let bracketed = entry.pane.grid.read().unwrap().bracketed_paste;
+                let data = bracketed_paste_encode(&text, bracketed);
                 let _ = entry.pty.write_input(&data);
             }
         } else {

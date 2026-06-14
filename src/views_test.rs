@@ -9,27 +9,68 @@ fn make_state() -> AppState {
     AppState::new(Config::default(), default_theme())
 }
 
+/// Convenience: acquire guards and collect views in one call.
+fn views(state: &AppState, w: u32, h: u32) -> Vec<PaneView<'_>> {
+    // We can't return guards and views together because of lifetime constraints,
+    // so leak the guards via a static thread-local for test purposes.
+    // Instead, we just test properties that don't depend on grid content.
+    let guards = acquire_grid_guards(state);
+    // The guards are dropped after this block; views would become invalid.
+    // To keep tests simple, we return a vec of collected non-borrow fields.
+    // We work around this by calling collect_pane_views inside a scope and
+    // extracting the non-borrow data before returning.
+    drop(guards);
+    // Re-acquire for the actual call
+    let guards = acquire_grid_guards(state);
+    // We need to keep guards alive for the duration of use. Since we can't
+    // return views that borrow guards in a test helper, call the fn inline.
+    let _views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H);
+    drop(guards);
+    // Return a simplified view of the data we need to test
+    vec![]
+}
+
+// Helper that collects a snapshot of rect/is_active/etc. for testing.
+struct ViewSnapshot {
+    rect: [u32; 4],
+    is_active: bool,
+    search_matches_len: usize,
+    search_current: Option<usize>,
+    hovered_url: Option<String>,
+}
+
+fn collect_snapshots(state: &AppState, w: u32, h: u32) -> Vec<ViewSnapshot> {
+    let guards = acquire_grid_guards(state);
+    let views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H);
+    views
+        .iter()
+        .map(|v| ViewSnapshot {
+            rect: v.rect,
+            is_active: v.is_active,
+            search_matches_len: v.search_matches.len(),
+            search_current: v.search_current,
+            hovered_url: v.hovered_url.map(|s| s.to_string()),
+        })
+        .collect()
+}
+
 // ── collect_pane_views ────────────────────────────────────────────────────────
 
 #[test]
 fn collect_pane_views_empty_tab_returns_empty() {
     let mut state = make_state();
     state.add_empty_tab();
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert!(views.is_empty());
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert!(snaps.is_empty());
 }
 
 #[test]
 fn collect_pane_views_single_pane_rect_spans_usable_area() {
     let mut state = make_state();
     state.add_test_pane();
-    // add_test_pane() creates a layout with Layout::new(id, 800, 578).
-    // The rect comes from the stored layout, not from the (w,h) argument
-    // (which only affects the zoomed full-window path).
-    // Usable height = layout_h - TAB_BAR_H - STATUS_BAR_H = 578 - 22 - 22 = 534.
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert_eq!(views.len(), 1);
-    let rect = views[0].rect;
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert_eq!(snaps.len(), 1);
+    let rect = snaps[0].rect;
     assert_eq!(rect[0], 0);
     assert_eq!(rect[1], TAB_BAR_H);
     assert_eq!(rect[2], 800);
@@ -40,8 +81,8 @@ fn collect_pane_views_single_pane_rect_spans_usable_area() {
 fn collect_pane_views_single_pane_is_active() {
     let mut state = make_state();
     state.add_test_pane();
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert!(views[0].is_active);
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert!(snaps[0].is_active);
 }
 
 #[test]
@@ -50,35 +91,33 @@ fn collect_pane_views_zoomed_fills_window() {
     state.add_test_pane();
     state.tabs[state.active_tab].zoomed = true;
     let (w, h) = (800u32, 600u32);
-    let views = collect_pane_views(&state, w, h, TAB_BAR_H, STATUS_BAR_H);
-    assert_eq!(views.len(), 1);
-    let rect = views[0].rect;
+    let snaps = collect_snapshots(&state, w, h);
+    assert_eq!(snaps.len(), 1);
+    let rect = snaps[0].rect;
     assert_eq!(rect[0], 0);
     assert_eq!(rect[1], TAB_BAR_H);
     assert_eq!(rect[2], w);
     assert_eq!(rect[3], h.saturating_sub(TAB_BAR_H + STATUS_BAR_H));
-    assert!(views[0].is_active);
+    assert!(snaps[0].is_active);
 }
 
 #[test]
 fn collect_pane_views_zoomed_no_active_pane_returns_empty() {
     let mut state = make_state();
     state.add_empty_tab();
-    // active points to an id not in panes
     state.tabs[state.active_tab].zoomed = true;
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert!(views.is_empty());
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert!(snaps.is_empty());
 }
 
 #[test]
 fn collect_pane_views_no_search_returns_empty_matches() {
     let mut state = make_state();
     state.add_test_pane();
-    // search_matches is empty by default
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert_eq!(views.len(), 1);
-    assert!(views[0].search_matches.is_empty());
-    assert!(views[0].search_current.is_none());
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert_eq!(snaps.len(), 1);
+    assert_eq!(snaps[0].search_matches_len, 0);
+    assert!(snaps[0].search_current.is_none());
 }
 
 #[test]
@@ -87,10 +126,10 @@ fn collect_pane_views_search_matches_assigned_to_active_pane() {
     state.add_test_pane();
     state.search_matches = vec![(0, 0, 3), (1, 2, 5)];
     state.search_current = 1;
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert_eq!(views.len(), 1);
-    assert_eq!(views[0].search_matches.len(), 2);
-    assert_eq!(views[0].search_current, Some(1));
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert_eq!(snaps.len(), 1);
+    assert_eq!(snaps[0].search_matches_len, 2);
+    assert_eq!(snaps[0].search_current, Some(1));
 }
 
 #[test]
@@ -98,8 +137,8 @@ fn collect_pane_views_hovered_url_propagated() {
     let mut state = make_state();
     state.add_test_pane();
     state.hovered_url = Some("https://example.com".into());
-    let views = collect_pane_views(&state, 800, 600, TAB_BAR_H, STATUS_BAR_H);
-    assert_eq!(views[0].hovered_url, Some("https://example.com"));
+    let snaps = collect_snapshots(&state, 800, 600);
+    assert_eq!(snaps[0].hovered_url.as_deref(), Some("https://example.com"));
 }
 
 // ── build_tab_titles ──────────────────────────────────────────────────────────
@@ -175,6 +214,5 @@ fn build_tab_titles_rename_mode_inactive_tab_not_affected() {
         buf: "newname".into(),
     };
     let titles = build_tab_titles(&state);
-    // inactive tab (index 1) should not show rename cursor
     assert!(!titles[1].0.contains('|'));
 }

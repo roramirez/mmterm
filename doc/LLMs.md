@@ -7,7 +7,9 @@ Full spec: `doc/SPEC.md`. This file is the dense implementation reference.
 
 | File | What lives here |
 |---|---|
-| `src/main.rs` | `App`, `TabState`, `PaneEntry`; event loop; `match action` dispatch |
+| `src/main.rs` | `App`; event loop; winit wiring; `wakeup_pending` |
+| `src/app_state.rs` | `AppState`, `TabState`, `PaneEntry`, `AppEffect`; action dispatch |
+| `src/drain.rs` | `ParseEffect` enum; `spawn_parser_thread`; `drain_effects` |
 | `src/input/keybindings.rs` | `Action` enum; `handle_key`, `handle_ctrl_w` |
 | `src/input/mode.rs` | `InputMode` enum (Insert / Normal / Visual / QuitSave) |
 | `src/pty/session.rs` | `PtySession` — fork PTY, spawn shell, read/write bytes |
@@ -93,19 +95,13 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 
 ```rust
 struct App {
+    state: AppState,              // all mutable terminal state (tabs, mode, config…)
     renderer: Renderer,           // shared glyph cache + default font_px
-    tabs: Vec<TabState>,
-    active_tab: usize,
-    next_pane_id: usize,
-    mode: InputMode,
-    modifiers: Modifiers,
-    cursor_blink: bool,
-    blink_last: Instant,
-    ctrl_w_pending: bool,
-    config: Config,
-    config_panel: Option<ConfigPanel>,
-    hovered_url: Option<String>,
-    theme: ResolvedTheme,         // active theme; drives all color rendering
+    proxy: EventLoopProxy<()>,
+    wakeup_pending: Arc<AtomicBool>, // set by parser threads; cleared in user_event
+    window: Option<Arc<Window>>,
+    surface_size: (u32, u32),
+    scope: Option<String>,
 }
 
 struct TabState {
@@ -123,7 +119,21 @@ struct TabState {
 struct PaneEntry {
     pane: Pane,
     pty: PtySession,
-    rx: Receiver<Vec<u8>>,      // PTY → render thread channel
+    effects_rx: Receiver<ParseEffect>,           // parser thread → main thread
+    log_file: Arc<Mutex<Option<File>>>,
+    pending_resize: Arc<Mutex<Option<(usize, usize)>>>, // main → parser (non-blocking)
+    _parser_thread: JoinHandle<()>,
+}
+
+// Side-effects produced by each pane's parser thread and consumed on the main thread.
+enum ParseEffect {
+    PtyResponse(Vec<u8>),    // write back to PTY (OSC responses, etc.)
+    ClipboardWrite(String),
+    ClipboardRead,
+    Bell,
+    ScrollbackChanged { old: usize, new: usize },
+    Resized { delta: isize, new_sb: usize },
+    Disconnected,
 }
 
 pub struct FontMetrics {

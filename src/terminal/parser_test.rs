@@ -1,19 +1,35 @@
-use super::super::grid::{Color, GridColors};
+use super::super::grid::{Color, Grid, GridColors};
 use super::*;
 
-fn make_parser(cols: usize, rows: usize) -> TerminalParser {
-    TerminalParser::new_with_colors(
-        cols,
-        rows,
-        GridColors {
-            fg: Color::WHITE,
-            bg: Color::BLACK,
-            cursor: Color::CURSOR,
-            selection: Color::SELECTION,
-            palette: [Color::BLACK; 16],
-        },
-        10_000,
-    )
+/// Test wrapper: pairs a TerminalParser with a Grid so existing tests
+/// can call `p.process()` and `p.grid.*` without modification.
+struct TestParser {
+    inner: TerminalParser,
+    pub grid: Grid,
+}
+
+impl TestParser {
+    fn process(&mut self, bytes: &[u8]) {
+        self.inner.process(bytes, &mut self.grid);
+    }
+}
+
+fn make_parser(cols: usize, rows: usize) -> TestParser {
+    TestParser {
+        inner: TerminalParser::new(),
+        grid: Grid::with_colors(
+            cols,
+            rows,
+            GridColors {
+                fg: Color::WHITE,
+                bg: Color::BLACK,
+                cursor: Color::CURSOR,
+                selection: Color::SELECTION,
+                palette: [Color::BLACK; 16],
+            },
+            10_000,
+        ),
+    }
 }
 
 #[test]

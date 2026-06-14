@@ -28,7 +28,10 @@ impl App {
         self.tab()
             .panes
             .get(&active)
-            .map(|e| (e.pane.parser.grid.mouse_mode, e.pane.parser.grid.mouse_sgr))
+            .map(|e| {
+                let g = e.pane.grid.read().unwrap();
+                (g.mouse_mode, g.mouse_sgr)
+            })
             .unwrap_or((0, false))
     }
 
@@ -57,12 +60,16 @@ impl App {
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
         let m = &entry.metrics;
+        let (grid_cols, grid_rows) = {
+            let g = entry.pane.grid.read().unwrap();
+            (g.cols, g.rows)
+        };
         geometry::pixel_to_cell(
             entry.pane.rect,
             m.cell_width,
             m.cell_height,
-            entry.pane.parser.grid.cols,
-            entry.pane.parser.grid.rows,
+            grid_cols,
+            grid_rows,
             px,
             py,
         )
@@ -73,12 +80,8 @@ impl App {
         let (col, row) = self.pixel_to_cell(pane_id, px, py)?;
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let url = geometry::cell_url_at_scroll(
-            &entry.pane.parser.grid,
-            entry.pane.scroll_offset,
-            col,
-            row,
-        )?;
+        let grid = entry.pane.grid.read().unwrap();
+        let url = geometry::cell_url_at_scroll(&grid, entry.pane.scroll_offset, col, row)?;
         Some(url.as_ref().clone())
     }
 
@@ -155,24 +158,25 @@ impl App {
         cur_row: usize,
     ) {
         let active = self.tab().active;
-        if let Some(entry) = self.tab().panes.get(&active) {
-            let scroll_offset = entry.pane.scroll_offset;
-            let text = entry.pane.parser.grid.selected_text(
+        // Extract text first so the immutable borrow on tab() is released.
+        let text = self.tab().panes.get(&active).map(|entry| {
+            let grid = entry.pane.grid.read().unwrap();
+            grid.selected_text(
                 start_col,
                 start_row,
                 cur_col,
                 cur_row,
-                scroll_offset,
-            );
-            if !text.is_empty() {
-                let cb = self
-                    .state
-                    .clipboard
-                    .get_or_insert_with(|| Clipboard::new().expect("clipboard unavailable"));
-                match cb.set_text(text) {
-                    Ok(()) => log::info!("Copied mouse selection to clipboard"),
-                    Err(e) => log::warn!("Clipboard write failed: {e}"),
-                }
+                entry.pane.scroll_offset,
+            )
+        });
+        if let Some(text) = text.filter(|t| !t.is_empty()) {
+            let cb = self
+                .state
+                .clipboard
+                .get_or_insert_with(|| Clipboard::new().expect("clipboard unavailable"));
+            match cb.set_text(text) {
+                Ok(()) => log::info!("Copied mouse selection to clipboard"),
+                Err(e) => log::warn!("Clipboard write failed: {e}"),
             }
         }
     }

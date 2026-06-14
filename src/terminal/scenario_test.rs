@@ -1,22 +1,36 @@
 /// Integration scenarios: multi-step sequences that mirror real terminal sessions.
 /// Each test feeds a stream of bytes that a real process would emit, then
 /// asserts on the complete resulting state — not just one VT feature at a time.
-use super::super::grid::{Color, GridColors};
+use super::super::grid::{Color, Grid, GridColors};
 use super::*;
 
-fn term(cols: usize, rows: usize) -> TerminalParser {
-    TerminalParser::new_with_colors(
-        cols,
-        rows,
-        GridColors {
-            fg: Color::WHITE,
-            bg: Color::BLACK,
-            cursor: Color::CURSOR,
-            selection: Color::SELECTION,
-            palette: [Color::BLACK; 16],
-        },
-        10_000,
-    )
+struct TestParser {
+    inner: TerminalParser,
+    pub grid: Grid,
+}
+
+impl TestParser {
+    fn process(&mut self, bytes: &[u8]) {
+        self.inner.process(bytes, &mut self.grid);
+    }
+}
+
+fn term(cols: usize, rows: usize) -> TestParser {
+    TestParser {
+        inner: TerminalParser::new(),
+        grid: Grid::with_colors(
+            cols,
+            rows,
+            GridColors {
+                fg: Color::WHITE,
+                bg: Color::BLACK,
+                cursor: Color::CURSOR,
+                selection: Color::SELECTION,
+                palette: [Color::BLACK; 16],
+            },
+            10_000,
+        ),
+    }
 }
 
 // ── Scenario 1: coloured bash prompt ────────────────────────────────────────

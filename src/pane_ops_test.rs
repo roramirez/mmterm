@@ -48,10 +48,19 @@ fn sync_uses_per_pane_metrics() {
 
     App::sync_pane_sizes_tab(&mut tab, 22, 22, 0);
 
-    let c1 = tab.panes[&1].pane.parser.grid.cols;
-    let c2 = tab.panes[&2].pane.parser.grid.cols;
-    let r1 = tab.panes[&1].pane.parser.grid.rows;
-    let r2 = tab.panes[&2].pane.parser.grid.rows;
+    // sync_pane_sizes_tab writes target dimensions to pending_resize; the parser
+    // thread applies them asynchronously. Test the contract that sync_pane_sizes_tab
+    // keeps: it must compute the correct (cols, rows) for each pane's metrics.
+    let (c1, r1) = tab.panes[&1]
+        .pending_resize
+        .lock()
+        .unwrap()
+        .expect("pane 1 should have a pending resize");
+    let (c2, r2) = tab.panes[&2]
+        .pending_resize
+        .lock()
+        .unwrap()
+        .expect("pane 2 should have a pending resize");
     assert!(c1 > c2, "smaller cells must yield more cols: {c1} vs {c2}");
     assert!(r1 > r2, "smaller cells must yield more rows: {r1} vs {r2}");
 }
