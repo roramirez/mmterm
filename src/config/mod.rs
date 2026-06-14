@@ -1,9 +1,11 @@
+pub mod tui_config;
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::terminal::grid::Color;
 
-const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
+const DEFAULT_CONFIG: &str = include_str!("../../assets/config.toml");
 
 fn default_config() -> Config {
     toml::from_str(DEFAULT_CONFIG).expect("assets/config.toml is invalid")

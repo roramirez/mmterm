@@ -3,11 +3,11 @@ use super::{
 };
 use crate::InputMode;
 use crate::config::Config;
+use crate::config::tui_config::ConfigPanel;
 use crate::dpi::Physical;
 use crate::terminal::Grid;
 use crate::terminal::grid::{Color, CursorShape, GridColors};
 use crate::theme::default_theme;
-use crate::tui_config::ConfigPanel;
 
 // ── Task 20 proxy tests — pure arithmetic, no rendering ──────────────────────
 

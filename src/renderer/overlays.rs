@@ -1,5 +1,5 @@
+use crate::config::tui_config::ConfigPanel;
 use crate::theme::ResolvedTheme;
-use crate::tui_config::ConfigPanel;
 use crate::ui::layout::STATUS_BAR_H;
 
 use super::text::{Renderer, blend, color_u32, dim_buffer, draw_rect_border, fill_rect};
@@ -128,7 +128,10 @@ fn draw_hex_color_swatch(
     draw_y: u32,
     l: &FieldRowLayout,
 ) {
-    if !matches!(panel.fields[i].kind, crate::tui_config::FieldKind::HexColor) {
+    if !matches!(
+        panel.fields[i].kind,
+        crate::config::tui_config::FieldKind::HexColor
+    ) {
         return;
     }
     let hex = panel.display_value(i);
@@ -450,7 +453,7 @@ impl Renderer {
         draw_hex_color_swatch(buf, bw, panel, i, draw_y, l);
 
         let label_color = if is_sel { C_LABEL_SEL } else { C_LABEL_UNSEL };
-        let is_select = matches!(field.kind, crate::tui_config::FieldKind::Select(_));
+        let is_select = matches!(field.kind, crate::config::tui_config::FieldKind::Select(_));
         let value_display = field_value_display(panel, i, is_select, is_sel, is_editing);
         let text = format!("{:<18} {}", field.label, value_display);
         self.draw_str(
@@ -565,7 +568,7 @@ impl Renderer {
         );
 
         // Entry count indicator
-        let count_str = format!("{}/{}", entries.len(), crate::command_palette::total());
+        let count_str = format!("{}/{}", entries.len(), crate::ui::command_palette::total());
         let count_x = px + panel_w - cw * count_str.len() as u32 - pad;
         self.draw_str(buf, bw, bh, count_x, py + 4, &count_str, fp, false, C_DIM);
 

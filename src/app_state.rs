@@ -5,12 +5,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::config::Config;
+use crate::config::tui_config::ConfigPanel;
 use crate::dpi::Logical;
 use crate::input::InputMode;
 use crate::input::keybindings::Action;
 use crate::renderer::FontMetrics;
 use crate::theme::ResolvedTheme;
-use crate::tui_config::ConfigPanel;
 use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
 
 // ── Screenshot helpers ───────────────────────────────────────────────────────
@@ -142,15 +142,15 @@ impl AppState {
     }
 
     pub fn next_tab(&mut self) {
-        self.active_tab = crate::tabs::next_tab_index(self.active_tab, self.tabs.len());
+        self.active_tab = crate::ui::tabs::next_tab_index(self.active_tab, self.tabs.len());
     }
 
     pub fn prev_tab(&mut self) {
-        self.active_tab = crate::tabs::prev_tab_index(self.active_tab, self.tabs.len());
+        self.active_tab = crate::ui::tabs::prev_tab_index(self.active_tab, self.tabs.len());
     }
 
     pub fn move_tab_left(&mut self) {
-        let new = crate::tabs::move_tab_index(self.active_tab, self.tabs.len(), true);
+        let new = crate::ui::tabs::move_tab_index(self.active_tab, self.tabs.len(), true);
         if new != self.active_tab {
             self.tabs.swap(self.active_tab, new);
             self.active_tab = new;
@@ -158,7 +158,7 @@ impl AppState {
     }
 
     pub fn move_tab_right(&mut self) {
-        let new = crate::tabs::move_tab_index(self.active_tab, self.tabs.len(), false);
+        let new = crate::ui::tabs::move_tab_index(self.active_tab, self.tabs.len(), false);
         if new != self.active_tab {
             self.tabs.swap(self.active_tab, new);
             self.active_tab = new;
@@ -175,7 +175,7 @@ impl AppState {
     pub fn focus_next(&mut self) {
         let active = self.tab().active;
         let leaves = self.tab().layout.leaves();
-        self.tab_mut().active = crate::tabs::next_pane_in_layout(&leaves, active);
+        self.tab_mut().active = crate::ui::tabs::next_pane_in_layout(&leaves, active);
     }
 
     // ── Search ───────────────────────────────────────────────────────────────
@@ -450,9 +450,13 @@ impl AppState {
             Action::Copy => self.do_visual_copy(),
             Action::VisualSwapAnchor => self.swap_visual_anchor(),
             Action::VisualAnchor => self.set_visual_anchor(),
-            Action::VisualWordForward => self.move_visual_cursor(crate::motion::word_forward),
-            Action::VisualWordBackward => self.move_visual_cursor(crate::motion::word_backward),
-            Action::VisualWordEnd => self.move_visual_cursor(crate::motion::word_end),
+            Action::VisualWordForward => {
+                self.move_visual_cursor(crate::input::motion::word_forward)
+            }
+            Action::VisualWordBackward => {
+                self.move_visual_cursor(crate::input::motion::word_backward)
+            }
+            Action::VisualWordEnd => self.move_visual_cursor(crate::input::motion::word_end),
             Action::VisualYankLine => self.do_visual_yank_line(),
             _ => {}
         }
@@ -910,7 +914,7 @@ impl AppState {
             return vec![AppEffect::Redraw];
         }
         let total_panes = self.tabs.iter().map(|t| t.panes.len()).sum::<usize>();
-        if crate::tabs::needs_quit_confirm(self.tabs.len(), total_panes) {
+        if crate::ui::tabs::needs_quit_confirm(self.tabs.len(), total_panes) {
             self.quit_pending = true;
             vec![AppEffect::QuitPending]
         } else {

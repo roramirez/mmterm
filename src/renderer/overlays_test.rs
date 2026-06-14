@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::*;
-use crate::tui_config::{ConfigPanel, Field, FieldKind};
+use crate::config::tui_config::{ConfigPanel, Field, FieldKind};
 
 fn make_panel(value: &str, kind: FieldKind) -> ConfigPanel {
     ConfigPanel {
@@ -280,7 +280,7 @@ fn collapse_indicator_expanded_returns_minus() {
 // ── config_panel_hint ─────────────────────────────────────────────────────────
 
 fn make_section_panel(collapsed: bool) -> ConfigPanel {
-    use crate::tui_config::Field;
+    use crate::config::tui_config::Field;
     let mut c = HashSet::new();
     if collapsed {
         c.insert("General");

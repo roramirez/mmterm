@@ -5,11 +5,11 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::CursorIcon;
 
 use crate::config::Config;
+use crate::config::tui_config::ConfigAction;
 use crate::input::{InputMode, handle_ctrl_w, handle_key, handle_key_passthrough};
+use crate::search;
 use crate::theme::{load_theme, themes_dir};
-use crate::tui_config::ConfigAction;
-use crate::ui::{SplitDir, layout::SeparatorHandle};
-use crate::{command_palette, search};
+use crate::ui::{SplitDir, command_palette, layout::SeparatorHandle};
 
 use super::App;
 

@@ -3,13 +3,15 @@ use std::time::{Duration, Instant};
 
 use chrono::Local;
 
+use super::{screenshot, views};
+use crate::AppState;
 use crate::input::InputMode;
 use crate::renderer::Renderer;
-use crate::{AppState, command_palette, screenshot, statusbar, views};
+use crate::ui::{command_palette, statusbar};
 use winit::event::Modifiers;
 use winit::event_loop::ActiveEventLoop;
 
-use super::App;
+use crate::App;
 
 pub(crate) fn bell_flash_intensity(start: Option<Instant>) -> Option<f32> {
     const BELL_DURATION_MS: f32 = 150.0;

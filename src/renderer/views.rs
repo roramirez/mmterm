@@ -3,8 +3,8 @@ use std::sync::RwLockReadGuard;
 use crate::app_state::AppState;
 use crate::input::InputMode;
 use crate::renderer::PaneView;
-use crate::tabs;
 use crate::terminal::grid::Grid;
+use crate::ui::tabs;
 
 #[cfg(test)]
 #[path = "views_test.rs"]

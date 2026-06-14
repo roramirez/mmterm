@@ -1,7 +1,6 @@
 mod app_event;
 mod app_state;
 mod cli;
-mod command_palette;
 mod config;
 mod dpi;
 mod drain;
@@ -11,26 +10,17 @@ mod history;
 mod input;
 mod input_ops;
 mod logging;
-mod motion;
-mod mouse;
-mod mouse_ops;
 mod pane_ops;
 mod pty;
-mod render_ops;
 mod renderer;
 mod restore;
 mod scaling;
-mod screenshot;
 mod search;
 mod session;
-mod statusbar;
-mod tabs;
 mod terminal;
 mod theme;
-mod tui_config;
 mod ui;
 mod update;
-mod views;
 mod winit_handler;
 
 pub use app_state::{AppEffect, AppState, PaneEntry, TabState};
@@ -41,9 +31,9 @@ pub(crate) use cli::{
 pub use input::InputMode;
 
 #[cfg(test)]
-pub(crate) use render_ops::bell_flash_intensity;
+pub(crate) use renderer::render_ops::bell_flash_intensity;
 #[cfg(test)]
-pub(crate) use screenshot::{sanitize_screenshot_name, save_screenshot};
+pub(crate) use renderer::screenshot::{sanitize_screenshot_name, save_screenshot};
 #[cfg(test)]
 pub(crate) use winit_handler::next_bell_wakeup;
 

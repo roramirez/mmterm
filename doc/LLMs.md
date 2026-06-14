@@ -19,12 +19,20 @@ Full spec: `doc/SPEC.md`. This file is the dense implementation reference.
 | `src/renderer/glyph.rs` | `GlyphCache` — fontdue rasterization |
 | `src/ui/layout.rs` | `Layout`, `SplitDir`, `Node` (binary-tree pane splits) |
 | `src/ui/pane.rs` | `Pane` — scroll offset, selection, cursor |
-| `src/config.rs` | `Config`, `*Config` structs — TOML load/save |
-| `src/session.rs` | `SavedSession`, `SavedTab`, `SavedNode` — session persistence save/load |
-| `src/theme.rs` | `ResolvedTheme`, `load_theme()`, `install_bundled_themes()` |
-| `src/themes/*.toml` | 9 bundled theme files embedded via `include_str!` |
-| `src/tui_config.rs` | `ConfigPanel`, `Field` — in-process config editor |
-| `src/motion.rs` | `word_forward`, `word_backward`, `word_end` — Visual mode `w`/`b`/`e` |
+| `src/config/mod.rs` | `Config`, `*Config` structs — TOML load/save |
+| `src/config/tui_config.rs` | `ConfigPanel`, `Field` — in-process config editor |
+| `src/session/mod.rs` | `SavedSession`, `SavedTab`, `SavedNode` — session persistence save/load |
+| `src/theme/mod.rs` | `ResolvedTheme`, `load_theme()`, `install_bundled_themes()` |
+| `src/theme/themes/*.toml` | 9 bundled theme files embedded via `include_str!` |
+| `src/input/motion.rs` | `word_forward`, `word_backward`, `word_end` — Visual mode `w`/`b`/`e` |
+| `src/input/mouse.rs` | SGR/X10 mouse event encoding helper |
+| `src/input/mouse_ops.rs` | `impl App` — mouse hit-testing, selection, URL open |
+| `src/ui/command_palette.rs` | static command palette entries; filter and action dispatch |
+| `src/ui/statusbar.rs` | right-side status bar template resolution (`%pwd`, `%date`) |
+| `src/ui/tabs.rs` | tab index arithmetic (next/prev/move/close) |
+| `src/renderer/views.rs` | `collect_pane_views`, `build_tab_titles` — pane view assembly |
+| `src/renderer/render_ops.rs` | `impl App` — `redraw()`, focus, frame orchestration |
+| `src/renderer/screenshot.rs` | screenshot save to PNG |
 
 Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 

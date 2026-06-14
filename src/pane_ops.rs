@@ -7,8 +7,9 @@ use crossbeam_channel::{bounded, unbounded};
 
 use crate::drain;
 use crate::terminal::grid::{Grid, GridColors};
+use crate::ui::tabs;
 use crate::ui::{Layout, Pane, SplitDir};
-use crate::{PaneEntry, TabState, logging, pty, tabs};
+use crate::{PaneEntry, TabState, logging, pty};
 use winit::event_loop::ActiveEventLoop;
 
 use super::App;

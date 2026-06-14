@@ -1,9 +1,10 @@
 use arboard::Clipboard;
 
+use super::mouse;
+use crate::geometry;
 use crate::input::InputMode;
-use crate::{geometry, mouse};
 
-use super::App;
+use crate::App;
 
 pub(super) fn open_url(url: &str) {
     #[cfg(target_os = "linux")]
