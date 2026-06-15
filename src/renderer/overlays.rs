@@ -269,18 +269,12 @@ impl Renderer {
         fill_rect(buf, bw, px, py, panel_w, panel_h, C_PANEL_BG);
         draw_rect_border(buf, bw, px, py, panel_w, panel_h, C_BORDER);
 
-        // Title bar
-        self.draw_str(
-            buf,
-            bw,
-            bh,
-            px + pad,
-            py + 4,
-            "CONFIGURATION",
-            fp,
-            true,
-            C_TITLE,
-        );
+        // Title bar: "CONFIGURATION" in title color, version dimmed right after
+        let title = "CONFIGURATION";
+        self.draw_str(buf, bw, bh, px + pad, py + 4, title, fp, true, C_TITLE);
+        let ver = format!("  v{}", panel.version);
+        let ver_x = px + pad + cw * title.len() as u32;
+        self.draw_str(buf, bw, bh, ver_x, py + 4, &ver, fp, false, C_DIM);
 
         // Scroll window: keep selected in view (using visible indices)
         let vis = panel.visible_indices();
