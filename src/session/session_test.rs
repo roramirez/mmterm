@@ -147,6 +147,7 @@ fn roundtrip_single_pane() {
             pane_cwds: vec![PathBuf::from("/tmp")],
             layout: leaf(0),
         }],
+        theme: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -166,6 +167,7 @@ fn roundtrip_h_split() {
             pane_cwds: vec![PathBuf::from("/home"), PathBuf::from("/tmp")],
             layout: split(SavedSplitDir::H, 0.6, leaf(0), leaf(1)),
         }],
+        theme: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -202,6 +204,7 @@ fn roundtrip_three_pane_tree() {
             ],
             layout,
         }],
+        theme: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -232,6 +235,7 @@ fn roundtrip_multiple_tabs() {
                 layout: split(SavedSplitDir::V, 0.4, leaf(0), leaf(1)),
             },
         ],
+        theme: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -269,7 +273,53 @@ fn simple_session() -> SavedSession {
             pane_cwds: vec![PathBuf::from("/tmp")],
             layout: leaf(0),
         }],
+        theme: None,
     }
+}
+
+// ── theme field tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn theme_field_roundtrips_through_toml() {
+    let session = SavedSession {
+        active_tab: 0,
+        tabs: vec![SavedTab {
+            name: None,
+            active_pane: 0,
+            pane_cwds: vec![PathBuf::from("/tmp")],
+            layout: leaf(0),
+        }],
+        theme: Some("ereader".into()),
+    };
+    let toml = toml::to_string_pretty(&session).expect("serialize");
+    let back: SavedSession = toml::from_str(&toml).expect("deserialize");
+    assert_eq!(back.theme.as_deref(), Some("ereader"));
+}
+
+#[test]
+fn theme_field_absent_deserializes_as_none() {
+    // Old session files without a theme key must still load cleanly.
+    let raw = r#"
+active_tab = 0
+[[tabs]]
+active_pane = 0
+pane_cwds = ["/tmp"]
+[tabs.layout]
+type = "Leaf"
+slot = 0
+"#;
+    let session: SavedSession = toml::from_str(raw).expect("deserialize");
+    assert!(session.theme.is_none());
+}
+
+#[test]
+fn theme_field_skipped_when_none() {
+    let session = simple_session(); // theme = None
+    let toml = toml::to_string_pretty(&session).expect("serialize");
+    assert!(
+        !toml.contains("theme"),
+        "theme key should be absent when None"
+    );
 }
 
 #[test]
@@ -337,6 +387,7 @@ fn save_to_overwrites_existing_file() {
             pane_cwds: vec![PathBuf::from("/a")],
             layout: leaf(0),
         }],
+        theme: None,
     };
     super::save_to(&path, &first).unwrap();
 
@@ -356,6 +407,7 @@ fn save_to_overwrites_existing_file() {
                 layout: leaf(0),
             },
         ],
+        theme: None,
     };
     super::save_to(&path, &second).unwrap();
 
@@ -376,6 +428,7 @@ fn roundtrip_with_empty_cwd() {
             pane_cwds: vec![PathBuf::from("")],
             layout: leaf(0),
         }],
+        theme: None,
     };
     super::save_to(&path, &session).unwrap();
     let loaded = super::load_from(&path).unwrap();
@@ -394,6 +447,7 @@ fn roundtrip_active_tab_out_of_bounds_preserved() {
             pane_cwds: vec![PathBuf::from("/tmp")],
             layout: leaf(0),
         }],
+        theme: None,
     };
     super::save_to(&path, &session).unwrap();
     let loaded = super::load_from(&path).unwrap();

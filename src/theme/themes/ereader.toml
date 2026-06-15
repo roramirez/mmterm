@@ -1,0 +1,32 @@
+name        = "ereader"
+
+# Warm parchment background, dark sepia text — easy on the eyes
+foreground  = "#3d2b1f"
+background  = "#f4ecd8"
+
+# ANSI palette — muted, warm-toned to blend with the paper feel
+color0      = "#2c1a0e"   # black  → dark espresso
+color1      = "#8b2500"   # red    → muted brick
+color2      = "#3d6b2e"   # green  → forest
+color3      = "#8b6914"   # yellow → amber
+color4      = "#2a5f8f"   # blue   → ink blue
+color5      = "#6b3a6b"   # magenta → plum
+color6      = "#2a6b6b"   # cyan   → teal
+color7      = "#c8bfb0"   # white  → warm grey
+color8      = "#6b5040"   # bright black → medium sepia
+color9      = "#c03a00"   # bright red
+color10     = "#5a9e47"   # bright green
+color11     = "#c49a1a"   # bright yellow → golden
+color12     = "#3d8bbf"   # bright blue
+color13     = "#9e5a9e"   # bright magenta
+color14     = "#3d9e9e"   # bright cyan
+color15     = "#faf6ef"   # bright white → near paper
+
+# UI chrome
+cursor          = "#4a3020"
+selection       = "#d4b896"
+search_match    = "#e8c97a"
+search_current  = "#c49a1a"
+scrollbar       = "#c4a882"
+badge           = "#2a5f8f"
+separator       = "#ddd0b8"

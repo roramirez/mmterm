@@ -14,7 +14,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Split panes** — binary-tree layout, horizontal and vertical splits; drag separators or use `Ctrl+Shift+Arrow` to resize
 - **Multi-tab** — independent pane trees and font metrics per tab
 - **Scrollback search** — live match highlighting across 10 000-line buffer; history navigable with ↑/↓, persisted to `~/.config/mmterm/search_history`
-- **Themes** — 9 built-in themes; custom themes via `~/.config/mmterm/themes/`
+- **Themes** — 10 built-in themes (including `ereader`, a warm parchment/sepia theme for long sessions); custom themes via `~/.config/mmterm/themes/`; each named scope remembers its own theme independently of the global config
 - **OSC 8 hyperlinks** — clickable URLs rendered in the terminal
 - **OSC 52 clipboard sync** — copy/paste over SSH without extra tools
 - **Focus reporting** — `?1004h/l` sends `\e[I`/`\e[O` on window, tab, and pane focus changes; neovim `autoread` and tmux work correctly
@@ -24,7 +24,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Session logging** — capture PTY output per-pane to `~/.mmterm/` with `Ctrl+Shift+L`
 - **Color emoji** — rendered via FreeType CBDT/CBLC
 - **Visual bell** — BEL (0x07) shows a `●` dot next to the mode badge in the status bar for 150 ms; a 500 ms cooldown prevents spam from tab-completion; an optional screen flash is available via `visual_bell = true` in `[general]`
-- **Session persistence** — tabs, splits, and per-pane CWDs are saved on quit and restored on next launch; a centered dialog asks `[s] Save and quit / [q] Quit / [Esc] Cancel`; toggle with `restore_session` in `[general]`
+- **Session persistence** — tabs, splits, and per-pane CWDs are saved on quit and restored on next launch; a centered dialog asks `[s] Save and quit / [q] Quit / [Esc] Cancel`; toggle with `restore_session` in `[general]`; named scopes (`--scope <name>`) keep isolated session files and each retain their own theme
 - **Command palette** — `Ctrl+Shift+P` fuzzy-filter and run any action by name; shows the keyboard shortcut for each entry
 - **TUI config editor** — edit settings in-process with `Ctrl+,`
 - **Zero-config startup** — bundled JetBrains Mono fallback font (regular, bold, italic)

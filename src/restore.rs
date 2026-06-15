@@ -38,6 +38,7 @@ impl App {
         session::SavedSession {
             active_tab: self.state.active_tab,
             tabs,
+            theme: Some(self.state.config.theme.name.clone()),
         }
     }
 
@@ -101,6 +102,17 @@ impl App {
         self.state.active_tab = saved
             .active_tab
             .min(self.state.tabs.len().saturating_sub(1));
+        if let Some(name) = &saved.theme {
+            let td = crate::theme::themes_dir();
+            match crate::theme::load_theme(name, &td) {
+                Ok(t) => {
+                    self.state.config.theme.name = name.clone();
+                    self.state.theme = t;
+                    self.reseed_pane_palettes();
+                }
+                Err(e) => log::warn!("{e} — ignoring saved scope theme"),
+            }
+        }
         true
     }
 }

@@ -16,6 +16,7 @@ const BUNDLED: &[(&str, &str)] = &[
     ("one-dark", include_str!("themes/one-dark.toml")),
     ("solarized-dark", include_str!("themes/solarized-dark.toml")),
     ("tokyo-night", include_str!("themes/tokyo-night.toml")),
+    ("ereader", include_str!("themes/ereader.toml")),
 ];
 
 /// All colors needed to render a mmterm session.

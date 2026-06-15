@@ -23,7 +23,7 @@ Full spec: `doc/SPEC.md`. This file is the dense implementation reference.
 | `src/config/tui_config.rs` | `ConfigPanel`, `Field` — in-process config editor |
 | `src/session/mod.rs` | `SavedSession`, `SavedTab`, `SavedNode` — session persistence save/load |
 | `src/theme/mod.rs` | `ResolvedTheme`, `load_theme()`, `install_bundled_themes()` |
-| `src/theme/themes/*.toml` | 9 bundled theme files embedded via `include_str!` |
+| `src/theme/themes/*.toml` | 10 bundled theme files embedded via `include_str!` |
 | `src/input/motion.rs` | `word_forward`, `word_backward`, `word_end` — Visual mode `w`/`b`/`e` |
 | `src/input/mouse.rs` | SGR/X10 mouse event encoding helper |
 | `src/input/mouse_ops.rs` | `impl App` — mouse hit-testing, selection, URL open |
@@ -88,7 +88,9 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 - Save uses `session::save_to(&path, &s)` where `path = session_path_for(self.scope.as_deref())`; atomic write (`.tmp` → rename)
 - On startup `resumed()`: if `restore_session = true`, calls `session::load_from(&session_path_for(scope))` and `App::restore_session()`; CWDs that no longer exist fall back to `$HOME`
 - `--list-scopes` prints sorted scope names (`*.toml` stems from `sessions/` dir) and exits — implemented via `session::list_scopes()` / `list_scopes_in(dir)` and `list_scopes_requested()` in `main.rs`
-- What is saved: `active_tab`, per-tab `name`, `active_pane` slot, `pane_cwds`, `layout` tree with `dir`/`ratio`
+- **Per-scope theme** — `SavedSession.theme: Option<String>` stores the theme name for the scope; `build_saved_session()` always populates it from `state.config.theme.name`; `restore_session()` applies it via `load_theme()` and `reseed_pane_palettes()` if present
+- **Theme isolation in `apply_config()`** — when `self.scope.is_some()`, the global `config.toml` is saved with the *old* theme name (scope theme must not bleed globally); the scope session file is immediately updated with the new theme via an eager `session::save_to()` call
+- What is saved: `active_tab`, per-tab `name`, `active_pane` slot, `pane_cwds`, `layout` tree with `dir`/`ratio`, `theme` (optional, scope-local)
 - What is NOT saved: PTY content, scrollback, per-tab font size, zoom, scroll offset
 
 ## OSC 8 Hyperlinks (implemented)
@@ -309,7 +311,7 @@ Color sources in the renderer:
 
 Adding a new theme-driven color: add the field to `ResolvedTheme`,
 add it to `ThemeFile` (optional), provide a palette-derived default in
-`resolve()`, add to all 9 bundled `.toml` files, update `draw()`.
+`resolve()`, add to all 10 bundled `.toml` files, update `draw()`.
 
 ## Code Quality Gates (kimun)
 

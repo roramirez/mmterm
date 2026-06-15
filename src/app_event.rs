@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::config::tui_config::ConfigAction;
 use crate::input::{InputMode, handle_ctrl_w, handle_key, handle_key_passthrough};
 use crate::search;
+use crate::session;
 use crate::theme::{load_theme, themes_dir};
 use crate::ui::{SplitDir, command_palette, layout::SeparatorHandle};
 
@@ -270,10 +271,25 @@ impl App {
         });
         self.state.theme = new_theme;
         self.reseed_pane_palettes();
-        new_cfg.save();
+        // When in a scope, the theme is scope-local — don't let it bleed into
+        // the global config.toml and affect other sessions.
+        if self.scope.is_some() {
+            let mut global_cfg = new_cfg.clone();
+            global_cfg.theme.name = self.state.config.theme.name.clone();
+            global_cfg.save();
+        } else {
+            new_cfg.save();
+        }
         window.set_title(&new_cfg.window.title);
         self.state.config = new_cfg;
         self.state.config_panel = None;
+        if self.scope.is_some() {
+            let s = self.build_saved_session();
+            let path = self.session_path();
+            if let Err(e) = session::save_to(&path, &s) {
+                log::warn!("scope session update failed: {e}");
+            }
+        }
     }
 
     pub(super) fn reseed_pane_palettes(&mut self) {
