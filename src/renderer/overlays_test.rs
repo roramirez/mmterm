@@ -17,6 +17,7 @@ fn make_panel(value: &str, kind: FieldKind) -> ConfigPanel {
         edit_buf: String::new(),
         status: None,
         collapsed: HashSet::new(),
+        version: "",
     }
 }
 
@@ -298,6 +299,7 @@ fn make_section_panel(collapsed: bool) -> ConfigPanel {
         edit_buf: String::new(),
         status: None,
         collapsed: c,
+        version: "",
     }
 }
 

@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- show mmterm version in the config panel title bar
+
 ### Changed
 - reorganize `src/` flat files into module subdirectories: `config/`, `session/`, `theme/`, `input/` (+ motion, mouse), `ui/` (+ command_palette, statusbar, tabs), `renderer/` (+ views, render_ops, screenshot)
 - move VT parsing to per-pane background threads with a 1 MB bounded channel; eliminates terminal freezes during heavy output (e.g. `find /`) and keeps Ctrl+C responsive regardless of backlog size

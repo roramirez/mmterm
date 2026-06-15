@@ -87,6 +87,7 @@ pub struct ConfigPanel {
     pub status: Option<String>,
     /// Section names that are currently collapsed (body fields hidden).
     pub collapsed: HashSet<&'static str>,
+    pub version: &'static str,
 }
 
 impl ConfigPanel {
@@ -294,6 +295,7 @@ impl ConfigPanel {
             edit_buf: String::new(),
             status: None,
             collapsed,
+            version: env!("MMTERM_VERSION"),
         }
     }
 
