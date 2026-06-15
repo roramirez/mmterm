@@ -233,8 +233,11 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 Themes define all terminal and UI colors in a single `.toml` file.
 
 **Built-in themes** (installed to `~/.config/mmterm/themes/` on first launch):
-`default`, `catppuccin-mocha`, `dracula`, `gruvbox-dark`, `monokai`, `nord`,
+`default`, `catppuccin-mocha`, `dracula`, `ereader`, `gruvbox-dark`, `monokai`, `nord`,
 `one-dark`, `solarized-dark`, `tokyo-night`.
+
+`ereader` uses a warm parchment background (`#f4ecd8`) with dark sepia text and a
+muted, warm-toned ANSI palette — designed to reduce eye strain during long sessions.
 
 **Selecting a theme** — edit `config.toml`:
 ```toml
@@ -362,6 +365,24 @@ named workspace file, keeping it fully isolated from other scopes:
 `--list-scopes` prints all saved scope names (sorted) and exits without
 launching the terminal.
 
+#### Per-scope theme
+
+Each scope remembers its own theme independently of the global `config.toml`.
+
+- When you change the theme in the config panel (`Ctrl+,`) while running under a
+  scope, the new theme is written to that scope's session file only — the global
+  `config.toml` is **not** modified.
+- On the next launch with the same `--scope`, the scope's theme is restored,
+  overriding whatever the global config says.
+- Scopes without an explicit theme fall back to the global `config.toml` theme.
+
+Example workflow:
+```
+mmterm --scope ereader   # open config panel → set theme = ereader → save
+mmterm --scope work      # opens with its own theme (or global default)
+mmterm                   # opens with global config theme, unchanged
+```
+
 #### What is saved
 
 | Field | Description |
@@ -371,6 +392,7 @@ launching the terminal.
 | Per tab: `active_pane` | DFS-order index of the focused pane |
 | Per tab: `pane_cwds` | Working directory of each pane (via `/proc/<pid>/cwd`) |
 | Per tab: `layout` | Full binary split tree with `dir` (`H`/`V`) and `ratio` per node |
+| `theme` | Active theme name for this scope (optional; absent = use global config) |
 
 #### What is NOT saved
 

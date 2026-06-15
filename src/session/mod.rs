@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 pub struct SavedSession {
     pub active_tab: usize,
     pub tabs: Vec<SavedTab>,
+    /// Theme override for this scope; absent means use the global config theme.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
