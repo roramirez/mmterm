@@ -129,6 +129,86 @@ fn dispatch_rename_tab_sets_rename_mode() {
     assert!(matches!(s.mode, InputMode::RenameTab { .. }));
 }
 
+// ── apply_rename_key ──────────────────────────────────────────────────────
+
+fn rename_key(s: &str) -> winit::keyboard::Key {
+    winit::keyboard::Key::Character(winit::keyboard::SmolStr::new(s))
+}
+
+fn rename_named(k: winit::keyboard::NamedKey) -> winit::keyboard::Key {
+    winit::keyboard::Key::Named(k)
+}
+
+#[test]
+fn apply_rename_key_appends_characters() {
+    let mut s = make_state_with_tabs(1);
+    s.dispatch_action(Action::RenameTab);
+    s.apply_rename_key(&rename_key("h"));
+    s.apply_rename_key(&rename_key("i"));
+    let InputMode::RenameTab { buf } = &s.mode else {
+        panic!("wrong mode")
+    };
+    assert_eq!(buf, "hi");
+}
+
+#[test]
+fn apply_rename_key_backspace_removes_last_char() {
+    let mut s = make_state_with_tabs(1);
+    s.dispatch_action(Action::RenameTab);
+    s.apply_rename_key(&rename_key("a"));
+    s.apply_rename_key(&rename_key("b"));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
+    let InputMode::RenameTab { buf } = &s.mode else {
+        panic!("wrong mode")
+    };
+    assert_eq!(buf, "a");
+}
+
+#[test]
+fn apply_rename_key_enter_commits_name() {
+    let mut s = make_state_with_tabs(1);
+    s.dispatch_action(Action::RenameTab);
+    s.apply_rename_key(&rename_key("w"));
+    s.apply_rename_key(&rename_key("o"));
+    s.apply_rename_key(&rename_key("r"));
+    s.apply_rename_key(&rename_key("k"));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Enter));
+    assert!(matches!(s.mode, InputMode::Insert));
+    assert_eq!(s.tabs[s.active_tab].name.as_deref(), Some("work"));
+}
+
+#[test]
+fn apply_rename_key_enter_empty_clears_name() {
+    let mut s = make_state_with_tabs(1);
+    s.tabs[s.active_tab].name = Some("old".to_string());
+    s.dispatch_action(Action::RenameTab);
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Enter));
+    assert!(matches!(s.mode, InputMode::Insert));
+    assert_eq!(s.tabs[s.active_tab].name, None);
+}
+
+#[test]
+fn apply_rename_key_escape_cancels_without_rename() {
+    let mut s = make_state_with_tabs(1);
+    s.tabs[s.active_tab].name = Some("keep".to_string());
+    s.dispatch_action(Action::RenameTab);
+    s.apply_rename_key(&rename_key("x"));
+    s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Escape));
+    assert!(matches!(s.mode, InputMode::Insert));
+    assert_eq!(s.tabs[s.active_tab].name.as_deref(), Some("keep"));
+}
+
+#[test]
+fn apply_rename_key_noop_when_not_in_rename_mode() {
+    let mut s = make_state_with_tabs(1);
+    // mode is Insert, not RenameTab — should be a no-op
+    s.apply_rename_key(&rename_key("x"));
+    assert!(matches!(s.mode, InputMode::Insert));
+}
+
 // ── Zoom ─────────────────────────────────────────────────────────────────
 
 #[test]

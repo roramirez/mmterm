@@ -12,6 +12,7 @@ use crate::input::keybindings::Action;
 use crate::renderer::FontMetrics;
 use crate::theme::ResolvedTheme;
 use crate::ui::{Layout, Pane, SeparatorHandle, SplitDir};
+use winit::keyboard::Key;
 
 // ── Screenshot helpers ───────────────────────────────────────────────────────
 
@@ -823,6 +824,38 @@ impl AppState {
             .and_then(|t| t.name.clone())
             .unwrap_or_default();
         self.mode = InputMode::RenameTab { buf: current };
+    }
+
+    pub(crate) fn apply_rename_key(&mut self, key: &Key) {
+        let buf = if let InputMode::RenameTab { buf } = &self.mode {
+            buf.clone()
+        } else {
+            return;
+        };
+        use winit::keyboard::NamedKey;
+        match key {
+            Key::Named(NamedKey::Escape) => {
+                self.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Enter) => {
+                let name = buf.trim().to_string();
+                if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    tab.name = if name.is_empty() { None } else { Some(name) };
+                }
+                self.mode = InputMode::Insert;
+            }
+            Key::Named(NamedKey::Backspace) => {
+                let mut b = buf;
+                b.pop();
+                self.mode = InputMode::RenameTab { buf: b };
+            }
+            Key::Character(s) => {
+                let mut b = buf;
+                b.push_str(s);
+                self.mode = InputMode::RenameTab { buf: b };
+            }
+            _ => {}
+        }
     }
 
     fn do_search_next(&mut self) {
