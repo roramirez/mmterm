@@ -501,27 +501,23 @@ impl App {
         event: &winit::event::KeyEvent,
         event_loop: &ActiveEventLoop,
     ) -> bool {
-        if matches!(self.state.mode, InputMode::RenameTab { .. }) {
-            self.handle_rename_key(event);
-            self.request_redraw();
-            return true;
+        match &self.state.mode {
+            InputMode::RenameTab { .. } => {
+                self.handle_rename_key(event);
+            }
+            InputMode::Search { .. } => {
+                self.handle_search_key(event);
+            }
+            InputMode::CommandPalette { .. } => {
+                self.handle_command_palette_key(event, event_loop);
+            }
+            InputMode::ScreenshotName { .. } => {
+                self.handle_screenshot_name_key(event);
+            }
+            _ => return false,
         }
-        if matches!(self.state.mode, InputMode::Search { .. }) {
-            self.handle_search_key(event);
-            self.request_redraw();
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
-            self.handle_command_palette_key(event, event_loop);
-            self.request_redraw();
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::ScreenshotName { .. }) {
-            self.handle_screenshot_name_key(event);
-            self.request_redraw();
-            return true;
-        }
-        false
+        self.request_redraw();
+        true
     }
 
     fn try_dispatch_overlay_key(
