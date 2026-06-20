@@ -234,10 +234,14 @@ Themes define all terminal and UI colors in a single `.toml` file.
 
 **Built-in themes** (installed to `~/.config/mmterm/themes/` on first launch):
 `default`, `catppuccin-mocha`, `dracula`, `ereader`, `gruvbox-dark`, `monokai`, `nord`,
-`one-dark`, `solarized-dark`, `tokyo-night`.
+`one-dark`, `solarized-dark`, `tokyo-night`, `totoro`.
 
 `ereader` uses a warm parchment background (`#f4ecd8`) with dark sepia text and a
 muted, warm-toned ANSI palette — designed to reduce eye strain during long sessions.
+
+`totoro` is a Studio Ghibli–inspired dark theme with a deep forest-night background
+(`#2b3530`), warm cream foreground, and dusty greens, acorn ambers, and umbrella blues
+drawn from *My Neighbor Totoro*.
 
 **Selecting a theme** — edit `config.toml`:
 ```toml

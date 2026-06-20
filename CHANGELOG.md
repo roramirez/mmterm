@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - show mmterm version in the config panel title bar
+- `totoro` bundled theme: Studio Ghibli–inspired palette with a deep forest-night background, warm cream foreground, and dusty greens, acorn ambers, and umbrella blues drawn from *My Neighbor Totoro*
 - `ereader` bundled theme: warm parchment background (`#f4ecd8`) with dark sepia text and a muted warm-toned ANSI palette — designed to reduce eye strain during long sessions
 - per-scope theme persistence: each named scope (`--scope <name>`) now saves its active theme in its own session file (`sessions/<name>.toml`); on the next launch with the same scope the saved theme is restored, overriding the global `config.toml`; changing the theme while in a scope never modifies the global config, so other scopes and the default session are unaffected
 
