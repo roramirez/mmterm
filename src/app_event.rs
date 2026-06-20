@@ -307,33 +307,7 @@ impl App {
     }
 
     pub(super) fn handle_rename_key(&mut self, event: &winit::event::KeyEvent) {
-        let buf = if let InputMode::RenameTab { buf } = &self.state.mode {
-            buf.clone()
-        } else {
-            return;
-        };
-        match &event.logical_key {
-            Key::Named(NamedKey::Escape) => {
-                self.state.mode = InputMode::Insert;
-            }
-            Key::Named(NamedKey::Enter) => {
-                let name = buf.trim().to_string();
-                self.state.tabs[self.state.active_tab].name =
-                    if name.is_empty() { None } else { Some(name) };
-                self.state.mode = InputMode::Insert;
-            }
-            Key::Named(NamedKey::Backspace) => {
-                let mut b = buf;
-                b.pop();
-                self.state.mode = InputMode::RenameTab { buf: b };
-            }
-            Key::Character(s) => {
-                let mut b = buf;
-                b.push_str(s);
-                self.state.mode = InputMode::RenameTab { buf: b };
-            }
-            _ => {}
-        }
+        self.state.apply_rename_key(&event.logical_key);
     }
 
     pub(super) fn handle_screenshot_name_key(&mut self, event: &winit::event::KeyEvent) {
@@ -527,26 +501,23 @@ impl App {
         event: &winit::event::KeyEvent,
         event_loop: &ActiveEventLoop,
     ) -> bool {
-        if matches!(self.state.mode, InputMode::RenameTab { .. }) {
-            self.handle_rename_key(event);
-            return true;
+        match &self.state.mode {
+            InputMode::RenameTab { .. } => {
+                self.handle_rename_key(event);
+            }
+            InputMode::Search { .. } => {
+                self.handle_search_key(event);
+            }
+            InputMode::CommandPalette { .. } => {
+                self.handle_command_palette_key(event, event_loop);
+            }
+            InputMode::ScreenshotName { .. } => {
+                self.handle_screenshot_name_key(event);
+            }
+            _ => return false,
         }
-        if matches!(self.state.mode, InputMode::Search { .. }) {
-            self.handle_search_key(event);
-            self.request_redraw();
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::CommandPalette { .. }) {
-            self.handle_command_palette_key(event, event_loop);
-            self.request_redraw();
-            return true;
-        }
-        if matches!(self.state.mode, InputMode::ScreenshotName { .. }) {
-            self.handle_screenshot_name_key(event);
-            self.request_redraw();
-            return true;
-        }
-        false
+        self.request_redraw();
+        true
     }
 
     fn try_dispatch_overlay_key(
