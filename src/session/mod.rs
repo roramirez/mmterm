@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -80,6 +80,44 @@ pub(crate) fn list_scopes_in(dir: &std::path::Path) -> Vec<String> {
         .collect();
     names.sort();
     names
+}
+
+/// Directory that holds per-pane scrollback text files for the given scope.
+/// - `None`  → `~/.mmterm/default/`
+/// - `Some(name)` → `~/.mmterm/<name>/`
+///
+/// Each scope always gets its own sub-directory so sessions with identical
+/// tab/pane counts never share files.
+pub fn scrollback_dir_for(scope: Option<&str>) -> PathBuf {
+    dirs_next::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".mmterm")
+        .join(scope.unwrap_or("default"))
+}
+
+/// Path to the scrollback file for one pane slot within a tab.
+pub fn scrollback_path_for(scope: Option<&str>, tab: usize, slot: usize) -> PathBuf {
+    scrollback_dir_for(scope).join(format!("tab-{tab}-pane-{slot}.txt"))
+}
+
+/// Write scrollback lines to a file atomically (`.tmp` → rename).
+pub(crate) fn save_scrollback(path: &Path, lines: &[String]) -> anyhow::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let content = lines.join("\n");
+    let tmp = path.with_extension("txt.tmp");
+    std::fs::write(&tmp, content.as_bytes())?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+/// Read scrollback lines from a file. Returns an empty vec if the file is missing.
+pub(crate) fn load_scrollback(path: &Path) -> Vec<String> {
+    match std::fs::read_to_string(path) {
+        Ok(s) if !s.is_empty() => s.lines().map(|l| l.to_string()).collect(),
+        _ => vec![],
+    }
 }
 
 pub(crate) fn save_to(path: &std::path::Path, session: &SavedSession) -> anyhow::Result<()> {

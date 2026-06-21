@@ -1044,3 +1044,166 @@ fn reposition_cursor_after_reflow_clamps_chunk() {
     assert_eq!(row, 0);
     assert!(col <= 4);
 }
+
+// ── scrollback_as_text / inject_scrollback_lines ──────────────────────────────
+
+#[test]
+fn scrollback_as_text_empty_grid_returns_empty() {
+    let g = make_grid(10, 3);
+    assert!(g.scrollback_as_text().is_empty());
+}
+
+#[test]
+fn scrollback_as_text_captures_scrollback_lines() {
+    let mut g = make_grid(5, 2);
+    for ch in ['A', 'B', 'C', 'D', 'E'] {
+        g.write_char(ch);
+    }
+    g.write_char('\n');
+    for ch in ['F', 'G', 'H', 'I', 'J'] {
+        g.write_char(ch);
+    }
+    g.write_char('\n');
+    let lines = g.scrollback_as_text();
+    assert!(
+        lines.iter().any(|l| l.contains('A')),
+        "scrollback missing first row: {lines:?}"
+    );
+}
+
+#[test]
+fn scrollback_as_text_strips_trailing_spaces_and_empty_lines() {
+    let mut g = make_grid(10, 2);
+    g.write_char('X');
+    let lines = g.scrollback_as_text();
+    assert_eq!(lines, vec!["X"]);
+}
+
+#[test]
+fn inject_scrollback_lines_populates_scrollback() {
+    let mut g = make_grid(10, 3);
+    let input = vec!["hello".to_string(), "world".to_string()];
+    g.inject_scrollback_lines(&input);
+    assert_eq!(g.scrollback_len(), 2);
+    let text: String = g.scrollback[0]
+        .iter()
+        .map(|c| c.c)
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    assert_eq!(text, "hello");
+    let text2: String = g.scrollback[1]
+        .iter()
+        .map(|c| c.c)
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    assert_eq!(text2, "world");
+}
+
+#[test]
+fn inject_scrollback_lines_clears_existing_scrollback() {
+    let mut g = make_grid(5, 2);
+    g.write_char('A');
+    g.scroll_up(1);
+    assert!(g.scrollback_len() > 0);
+    g.inject_scrollback_lines(&["new".to_string()]);
+    assert_eq!(g.scrollback_len(), 1);
+}
+
+#[test]
+fn inject_scrollback_lines_respects_scrollback_max() {
+    let mut g = Grid::with_colors(
+        5,
+        2,
+        GridColors {
+            fg: Color::WHITE,
+            bg: Color::BLACK,
+            cursor: Color::CURSOR,
+            selection: Color::SELECTION,
+            palette: [Color::BLACK; 16],
+        },
+        3,
+    );
+    let many: Vec<String> = (0..10).map(|i| format!("line{i}")).collect();
+    g.inject_scrollback_lines(&many);
+    assert_eq!(g.scrollback_len(), 3);
+    let first: String = g.scrollback[0]
+        .iter()
+        .map(|c| c.c)
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    assert_eq!(first, "line7");
+}
+
+#[test]
+fn scrollback_roundtrip_via_text() {
+    let mut g = make_grid(10, 3);
+    for ch in ['H', 'i', '!'] {
+        g.write_char(ch);
+    }
+    g.write_char('\n');
+    let lines = g.scrollback_as_text();
+    let mut g2 = make_grid(10, 3);
+    g2.inject_scrollback_lines(&lines);
+    let lines2 = g2.scrollback_as_text();
+    assert_eq!(lines, lines2);
+}
+
+fn live_row_text(g: &Grid, row: usize) -> String {
+    (0..g.cols)
+        .map(|c| g.cell(c, row).c)
+        .collect::<String>()
+        .trim_end()
+        .to_string()
+}
+
+#[test]
+fn restore_screen_tail_fills_live_grid_with_cursor_below() {
+    // Fewer lines than rows: all land on the live screen, none in scrollback,
+    // and the cursor parks on the row right after the last restored line so the
+    // incoming shell prompt continues there.
+    let mut g = make_grid(10, 5);
+    g.restore_screen(&["one".to_string(), "two".to_string()]);
+    assert_eq!(g.scrollback_len(), 0);
+    assert_eq!(live_row_text(&g, 0), "one");
+    assert_eq!(live_row_text(&g, 1), "two");
+    assert_eq!(live_row_text(&g, 2), "");
+    assert_eq!(g.cursor_row, 2);
+    assert_eq!(g.cursor_col, 0);
+}
+
+#[test]
+fn restore_screen_overflow_spills_oldest_to_scrollback() {
+    // More lines than fit: the bottom row is reserved for the prompt, so only
+    // rows-1 lines stay live and the oldest spill into scrollback in order.
+    let mut g = make_grid(10, 3);
+    let lines: Vec<String> = (0..5).map(|i| format!("L{i}")).collect();
+    g.restore_screen(&lines);
+    // rows = 3 → avail = 2 live lines (L3, L4); L0..L2 go to scrollback.
+    assert_eq!(g.scrollback_len(), 3);
+    assert_eq!(live_row_text(&g, 0), "L3");
+    assert_eq!(live_row_text(&g, 1), "L4");
+    assert_eq!(g.cursor_row, 2);
+    let sb_first: String = g.scrollback[0]
+        .iter()
+        .map(|c| c.c)
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    assert_eq!(sb_first, "L0");
+}
+
+#[test]
+fn restore_screen_overwrites_existing_live_content() {
+    // A prompt the freshly spawned shell may have printed before restore runs
+    // must not survive underneath the restored tail.
+    let mut g = make_grid(10, 4);
+    for ch in ['$', ' ', 'x'] {
+        g.write_char(ch);
+    }
+    g.restore_screen(&["restored".to_string()]);
+    assert_eq!(live_row_text(&g, 0), "restored");
+    assert_eq!(g.cursor_row, 1);
+}
