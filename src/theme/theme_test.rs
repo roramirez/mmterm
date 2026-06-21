@@ -35,6 +35,18 @@ fn load_theme_catppuccin_mocha_parses() {
 }
 
 #[test]
+fn load_theme_totoro_parses() {
+    let dir = tempdir().unwrap();
+    install_bundled_themes(dir.path());
+    let theme = load_theme("totoro", dir.path()).unwrap();
+    assert_eq!(theme.background.r, 0x2b);
+    assert_eq!(theme.background.g, 0x35);
+    assert_eq!(theme.background.b, 0x30);
+    assert_eq!(theme.foreground.r, 0xe8);
+    assert_eq!(theme.badge.g, 0xa8);
+}
+
+#[test]
 fn load_theme_unknown_name_returns_error() {
     let dir = tempdir().unwrap();
     let result = load_theme("nonexistent", dir.path());
