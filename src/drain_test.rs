@@ -159,6 +159,22 @@ fn scrollback_delta_sent_when_lines_pushed() {
     );
 }
 
+#[test]
+fn output_effect_sent_after_processing_bytes() {
+    let (entry, tx) = make_pane_entry();
+    // Plain printable output that stays on the visible grid (no scrollback push)
+    // must still produce an Output effect so inactive tabs can flag activity.
+    tx.send(b"hi".to_vec()).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let mut saw_output = false;
+    while let Ok(e) = entry.effects_rx.try_recv() {
+        if matches!(e, ParseEffect::Output) {
+            saw_output = true;
+        }
+    }
+    assert!(saw_output, "expected Output effect after parsing bytes");
+}
+
 // ── pending_resize ────────────────────────────────────────────────────────────
 
 #[test]
@@ -230,6 +246,58 @@ fn bytes_after_ctrl_c_are_not_discarded() {
     assert_eq!(
         first_five, "HELLO",
         "bytes after 0x03 must be parsed, not discarded"
+    );
+}
+
+// ── has_activity drain integration ─────────────────────────────────────────────
+
+/// Headless App builder (skips when no display is available), mirroring the
+/// helper in main_test.rs. Used to drive the real `drain_effects` path.
+fn make_app() -> Option<crate::App> {
+    use winit::event_loop::EventLoopBuilder;
+    use winit::platform::x11::EventLoopBuilderExtX11;
+    let el = EventLoopBuilder::new().with_any_thread(true).build().ok()?;
+    let proxy = el.create_proxy();
+    std::mem::forget(el);
+    Some(crate::App::new(
+        crate::config::Config::default(),
+        proxy,
+        None,
+    ))
+}
+
+#[test]
+fn output_flags_inactive_tab_not_active_tab() {
+    let Some(mut app) = make_app() else { return };
+
+    // Tab 0 (active) and tab 1 (inactive), each with one controllable pane.
+    let (entry0, _tx0) = make_pane_entry();
+    let mut tab0 = make_tab();
+    tab0.active = 1;
+    tab0.panes.insert(1, entry0);
+
+    let (entry1, tx1) = make_pane_entry();
+    let mut tab1 = make_tab();
+    tab1.active = 1;
+    tab1.panes.insert(1, entry1);
+
+    app.state.tabs.clear();
+    app.state.tabs.push(tab0);
+    app.state.tabs.push(tab1);
+    app.state.active_tab = 0;
+
+    // Output only on the inactive tab's pane.
+    tx1.send(b"work".to_vec()).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(60));
+    app.drain_effects();
+
+    assert!(
+        app.state.tabs[1].has_activity,
+        "inactive tab with output should be flagged active"
+    );
+    assert!(
+        !app.state.tabs[0].has_activity,
+        "active tab should never be flagged by drain"
     );
 }
 
