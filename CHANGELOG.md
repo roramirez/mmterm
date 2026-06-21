@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-20
+
 ### Added
 - session restore now preserves scrollback content for each panel (files stored in `~/.mmterm/<scope>/`, `~/.mmterm/default/` for the default session) and seeds the saved tail onto the live screen so the new shell prompt continues right where the session left off
 - show mmterm version in the config panel title bar
@@ -324,7 +326,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - App icon with MM branding
 - event loop yields on idle to eliminate CPU busy-loop during quiescent periods
 
-[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/roramirez/mmterm/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/roramirez/mmterm/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/roramirez/mmterm/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/roramirez/mmterm/compare/v0.5.0...v0.6.0
