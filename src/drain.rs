@@ -40,6 +40,10 @@ pub enum ParseEffect {
     },
     /// Parser thread's PTY EOF — pane should be closed.
     Disconnected,
+    /// The parser processed a non-empty batch of PTY bytes this iteration.
+    /// Emitted once per batch so the main thread can flag activity on inactive
+    /// tabs (output that only repaints the visible grid produces no other effect).
+    Output,
 }
 
 // ── Parser thread ─────────────────────────────────────────────────────────────
@@ -176,6 +180,9 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
             if bell {
                 let _ = effects_tx.send(ParseEffect::Bell);
             }
+            // Signal that this pane produced output this batch. Batches only form
+            // when PTY bytes arrived, so reaching here always means real output.
+            let _ = effects_tx.send(ParseEffect::Output);
 
             wakeup();
 
@@ -275,6 +282,14 @@ impl App {
                         }
                         ParseEffect::Bell => {
                             bell_tabs.insert(tab_idx);
+                        }
+                        ParseEffect::Output => {
+                            // Flag activity on inactive tabs so the tab bar shows a
+                            // dot. The active tab's flag is cleared every redraw
+                            // (see render_ops), so marking it here would be moot.
+                            if tab_idx != self.state.active_tab {
+                                self.state.tabs[tab_idx].has_activity = true;
+                            }
                         }
                         ParseEffect::ClipboardWrite(t) => {
                             deferred.push(Deferred {

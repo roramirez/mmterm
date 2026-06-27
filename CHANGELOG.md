@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- activity indicator: tabs with output while not focused now show the activity dot in the tab bar; the marker clears as soon as the tab is focused
+
 ## [0.8.0] - 2026-06-20
 
 ### Added
