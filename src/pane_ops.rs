@@ -15,12 +15,16 @@ use winit::event_loop::ActiveEventLoop;
 use super::App;
 
 impl App {
+    /// Spawns a pane into `tab_idx`. Returns `Some(id)` only after the
+    /// `PaneEntry` is inserted into `panes`; returns `None` (and logs) when the
+    /// PTY spawn fails, so callers never wire `layout`/`active` to a pane that
+    /// does not exist.
     pub(crate) fn spawn_pane_into(
         &mut self,
         tab_idx: usize,
         rect: [u32; 4],
         cwd: Option<std::path::PathBuf>,
-    ) -> usize {
+    ) -> Option<usize> {
         let id = self.state.next_pane_id;
         self.state.next_pane_id += 1;
         let [_, _, w, h] = rect;
@@ -105,13 +109,16 @@ impl App {
                         metrics,
                     },
                 );
+                Some(id)
             }
-            Err(e) => log::error!("PTY spawn failed: {e}"),
+            Err(e) => {
+                log::error!("PTY spawn failed: {e}");
+                None
+            }
         }
-        id
     }
 
-    pub(crate) fn spawn_pane(&mut self, rect: [u32; 4]) -> usize {
+    pub(crate) fn spawn_pane(&mut self, rect: [u32; 4]) -> Option<usize> {
         let cwd = self
             .state
             .tabs
@@ -149,10 +156,18 @@ impl App {
             bell_cooldown_until: None,
             passthrough: false,
         });
-        let id = self.spawn_pane_into(tab_idx, initial_rect, cwd);
-        self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
-        self.state.tabs[tab_idx].active = id;
-        self.state.active_tab = tab_idx;
+        match self.spawn_pane_into(tab_idx, initial_rect, cwd) {
+            Some(id) => {
+                self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
+                self.state.tabs[tab_idx].active = id;
+                self.state.active_tab = tab_idx;
+            }
+            None => {
+                // Spawn failed: nothing was inserted into this tab's panes.
+                // Drop the just-pushed (empty) tab and keep the previous focus.
+                self.state.tabs.pop();
+            }
+        }
     }
 
     pub(crate) fn close_tab(&mut self, event_loop: &ActiveEventLoop) {
@@ -166,6 +181,37 @@ impl App {
         self.state.active_tab = tabs::close_tab_index(old_active, old_count);
     }
 
+    /// Next active pane after a removal. `preferred` is the sibling reported by
+    /// `Layout::remove`. Returns `None` when the tab is now empty — the caller
+    /// must close the tab (or exit if it is the last one) instead of focusing a
+    /// pane that does not exist.
+    fn next_active_after_remove(
+        panes: &HashMap<usize, PaneEntry>,
+        preferred: Option<usize>,
+    ) -> Option<usize> {
+        if panes.is_empty() {
+            return None;
+        }
+        Some(
+            preferred
+                .filter(|id| panes.contains_key(id))
+                .unwrap_or_else(|| *panes.keys().next().expect("panes non-empty")),
+        )
+    }
+
+    /// Closes the tab at `tab_idx`: removes it (clamping `active_tab`) or exits
+    /// the app when it is the last remaining tab.
+    fn close_tab_at(&mut self, tab_idx: usize, event_loop: &ActiveEventLoop) {
+        if self.state.tabs.len() == 1 {
+            event_loop.exit();
+            return;
+        }
+        self.state.tabs.remove(tab_idx);
+        if self.state.active_tab >= self.state.tabs.len() {
+            self.state.active_tab = self.state.tabs.len() - 1;
+        }
+    }
+
     pub(crate) fn close_pane_on_tab(
         &mut self,
         tab_idx: usize,
@@ -176,21 +222,23 @@ impl App {
             return;
         }
         if self.state.tabs[tab_idx].panes.len() == 1 {
-            if self.state.tabs.len() == 1 {
-                event_loop.exit();
-                return;
-            }
-            self.state.tabs.remove(tab_idx);
-            if self.state.active_tab >= self.state.tabs.len() {
-                self.state.active_tab = self.state.tabs.len() - 1;
-            }
+            self.close_tab_at(tab_idx, event_loop);
             return;
         }
-        let tab = &mut self.state.tabs[tab_idx];
-        let new_focus = tab.layout.remove(pane_id);
-        tab.panes.remove(&pane_id);
-        if tab.active == pane_id {
-            tab.active = new_focus.unwrap_or_else(|| *tab.panes.keys().next().unwrap());
+        let new_focus = self.state.tabs[tab_idx].layout.remove(pane_id);
+        self.state.tabs[tab_idx].panes.remove(&pane_id);
+        match Self::next_active_after_remove(&self.state.tabs[tab_idx].panes, new_focus) {
+            Some(id) => {
+                if self.state.tabs[tab_idx].active == pane_id {
+                    self.state.tabs[tab_idx].active = id;
+                }
+            }
+            None => {
+                // Tab emptied (e.g. ghost-pane state): close it instead of
+                // focusing a non-existent pane.
+                self.close_tab_at(tab_idx, event_loop);
+                return;
+            }
         }
         let tab_h = self.tab_h();
         let status_h = self.status_h();
@@ -266,7 +314,11 @@ impl App {
             }
         };
 
-        let new_id = self.spawn_pane(new_rect);
+        let new_id = match self.spawn_pane(new_rect) {
+            Some(id) => id,
+            // Spawn failed: leave the current pane, layout tree, and focus intact.
+            None => return,
+        };
         let tab = self.tab_mut();
         tab.layout.split(active, new_id, dir);
         tab.active = new_id;
@@ -286,7 +338,16 @@ impl App {
         let active = tab.active;
         let new_focus = tab.layout.remove(active);
         tab.panes.remove(&active);
-        tab.active = new_focus.unwrap_or_else(|| *tab.panes.keys().next().unwrap());
+        match Self::next_active_after_remove(&tab.panes, new_focus) {
+            Some(id) => tab.active = id,
+            None => {
+                // Tab emptied (e.g. ghost-pane state): close it instead of
+                // focusing a non-existent pane.
+                let _ = tab;
+                self.close_tab(event_loop);
+                return;
+            }
+        }
         let idx = self.state.active_tab;
         let tab_h = self.tab_h();
         let status_h = self.status_h();

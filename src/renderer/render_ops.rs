@@ -77,6 +77,11 @@ pub(super) fn draw_overlays(
 
 impl App {
     pub(crate) fn redraw(&mut self) {
+        // No tabs means startup failed to spawn any pane and an exit is pending;
+        // skip the frame rather than indexing an empty `tabs`.
+        if self.state.tabs.is_empty() {
+            return;
+        }
         if self.state.blink_last.elapsed()
             >= Duration::from_millis(self.state.config.window.cursor_blink_ms as u64)
         {
@@ -252,6 +257,9 @@ impl App {
             self.state.swallow_next_tab = true;
         } else {
             self.modifiers = Modifiers::default();
+        }
+        if self.state.tabs.is_empty() {
+            return;
         }
         let active_tab = self.state.active_tab;
         let tab_active = self.state.tabs[active_tab].active;
