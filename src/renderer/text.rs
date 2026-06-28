@@ -87,6 +87,16 @@ impl FontMetrics {
     }
 }
 
+/// One tab's geometry and content, passed to `draw_tab_badge`.
+struct TabBadge<'a> {
+    x: u32,
+    w: u32,
+    bar_h: u32,
+    label: &'a str,
+    is_active: bool,
+    has_activity: bool,
+}
+
 pub struct Renderer {
     #[allow(dead_code)] // config-default reference; not used for layout (see doc/LLMs.md)
     pub font_px: f32, // default from config (reference only)
@@ -522,44 +532,111 @@ impl Renderer {
         // Bottom separator
         fill_rect(buf, width, 0, tab_h - 1, width, 1, sep_col);
 
-        let inactive_bg = dim_color(color_u32(theme.background), 0.85);
         let inactive_text = color_u32(theme.palette[8]);
-        let active_bg = color_u32(theme.badge);
-        let mut cursor_x = 4u32;
-        for (label, is_active, has_activity) in tabs {
-            let tab_w = label.len() as u32 * cw + 12;
-            let (badge_bg, text_color) = if *is_active {
-                (active_bg, BADGE_FG)
-            } else {
-                (inactive_bg, inactive_text)
-            };
 
-            // Badge fill
-            fill_rect(buf, width, cursor_x, 2, tab_w, tab_h - 4, badge_bg);
+        // Natural width of every tab (same formula as the draw loop below).
+        let widths: Vec<u32> = tabs
+            .iter()
+            .map(|(label, _, _)| label.len() as u32 * cw + 12)
+            .collect();
+        if widths.is_empty() {
+            return;
+        }
+        let active_idx = tabs.iter().position(|(_, a, _)| *a).unwrap_or(0);
 
-            // Label
+        // Scroll the strip (whole-tab granularity) so the active tab stays
+        // visible. The left margin starts at x=4; reserve a symmetric right
+        // margin so the rightmost tab/chevron is not flush against the edge.
+        const MARGIN: u32 = 4;
+        let chevron_w = cw + 6;
+        let avail = width.saturating_sub(MARGIN * 2);
+        let window = crate::ui::tabs::visible_tab_window(&widths, active_idx, avail, chevron_w);
+
+        let mut cursor_x = MARGIN;
+        if window.left_chevron {
             self.draw_str(
                 buf,
                 width,
                 tab_h,
-                cursor_x + 6,
+                cursor_x,
                 2,
-                label,
+                "‹",
                 fp,
-                *is_active,
-                text_color,
+                false,
+                inactive_text,
             );
+            cursor_x += chevron_w;
+        }
 
-            // Activity dot: small filled square in the top-right corner of the badge
-            if *has_activity && !*is_active {
-                const DOT: u32 = 4;
-                let dot_color = color_u32(theme.palette[1]); // red/pink
-                let dot_x = cursor_x + tab_w.saturating_sub(DOT + 3);
-                let dot_y = 4u32;
-                fill_rect(buf, width, dot_x, dot_y, DOT, DOT, dot_color);
-            }
+        for i in window.first..=window.last {
+            let (label, is_active, has_activity) = &tabs[i];
+            let badge = TabBadge {
+                x: cursor_x,
+                w: widths[i],
+                bar_h: tab_h,
+                label,
+                is_active: *is_active,
+                has_activity: *has_activity,
+            };
+            self.draw_tab_badge(buf, width, &badge, fp, theme);
+            cursor_x += widths[i] + 2;
+        }
 
-            cursor_x += tab_w + 2;
+        if window.right_chevron {
+            let chevron_x = width.saturating_sub(MARGIN + chevron_w);
+            self.draw_str(
+                buf,
+                width,
+                tab_h,
+                chevron_x,
+                2,
+                "›",
+                fp,
+                false,
+                inactive_text,
+            );
+        }
+    }
+
+    fn draw_tab_badge(
+        &mut self,
+        buf: &mut [u32],
+        width: u32,
+        badge: &TabBadge,
+        fp: f32,
+        theme: &ResolvedTheme,
+    ) {
+        let (badge_bg, text_color) = if badge.is_active {
+            (color_u32(theme.badge), BADGE_FG)
+        } else {
+            (
+                dim_color(color_u32(theme.background), 0.85),
+                color_u32(theme.palette[8]),
+            )
+        };
+
+        // Badge fill
+        fill_rect(buf, width, badge.x, 2, badge.w, badge.bar_h - 4, badge_bg);
+
+        // Label
+        self.draw_str(
+            buf,
+            width,
+            badge.bar_h,
+            badge.x + 6,
+            2,
+            badge.label,
+            fp,
+            badge.is_active,
+            text_color,
+        );
+
+        // Activity dot: small filled square in the top-right corner of the badge
+        if badge.has_activity && !badge.is_active {
+            const DOT: u32 = 4;
+            let dot_color = color_u32(theme.palette[1]); // red/pink
+            let dot_x = badge.x + badge.w.saturating_sub(DOT + 3);
+            fill_rect(buf, width, dot_x, 4, DOT, DOT, dot_color);
         }
     }
 

@@ -201,3 +201,65 @@ fn cursor_hidden_when_blink_off() {
 fn cursor_hidden_when_scrolled() {
     assert!(!should_show_cursor(true, true, true, 5));
 }
+
+// ── visible_tab_window ────────────────────────────────────────────────────────
+
+#[test]
+fn window_all_fit_no_chevrons() {
+    let widths = [40, 50, 60];
+    let w = visible_tab_window(&widths, 1, 1000, 20);
+    assert_eq!((w.first, w.last), (0, 2));
+    assert!(!w.left_chevron && !w.right_chevron);
+}
+
+#[test]
+fn window_empty_is_safe() {
+    let w = visible_tab_window(&[], 0, 100, 20);
+    assert_eq!((w.first, w.last), (0, 0));
+    assert!(!w.left_chevron && !w.right_chevron);
+}
+
+#[test]
+fn window_active_middle_overflow_both_chevrons() {
+    // 5 tabs of 100px each = 500 total; only ~150px available.
+    let widths = [100, 100, 100, 100, 100];
+    let w = visible_tab_window(&widths, 2, 150, 20);
+    assert!(w.first <= 2 && 2 <= w.last, "active must stay visible");
+    assert!(w.left_chevron, "tabs hidden to the left");
+    assert!(w.right_chevron, "tabs hidden to the right");
+}
+
+#[test]
+fn window_active_first_no_left_chevron() {
+    let widths = [100, 100, 100, 100];
+    let w = visible_tab_window(&widths, 0, 150, 20);
+    assert_eq!(w.first, 0);
+    assert!(!w.left_chevron);
+    assert!(w.right_chevron);
+}
+
+#[test]
+fn window_active_last_no_right_chevron() {
+    let widths = [100, 100, 100, 100];
+    let n = widths.len();
+    let w = visible_tab_window(&widths, n - 1, 150, 20);
+    assert_eq!(w.last, n - 1);
+    assert!(w.left_chevron);
+    assert!(!w.right_chevron);
+}
+
+#[test]
+fn window_single_overwide_tab_does_not_panic() {
+    let widths = [500];
+    let w = visible_tab_window(&widths, 0, 100, 20);
+    assert_eq!((w.first, w.last), (0, 0));
+    assert!(!w.left_chevron && !w.right_chevron);
+}
+
+#[test]
+fn window_active_overwide_in_strip_still_visible() {
+    // The active tab alone exceeds avail; it must still be the visible one.
+    let widths = [50, 500, 50];
+    let w = visible_tab_window(&widths, 1, 100, 20);
+    assert!(w.first <= 1 && 1 <= w.last);
+}
