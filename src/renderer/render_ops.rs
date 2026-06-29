@@ -33,7 +33,7 @@ pub(super) fn draw_overlays(
     h: u32,
 ) {
     if let Some(panel) = &state.config_panel {
-        renderer.draw_config_panel(pixels, w, h, panel);
+        renderer.draw_config_panel(pixels, w, h, panel, &state.theme);
     }
     if let InputMode::CommandPalette { query, selected } = &state.mode {
         let filtered = command_palette::filter(query);
@@ -46,7 +46,7 @@ pub(super) fn draw_overlays(
                 )
             })
             .collect();
-        renderer.draw_command_palette(pixels, w, h, query, &entries, *selected);
+        renderer.draw_command_palette(pixels, w, h, query, &entries, *selected, &state.theme);
     }
     if state.quit_pending {
         renderer.draw_quit_confirm(pixels, w, h, &state.theme);
@@ -71,7 +71,17 @@ pub(super) fn draw_overlays(
         ref name,
     } = state.mode
     {
-        renderer.draw_screenshot_name_input(pixels, w, h, cx, cy, half_w, half_h, name);
+        renderer.draw_screenshot_name_input(
+            pixels,
+            w,
+            h,
+            cx,
+            cy,
+            half_w,
+            half_h,
+            name,
+            &state.theme,
+        );
     }
 }
 
