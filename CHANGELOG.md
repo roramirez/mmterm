@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - scroll the tab bar to keep the active tab visible when many tabs are open; previously tabs overflowed the window width and the header rendered garbled
+- avoid a ghost pane and a crash when a PTY spawn fails: a failed split/tab/restore no longer wires the layout or focus to a non-existent pane, and closing a pane in that state no longer panics
+- exit cleanly with an error message when no shell can be spawned at startup (e.g. an invalid `shell`/`$SHELL`) instead of panicking on the first window event
 
 ## [0.8.0] - 2026-06-20
 

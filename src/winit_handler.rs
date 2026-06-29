@@ -66,12 +66,29 @@ impl ApplicationHandler for App {
             self.new_tab(size.width, size.height);
         }
 
+        // If no pane could be spawned (e.g. an invalid shell), the app has no
+        // terminal to show and every per-frame handler would index an empty
+        // `tabs`. Exit cleanly with a clear error instead of running broken.
+        if self.state.tabs.is_empty() {
+            log::error!(
+                "no shell could be spawned — check your `shell` setting or $SHELL; exiting"
+            );
+            event_loop.exit();
+            return;
+        }
+
         self.surface = Some(surface);
         self.window = Some(window.clone());
         window.request_redraw();
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        // When `tabs` is empty an exit is already pending (startup spawn failure
+        // or the last pane was closed); winit may still deliver queued events.
+        // Ignore them rather than indexing the empty state.
+        if self.state.tabs.is_empty() {
+            return;
+        }
         match event {
             WindowEvent::CloseRequested => {
                 self.execute_action(Action::Quit, event_loop);

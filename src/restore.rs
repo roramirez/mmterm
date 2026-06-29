@@ -82,7 +82,7 @@ impl App {
             let slot_to_id: Vec<usize> = tab_sess
                 .pane_cwds
                 .iter()
-                .map(|cwd| {
+                .filter_map(|cwd| {
                     let cwd_opt = if cwd.as_os_str().is_empty() {
                         Some(home.clone())
                     } else if cwd.exists() {
@@ -93,18 +93,9 @@ impl App {
                     self.spawn_pane_into(tab_idx, rect, cwd_opt)
                 })
                 .collect();
-            if slot_to_id.is_empty() {
-                let id = self.spawn_pane_into(tab_idx, rect, None);
-                self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
-                self.state.tabs[tab_idx].active = id;
-            } else {
-                let layout = Layout::from_saved_node(&tab_sess.layout, &slot_to_id, win_w, win_h);
-                let active_id = slot_to_id
-                    .get(tab_sess.active_pane)
-                    .copied()
-                    .unwrap_or(slot_to_id[0]);
-                self.state.tabs[tab_idx].layout = layout;
-                self.state.tabs[tab_idx].active = active_id;
+            if !self.restore_tab_layout(tab_idx, tab_sess, &slot_to_id, rect, win_w, win_h) {
+                // Tab dropped (no pane could be spawned): skip its sizing/scrollback.
+                continue;
             }
             let pane_padding = self.pane_padding();
             Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
@@ -136,5 +127,52 @@ impl App {
             }
         }
         true
+    }
+
+    /// Wires the layout and active pane for a restored tab from the panes that
+    /// actually spawned. Returns `false` when no pane could be spawned and the
+    /// (now removed) tab should be skipped.
+    fn restore_tab_layout(
+        &mut self,
+        tab_idx: usize,
+        tab_sess: &session::SavedTab,
+        slot_to_id: &[usize],
+        rect: [u32; 4],
+        win_w: u32,
+        win_h: u32,
+    ) -> bool {
+        let expected = tab_sess.pane_cwds.len();
+        if slot_to_id.len() == expected && !slot_to_id.is_empty() {
+            let layout = Layout::from_saved_node(&tab_sess.layout, slot_to_id, win_w, win_h);
+            let active_id = slot_to_id
+                .get(tab_sess.active_pane)
+                .copied()
+                .unwrap_or(slot_to_id[0]);
+            self.state.tabs[tab_idx].layout = layout;
+            self.state.tabs[tab_idx].active = active_id;
+            return true;
+        }
+        if let Some(&first) = slot_to_id.first() {
+            // Partial spawn failure: the saved layout's slot indices no longer line
+            // up, so degrade to a flat single-pane layout on the first survivor
+            // rather than feeding gapped slots into from_saved_node.
+            self.state.tabs[tab_idx].layout = Layout::new(first, win_w, win_h);
+            self.state.tabs[tab_idx].active = first;
+            return true;
+        }
+        // No saved pane spawned (empty tab, or every spawn failed): try one fresh
+        // fallback pane; if even that fails, drop the empty tab so we never leave a
+        // ghost tab with no panes.
+        match self.spawn_pane_into(tab_idx, rect, None) {
+            Some(id) => {
+                self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
+                self.state.tabs[tab_idx].active = id;
+                true
+            }
+            None => {
+                self.state.tabs.remove(tab_idx);
+                false
+            }
+        }
     }
 }
