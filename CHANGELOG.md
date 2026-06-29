@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - activity indicator: tabs with output while not focused now show the activity dot in the tab bar; the marker clears as soon as the tab is focused
 
+### Changed
+- derive `PartialEq` on the config structs to support a full config round-trip test
+
 ### Fixed
 - scroll the tab bar to keep the active tab visible when many tabs are open; previously tabs overflowed the window width and the header rendered garbled
 - avoid a ghost pane and a crash when a PTY spawn fails: a failed split/tab/restore no longer wires the layout or focus to a non-existent pane, and closing a pane in that state no longer panics
