@@ -140,6 +140,20 @@ fn bell_effect_sent_on_bell_byte() {
 }
 
 #[test]
+fn notification_effect_sent_on_osc777() {
+    let (entry, tx) = make_pane_entry();
+    tx.send(b"\x1b]777;notify;Title;Body\x07".to_vec()).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let mut got = None;
+    while let Ok(e) = entry.effects_rx.try_recv() {
+        if let ParseEffect::Notification { title, body } = e {
+            got = Some((title, body));
+        }
+    }
+    assert_eq!(got, Some(("Title".to_string(), "Body".to_string())));
+}
+
+#[test]
 fn scrollback_delta_sent_when_lines_pushed() {
     let (entry, tx) = make_pane_entry();
     // 24-row grid; filling it pushes lines to scrollback

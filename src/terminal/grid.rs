@@ -231,6 +231,8 @@ pub struct Grid {
     pub shell_state: ShellState,
     // Last command exit code from OSC 133 ; D ; <code>
     pub last_exit_code: Option<i32>,
+    // OSC 777 pending desktop notification (title, body); drained once by the parser thread
+    pub pending_notification: Option<(String, String)>,
 }
 
 impl Grid {
@@ -296,6 +298,7 @@ impl Grid {
             images: Vec::new(),
             shell_state: ShellState::Unknown,
             last_exit_code: None,
+            pending_notification: None,
         }
     }
 
@@ -1037,6 +1040,7 @@ impl Grid {
         self.focus_report = false;
         self.shell_state = ShellState::Unknown;
         self.last_exit_code = None;
+        self.pending_notification = None;
     }
 }
 

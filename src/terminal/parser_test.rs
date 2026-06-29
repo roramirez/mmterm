@@ -1270,3 +1270,20 @@ fn osc133_unknown_subcommand_is_ignored() {
     p.process(b"\x1b]133;Z\x07");
     assert_eq!(p.grid.shell_state, ShellState::Unknown);
 }
+
+#[test]
+fn osc777_notify_sets_pending_notification() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]777;notify;Build done;exit 0\x07");
+    assert_eq!(
+        p.grid.pending_notification,
+        Some(("Build done".to_string(), "exit 0".to_string()))
+    );
+}
+
+#[test]
+fn osc777_without_notify_keyword_is_ignored() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]777;other;Title;Body\x07");
+    assert!(p.grid.pending_notification.is_none());
+}

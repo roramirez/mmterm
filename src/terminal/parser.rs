@@ -323,6 +323,7 @@ impl Perform for Performer<'_> {
         osc_set_hyperlink(self.grid, params);
         osc_clipboard(self.grid, params);
         osc_shell_integration(self.grid, params);
+        osc_notification(self.grid, params);
     }
     fn hook(&mut self, _params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
         // Sixel graphics: DCS P...q (final char = 'q', no intermediates)
@@ -491,6 +492,14 @@ fn osc_shell_integration(grid: &mut Grid, params: &[&[u8]]) {
             grid.last_exit_code = code;
         }
         _ => {}
+    }
+}
+
+fn osc_notification(grid: &mut Grid, params: &[&[u8]]) {
+    if let [b"777", b"notify", title, body] = params
+        && let (Ok(t), Ok(b)) = (std::str::from_utf8(title), std::str::from_utf8(body))
+    {
+        grid.pending_notification = Some((t.to_owned(), b.to_owned()));
     }
 }
 

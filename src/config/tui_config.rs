@@ -32,6 +32,7 @@ const F_STATUS_BAR_RIGHT: usize = 36;
 const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
+const F_DESKTOP_NOTIFICATIONS: usize = 40;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -290,6 +291,13 @@ impl ConfigPanel {
             label: "Shell Integration",
             hint: "OSC 133: show prompt and exit-code badges in the status bar",
             value: cfg.general.shell_integration.to_string(),
+            kind: FieldKind::Bool,
+            section: None,
+        });
+        fields.push(Field {
+            label: "Desktop Notifications",
+            hint: "OSC 777: show desktop notifications requested by programs",
+            value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
             section: None,
         });
@@ -666,6 +674,10 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid shell_integration — use true or false")?;
 
+        let desktop_notifications = get(F_DESKTOP_NOTIFICATIONS)
+            .parse::<bool>()
+            .map_err(|_| "Invalid desktop_notifications — use true or false")?;
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -697,6 +709,7 @@ impl ConfigPanel {
                 auto_update_check,
                 auto_update_install,
                 shell_integration,
+                desktop_notifications,
             },
         })
     }
