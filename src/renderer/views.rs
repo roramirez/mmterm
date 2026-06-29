@@ -34,7 +34,7 @@ pub(crate) fn acquire_grid_guards(state: &AppState) -> Vec<(usize, RwLockReadGua
     let tab = &state.tabs[state.active_tab];
     tab.panes
         .iter()
-        .map(|(id, e)| (*id, e.pane.grid.read().unwrap()))
+        .filter_map(|(id, e)| e.pane.grid_read().map(|g| (*id, g)))
         .collect()
 }
 
@@ -131,10 +131,7 @@ pub fn build_tab_titles(state: &AppState) -> Vec<(String, bool, bool)> {
             let osc_title = tab
                 .panes
                 .get(&tab.active)
-                .and_then(|e| {
-                    let g = e.pane.grid.read().unwrap();
-                    g.osc_title.clone()
-                })
+                .and_then(|e| e.pane.grid_read().and_then(|g| g.osc_title.clone()))
                 .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
             let rename_buf = if is_active {
                 if let InputMode::RenameTab { buf } = &state.mode {

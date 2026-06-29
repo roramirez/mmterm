@@ -261,9 +261,9 @@ impl App {
                 let (cols, rows) = entry
                     .metrics
                     .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
-                let (grid_cols, grid_rows) = {
-                    let g = entry.pane.grid.read().unwrap();
-                    (g.cols, g.rows)
+                let Some((grid_cols, grid_rows)) = entry.pane.grid_read().map(|g| (g.cols, g.rows))
+                else {
+                    continue;
                 };
                 if grid_cols != cols || grid_rows != rows {
                     // Update rect immediately so the renderer uses the new layout
@@ -273,7 +273,9 @@ impl App {
                     // existing write lock. This avoids blocking the event loop on
                     // grid.write() while the parser holds it (up to ~36 ms), keeping
                     // resize fluid even during heavy output.
-                    *entry.pending_resize.lock().unwrap() = Some((cols, rows));
+                    if let Ok(mut pr) = entry.pending_resize.lock() {
+                        *pr = Some((cols, rows));
+                    }
                     let _ = entry.pty.resize(cols as u16, rows as u16);
                 }
             }

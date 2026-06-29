@@ -29,8 +29,10 @@ impl App {
                     })
                     .collect();
                 for (slot, id) in id_order.iter().enumerate() {
-                    if let Some(e) = tab.panes.get(id) {
-                        let lines = e.pane.grid.read().unwrap().scrollback_as_text();
+                    if let Some(e) = tab.panes.get(id)
+                        && let Some(g) = e.pane.grid_read()
+                    {
+                        let lines = g.scrollback_as_text();
                         let path = session::scrollback_path_for(self.scope.as_deref(), tab_i, slot);
                         if let Err(err) = session::save_scrollback(&path, &lines) {
                             log::warn!("failed to save scrollback tab={tab_i} slot={slot}: {err}");
@@ -104,11 +106,12 @@ impl App {
                 let lines = session::load_scrollback(&path);
                 if !lines.is_empty()
                     && let Some(entry) = self.state.tabs[tab_idx].panes.get_mut(&pane_id)
+                    && let Some(mut g) = entry.pane.grid_write()
                 {
                     // Seed the live screen with the saved tail so the new shell
                     // prompt continues right where the session left off; the view
                     // stays pinned to the bottom (scroll_offset 0).
-                    entry.pane.grid.write().unwrap().restore_screen(&lines);
+                    g.restore_screen(&lines);
                 }
             }
         }

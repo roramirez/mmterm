@@ -205,8 +205,9 @@ impl AppState {
         }
         let tab_idx = self.active_tab;
         let active = self.tabs[tab_idx].active;
-        if let Some(entry) = self.tabs[tab_idx].panes.get(&active) {
-            let grid = entry.pane.grid.read().unwrap();
+        if let Some(entry) = self.tabs[tab_idx].panes.get(&active)
+            && let Some(grid) = entry.pane.grid_read()
+        {
             self.search_matches = crate::search::compute_search_matches(&grid, &query);
         }
         if !self.search_matches.is_empty() {
@@ -228,10 +229,7 @@ impl AppState {
         let (sb_len, grid_rows) = self.tabs[tab_idx]
             .panes
             .get(&active)
-            .map(|e| {
-                let g = e.pane.grid.read().unwrap();
-                (g.scrollback.len(), g.rows)
-            })
+            .and_then(|e| e.pane.grid_read().map(|g| (g.scrollback.len(), g.rows)))
             .unwrap_or((0, 24));
         let new_offset = crate::search::compute_scroll_offset(abs_row, sb_len, grid_rows);
         if let Some(entry) = self.tabs[tab_idx].panes.get_mut(&active) {
@@ -263,7 +261,7 @@ impl AppState {
 
     fn active_grid_rows(&self) -> usize {
         self.active_entry()
-            .map(|e| e.pane.grid.read().unwrap().rows)
+            .and_then(|e| e.pane.grid_read().map(|g| g.rows))
             .unwrap_or(1)
     }
 
@@ -286,12 +284,11 @@ impl AppState {
         let Some(entry) = self.active_entry() else {
             return;
         };
-        let (nc, nr) = motion(
-            &entry.pane.grid.read().unwrap(),
-            entry.pane.scroll_offset,
-            cur_col,
-            cur_row,
-        );
+        let Some(grid) = entry.pane.grid_read() else {
+            return;
+        };
+        let (nc, nr) = motion(&grid, entry.pane.scroll_offset, cur_col, cur_row);
+        drop(grid);
         self.mode = InputMode::Visual {
             start_col,
             start_row,
@@ -363,8 +360,10 @@ impl AppState {
                 if e.pane.scroll_offset > 0 {
                     (0, 0)
                 } else {
-                    let g = e.pane.grid.read().unwrap();
-                    (g.cursor_col, g.cursor_row)
+                    e.pane
+                        .grid_read()
+                        .map(|g| (g.cursor_col, g.cursor_row))
+                        .unwrap_or((0, 0))
                 }
             })
             .unwrap_or((0, 0))
@@ -381,14 +380,16 @@ impl AppState {
             anchored: true,
         } = self.mode.clone()
         {
-            let text = self.active_entry().map(|entry| {
-                entry.pane.grid.read().unwrap().selected_text(
-                    start_col,
-                    start_row,
-                    cur_col,
-                    cur_row,
-                    entry.pane.scroll_offset,
-                )
+            let text = self.active_entry().and_then(|entry| {
+                entry.pane.grid_read().map(|g| {
+                    g.selected_text(
+                        start_col,
+                        start_row,
+                        cur_col,
+                        cur_row,
+                        entry.pane.scroll_offset,
+                    )
+                })
             });
             if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
@@ -399,10 +400,11 @@ impl AppState {
 
     fn do_visual_yank_line(&mut self) {
         if let InputMode::Visual { cur_row, .. } = self.mode.clone() {
-            let text = self.active_entry().map(|entry| {
-                let grid = entry.pane.grid.read().unwrap();
-                let cols = grid.cols.saturating_sub(1);
-                grid.selected_text(0, cur_row, cols, cur_row, entry.pane.scroll_offset)
+            let text = self.active_entry().and_then(|entry| {
+                entry.pane.grid_read().map(|grid| {
+                    let cols = grid.cols.saturating_sub(1);
+                    grid.selected_text(0, cur_row, cols, cur_row, entry.pane.scroll_offset)
+                })
             });
             if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
@@ -804,12 +806,12 @@ impl AppState {
 
     fn do_clear_scrollback(&mut self) {
         if let Some(e) = self.active_entry_mut() {
-            let mut g = e.pane.grid.write().unwrap();
-            g.scrollback.clear();
-            g.clear_screen();
-            g.cursor_col = 0;
-            g.cursor_row = 0;
-            drop(g);
+            if let Some(mut g) = e.pane.grid_write() {
+                g.scrollback.clear();
+                g.clear_screen();
+                g.cursor_col = 0;
+                g.cursor_row = 0;
+            }
             e.pane.scroll_bottom();
         }
         if !self.tabs.is_empty() {
