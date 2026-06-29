@@ -95,6 +95,81 @@ pub fn should_show_cursor(
     is_active && in_insert_mode && blink_visible && scroll_offset == 0
 }
 
+/// The contiguous range of tabs to draw when the strip is scrolled, plus
+/// whether overflow chevrons are needed on each side.
+pub struct TabWindow {
+    /// Index of the first visible tab.
+    pub first: usize,
+    /// Index of the last visible tab (inclusive).
+    pub last: usize,
+    /// Whether tabs are hidden to the left (draw a `‹` chevron).
+    pub left_chevron: bool,
+    /// Whether tabs are hidden to the right (draw a `›` chevron).
+    pub right_chevron: bool,
+}
+
+/// Computes which contiguous range of tabs is visible so that the active tab is
+/// always shown, scrolling at whole-tab granularity.
+///
+/// `widths` is each tab's pixel width, `avail` the available pixel width for the
+/// strip, and `chevron_w` the width reserved for an overflow chevron on a side
+/// that has hidden tabs. The returned range always contains `active`.
+pub fn visible_tab_window(widths: &[u32], active: usize, avail: u32, chevron_w: u32) -> TabWindow {
+    let n = widths.len();
+    if n == 0 {
+        return TabWindow {
+            first: 0,
+            last: 0,
+            left_chevron: false,
+            right_chevron: false,
+        };
+    }
+    let active = active.min(n - 1);
+    let total: u32 = widths.iter().sum();
+    if total <= avail {
+        return TabWindow {
+            first: 0,
+            last: n - 1,
+            left_chevron: false,
+            right_chevron: false,
+        };
+    }
+
+    // Overflow: anchor on the active tab and grow the window outward (left then
+    // right) while it keeps fitting, reserving chevron space on whichever side
+    // still has hidden tabs.
+    let used = |first: usize, last: usize| -> u32 {
+        let w: u32 = widths[first..=last].iter().sum();
+        let lc = if first > 0 { chevron_w } else { 0 };
+        let rc = if last < n - 1 { chevron_w } else { 0 };
+        w + lc + rc
+    };
+
+    let mut first = active;
+    let mut last = active;
+    loop {
+        let mut grew = false;
+        if first > 0 && used(first - 1, last) <= avail {
+            first -= 1;
+            grew = true;
+        }
+        if last < n - 1 && used(first, last + 1) <= avail {
+            last += 1;
+            grew = true;
+        }
+        if !grew {
+            break;
+        }
+    }
+
+    TabWindow {
+        first,
+        last,
+        left_chevron: first > 0,
+        right_chevron: last < n - 1,
+    }
+}
+
 #[cfg(test)]
 #[path = "tabs_test.rs"]
 mod tests;
