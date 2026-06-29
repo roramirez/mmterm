@@ -768,3 +768,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "app_event_test.rs"]
+mod tests;

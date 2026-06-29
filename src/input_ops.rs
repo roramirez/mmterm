@@ -244,3 +244,7 @@ impl App {
         false
     }
 }
+
+#[cfg(test)]
+#[path = "input_ops_test.rs"]
+mod tests;
