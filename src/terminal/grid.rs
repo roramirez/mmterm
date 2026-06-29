@@ -15,6 +15,17 @@ pub enum CursorShape {
     Beam,
 }
 
+/// OSC 133 shell integration state.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum ShellState {
+    #[default]
+    Unknown, // no OSC 133 received yet
+    PromptStart, // A — prompt is being drawn
+    Prompt,      // B — shell is at prompt, waiting for input
+    Running,     // C — command submitted, output flowing
+    Finished,    // D — command finished
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
@@ -216,6 +227,10 @@ pub struct Grid {
     // Sixel images anchored to live-grid cell coordinates; cleared on clear_screen
     // and alternate-screen transitions.
     pub images: Vec<SixelImage>,
+    // OSC 133 shell integration state machine
+    pub shell_state: ShellState,
+    // Last command exit code from OSC 133 ; D ; <code>
+    pub last_exit_code: Option<i32>,
 }
 
 impl Grid {
@@ -279,6 +294,8 @@ impl Grid {
             focus_report: false,
             autowrap: true,
             images: Vec::new(),
+            shell_state: ShellState::Unknown,
+            last_exit_code: None,
         }
     }
 
@@ -1018,6 +1035,8 @@ impl Grid {
         self.application_cursor_keys = false;
         self.charset_drawing = false;
         self.focus_report = false;
+        self.shell_state = ShellState::Unknown;
+        self.last_exit_code = None;
     }
 }
 

@@ -1207,3 +1207,20 @@ fn restore_screen_overwrites_existing_live_content() {
     assert_eq!(live_row_text(&g, 0), "restored");
     assert_eq!(g.cursor_row, 1);
 }
+
+#[test]
+fn shell_state_defaults_to_unknown() {
+    let g = make_grid(10, 5);
+    assert_eq!(g.shell_state, ShellState::Unknown);
+    assert_eq!(g.last_exit_code, None);
+}
+
+#[test]
+fn reset_clears_shell_integration_state() {
+    let mut g = make_grid(10, 5);
+    g.shell_state = ShellState::Finished;
+    g.last_exit_code = Some(1);
+    g.reset();
+    assert_eq!(g.shell_state, ShellState::Unknown);
+    assert_eq!(g.last_exit_code, None);
+}

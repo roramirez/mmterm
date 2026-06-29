@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates = 39
-    assert_eq!(panel.fields.len(), 39);
+    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 1 shell = 40
+    assert_eq!(panel.fields.len(), 40);
 }
 
 #[test]
@@ -290,6 +290,18 @@ fn build_config_roundtrip_preserves_font_size() {
 }
 
 #[test]
+fn build_config_roundtrip_toggles_shell_integration() {
+    let mut panel = make_panel();
+    assert_eq!(panel.fields[F_SHELL_INTEGRATION].value, "true");
+    panel.fields[F_SHELL_INTEGRATION].value = "false".to_string();
+    if let ConfigAction::Save(cfg) = panel.save() {
+        assert!(!cfg.general.shell_integration);
+    } else {
+        panic!("expected Save action");
+    }
+}
+
+#[test]
 fn build_config_shell_empty_becomes_none() {
     let mut panel = make_panel();
     panel.fields[F_SHELL].value = String::new();
@@ -536,8 +548,8 @@ fn palette_collapsed_by_default() {
 #[test]
 fn visible_indices_hides_palette_body() {
     let panel = make_panel();
-    // 39 total - 15 palette body fields = 24 visible
-    assert_eq!(panel.visible_indices().len(), 24);
+    // 40 total - 15 palette body fields = 25 visible
+    assert_eq!(panel.visible_indices().len(), 25);
 }
 
 #[test]
@@ -546,7 +558,7 @@ fn toggle_on_palette_header_expands() {
     panel.selected = F_PALETTE;
     panel.toggle_collapse();
     assert!(!panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 39);
+    assert_eq!(panel.visible_indices().len(), 40);
 }
 
 #[test]
@@ -556,7 +568,7 @@ fn toggle_twice_restores_collapsed() {
     panel.toggle_collapse();
     panel.toggle_collapse();
     assert!(panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 24);
+    assert_eq!(panel.visible_indices().len(), 25);
 }
 
 #[test]
@@ -611,10 +623,10 @@ fn move_up_skips_collapsed_palette() {
 #[test]
 fn move_down_at_last_visible_clamps() {
     let mut panel = make_panel();
-    // F_AUTO_UPDATE_INSTALL is the last field and is always visible
-    panel.selected = F_AUTO_UPDATE_INSTALL;
+    // F_SHELL_INTEGRATION is the last field and is always visible
+    panel.selected = F_SHELL_INTEGRATION;
     panel.handle_down();
-    assert_eq!(panel.selected, F_AUTO_UPDATE_INSTALL);
+    assert_eq!(panel.selected, F_SHELL_INTEGRATION);
 }
 
 #[test]

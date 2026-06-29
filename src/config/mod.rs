@@ -61,6 +61,8 @@ pub struct GeneralConfig {
     pub auto_update_check: bool,
     #[serde(default)]
     pub auto_update_install: bool,
+    #[serde(default = "default_true")]
+    pub shell_integration: bool,
 }
 
 impl Default for GeneralConfig {
@@ -71,6 +73,7 @@ impl Default for GeneralConfig {
             visual_bell: false,
             auto_update_check: default_true(),
             auto_update_install: false,
+            shell_integration: default_true(),
         }
     }
 }

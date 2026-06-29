@@ -1,4 +1,4 @@
-use super::grid::{Color, CursorShape, Grid};
+use super::grid::{Color, CursorShape, Grid, ShellState};
 
 fn param_or_one(p: u16) -> usize {
     p.max(1) as usize
@@ -322,6 +322,7 @@ impl Perform for Performer<'_> {
         osc_set_cwd(self.grid, params);
         osc_set_hyperlink(self.grid, params);
         osc_clipboard(self.grid, params);
+        osc_shell_integration(self.grid, params);
     }
     fn hook(&mut self, _params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
         // Sixel graphics: DCS P...q (final char = 'q', no intermediates)
@@ -467,6 +468,29 @@ fn osc_clipboard(grid: &mut Grid, params: &[&[u8]]) {
         {
             grid.pending_clipboard_write = Some(text.to_string());
         }
+    }
+}
+
+fn osc_shell_integration(grid: &mut Grid, params: &[&[u8]]) {
+    if params.len() < 2 || params[0] != b"133" {
+        return;
+    }
+    match params[1] {
+        b"A" => {
+            grid.last_exit_code = None;
+            grid.shell_state = ShellState::PromptStart;
+        }
+        b"B" => grid.shell_state = ShellState::Prompt,
+        b"C" => grid.shell_state = ShellState::Running,
+        b"D" => {
+            let code = params
+                .get(2)
+                .and_then(|p| std::str::from_utf8(p).ok())
+                .and_then(|s| s.parse::<i32>().ok());
+            grid.shell_state = ShellState::Finished;
+            grid.last_exit_code = code;
+        }
+        _ => {}
     }
 }
 

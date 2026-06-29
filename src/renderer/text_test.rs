@@ -6,7 +6,7 @@ use crate::config::Config;
 use crate::config::tui_config::ConfigPanel;
 use crate::dpi::Physical;
 use crate::terminal::Grid;
-use crate::terminal::grid::{Color, CursorShape, GridColors};
+use crate::terminal::grid::{Color, CursorShape, GridColors, ShellState};
 use crate::theme::default_theme;
 
 // ── Task 20 proxy tests — pure arithmetic, no rendering ──────────────────────
@@ -186,6 +186,8 @@ fn draw_empty_buffer_does_not_panic() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -229,6 +231,8 @@ fn draw_pane_fills_background_color() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -260,6 +264,8 @@ fn draw_tab_bar_renders_without_panic() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -290,9 +296,43 @@ fn draw_status_bar_renders_without_panic() {
         None,
         false,
         true,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
+}
+
+#[test]
+fn draw_status_bar_shell_indicators_render_without_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = default_theme();
+    // Prompt state draws the "›" glyph; a non-zero exit code draws the "✗ N" badge.
+    r.draw(
+        &mut buf,
+        800,
+        600,
+        &[],
+        &[],
+        &InputMode::Insert,
+        false,
+        &[],
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        ShellState::Prompt,
+        Some(1),
+        &theme,
+        None,
+    );
+    // Something was drawn in the status-bar band (bottom rows).
+    assert!(buf.iter().any(|&p| p != 0));
 }
 
 #[test]
@@ -319,6 +359,8 @@ fn draw_status_bar_pane_title_centered() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -341,6 +383,8 @@ fn draw_status_bar_pane_title_centered() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -378,6 +422,8 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -403,6 +449,8 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -462,6 +510,8 @@ fn draw_with_bell_flash_does_not_panic() {
         Some(1.0),
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -490,6 +540,8 @@ fn draw_with_separator_does_not_panic() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -587,6 +639,8 @@ fn do_draw(r: &mut Renderer, panes: &[PaneView<'_>], mode: &InputMode) {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -755,6 +809,8 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -847,6 +903,8 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1074,6 +1132,8 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1105,6 +1165,8 @@ fn draw_status_bar_search_no_matches_shows_label() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
@@ -1281,6 +1343,8 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         None,
         false,
         false,
+        ShellState::Unknown,
+        None,
         &theme,
         None, // update_badge: wired in Task 9
     );
