@@ -10,6 +10,50 @@ pub struct PtySession {
     child_pid: Option<u32>,
 }
 
+/// Classification of a single `Read::read` result from the PTY master.
+///
+/// The reader loop must distinguish a clean EOF (the shell exited normally and
+/// closed its end of the PTY) from a genuine I/O error (e.g. EIO when the shell
+/// crashed, EBADF on a closed fd). Collapsing both into a bare `break` discards
+/// the cause and makes disconnections invisible under `RUST_LOG`.
+#[derive(Debug)]
+enum ReadOutcome {
+    /// `read` returned 0 bytes — the shell closed the PTY (normal exit).
+    Eof,
+    /// `read` returned an I/O error — abnormal termination.
+    Error(std::io::Error),
+    /// `read` returned `n > 0` bytes to forward to the parser.
+    Data(usize),
+}
+
+/// Maps a raw `read` result to a [`ReadOutcome`]. Pure and side-effect free so
+/// the EOF-vs-error distinction can be unit-tested without a live PTY.
+fn classify_read(r: std::io::Result<usize>) -> ReadOutcome {
+    match r {
+        Ok(0) => ReadOutcome::Eof,
+        Ok(n) => ReadOutcome::Data(n),
+        Err(e) => ReadOutcome::Error(e),
+    }
+}
+
+/// Body of the PTY reader thread: forward bytes to the parser until EOF, an I/O
+/// error, or a closed output channel — logging the cause of every termination.
+fn pty_reader_loop(
+    mut reader: Box<dyn Read + Send>,
+    output_tx: Sender<Vec<u8>>,
+    wakeup: Box<dyn Fn() + Send + 'static>,
+) {
+    let mut buf = [0u8; 4096];
+    loop {
+        match classify_read(reader.read(&mut buf)) {
+            ReadOutcome::Eof => return log::debug!("PTY EOF (shell exited)"),
+            ReadOutcome::Error(e) => return log::debug!("PTY read failed: {e}"),
+            ReadOutcome::Data(n) if output_tx.send(buf[..n].to_vec()).is_ok() => wakeup(),
+            ReadOutcome::Data(_) => return log::debug!("PTY output channel closed"),
+        }
+    }
+}
+
 impl PtySession {
     #[allow(dead_code)]
     pub fn spawn(cols: u16, rows: u16, output_tx: Sender<Vec<u8>>) -> anyhow::Result<Self> {
@@ -70,21 +114,8 @@ impl PtySession {
             let _ = child.wait();
         });
 
-        let mut reader = master.try_clone_reader()?;
-        thread::spawn(move || {
-            let mut buf = [0u8; 4096];
-            loop {
-                match reader.read(&mut buf) {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if output_tx.send(buf[..n].to_vec()).is_err() {
-                            break;
-                        }
-                        wakeup();
-                    }
-                }
-            }
-        });
+        let reader = master.try_clone_reader()?;
+        thread::spawn(move || pty_reader_loop(reader, output_tx, wakeup));
 
         let writer = master.take_writer()?;
 

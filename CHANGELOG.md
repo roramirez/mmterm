@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - activity indicator: tabs with output while not focused now show the activity dot in the tab bar; the marker clears as soon as the tab is focused
 
+### Changed
+- log the cause when the PTY reader thread stops (EOF, I/O error, or closed output channel) under `RUST_LOG=debug`, instead of silently collapsing EOF and errors into a bare break
+
 ### Fixed
 - scroll the tab bar to keep the active tab visible when many tabs are open; previously tabs overflowed the window width and the header rendered garbled
 - avoid a ghost pane and a crash when a PTY spawn fails: a failed split/tab/restore no longer wires the layout or focus to a non-existent pane, and closing a pane in that state no longer panics
