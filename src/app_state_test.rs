@@ -567,6 +567,55 @@ fn update_search_matches_finds_content() {
     assert!(!s.search_matches.is_empty());
 }
 
+/// Poison the active pane's grid lock (simulating a parser thread that panicked
+/// while holding the write lock) and confirm the main-thread read paths degrade
+/// instead of panicking in cascade. Before the poison-tolerant `grid_read`
+/// helper, `update_search_matches` / `active_grid_rows` called `.read().unwrap()`
+/// and would panic here, crashing the whole app.
+#[test]
+fn poisoned_grid_does_not_crash_main_thread_reads() {
+    use std::sync::Arc;
+
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+
+    // Poison the grid RwLock: take the write lock in a thread and panic.
+    let grid = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| Arc::clone(&e.pane.grid))
+        .expect("active pane exists");
+    let handle = std::thread::spawn(move || {
+        let _guard = grid.write().unwrap();
+        panic!("intentional panic to poison the grid lock");
+    });
+    assert!(handle.join().is_err(), "helper thread should have panicked");
+    assert!(
+        s.tab().panes.get(&active).unwrap().pane.grid.is_poisoned(),
+        "grid lock must be poisoned for this test to be meaningful"
+    );
+
+    // None of these may panic; they must return degraded values.
+    s.mode = InputMode::Search {
+        query: "needle".to_string(),
+        history_pos: None,
+    };
+    s.update_search_matches();
+    assert!(
+        s.search_matches.is_empty(),
+        "no matches from a poisoned grid"
+    );
+
+    assert_eq!(s.active_grid_rows(), 1, "active_grid_rows falls back to 1");
+
+    // Scroll helpers on the pane must also degrade rather than panic.
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        e.pane.scroll_up(3);
+        e.pane.scroll_top();
+    }
+}
+
 #[test]
 fn dispatch_send_to_pty_scrolls_to_bottom() {
     let mut s = make_state_with_pane();
