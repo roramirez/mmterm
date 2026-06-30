@@ -261,6 +261,9 @@ impl App {
                 let (cols, rows) = entry
                     .metrics
                     .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
+                // Lock hierarchy (see drain.rs): read `grid` in this scoped block
+                // and drop it before taking `pending_resize` below — the two are
+                // never held at once.
                 let (grid_cols, grid_rows) = {
                     let g = entry.pane.grid.read().unwrap();
                     (g.cols, g.rows)
