@@ -176,3 +176,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "restore_test.rs"]
+mod tests;
