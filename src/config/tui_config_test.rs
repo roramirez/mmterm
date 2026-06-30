@@ -289,6 +289,122 @@ fn build_config_roundtrip_preserves_font_size() {
     }
 }
 
+/// A Config whose every field carries a distinct, non-default value, so that a
+/// mis-routed `F_*` index (reading/writing the wrong field) changes the
+/// round-trip result and is caught below.
+fn distinct_config() -> Config {
+    Config {
+        font: FontConfig {
+            family: "TestMono".into(),
+            size: 13.5,
+        },
+        window: WindowConfig {
+            width: 801,
+            height: 607,
+            title: "title-x".into(),
+            cursor_blink_ms: 523,
+            inactive_dim: 0.42,
+            detect_urls: true,
+        },
+        shell: ShellConfig {
+            program: Some("/bin/xyzsh".into()),
+        },
+        terminal: TerminalConfig {
+            scrollback_lines: 4097,
+        },
+        logging: LogConfig {
+            auto_log: false,
+            log_dir: "/var/log/mmterm-x".into(),
+        },
+        colors: ColorsConfig {
+            background: "#010203".into(),
+            foreground: "#040506".into(),
+            cursor: "#070809".into(),
+            selection: "#0A0B0C".into(),
+            palette: (0..16).map(|i| format!("#{:02X}0000", i + 1)).collect(),
+        },
+        theme: ThemeConfig {
+            name: "customtheme".into(),
+        },
+        status_bar: StatusBarConfig {
+            right: "%pwd-x".into(),
+        },
+        general: GeneralConfig {
+            restore_session: false,
+            screenshot_dir: "/shots-x".into(),
+            visual_bell: true,
+            auto_update_check: true,
+            auto_update_install: false,
+        },
+    }
+}
+
+/// Guard against silent desync between the `F_*` constants, the field order in
+/// `from_config()`, and the index reads in `build_config()`. CLAUDE.md marks
+/// this as a critical invariant with no runtime validation.
+#[test]
+fn field_index_sanity() {
+    // Every named F_* constant, with F_PALETTE expanded to its 16 contiguous
+    // slots. If a constant is added/removed without adjusting the others, the
+    // contiguity assertion below fails.
+    let mut occupied: Vec<usize> = vec![
+        F_RESTORE_SESSION,
+        F_SCREENSHOT_DIR,
+        F_VISUAL_BELL,
+        F_FONT_FAMILY,
+        F_FONT_SIZE,
+        F_WIN_WIDTH,
+        F_WIN_HEIGHT,
+        F_WIN_TITLE,
+        F_BLINK_MS,
+        F_DIM,
+        F_DETECT_URLS,
+        F_SHELL,
+        F_SCROLLBACK,
+        F_LOG_AUTO,
+        F_LOG_DIR,
+        F_THEME_NAME,
+        F_COLOR_BG,
+        F_COLOR_FG,
+        F_COLOR_CUR,
+        F_COLOR_SEL,
+        F_STATUS_BAR_RIGHT,
+        F_AUTO_UPDATE_CHECK,
+        F_AUTO_UPDATE_INSTALL,
+    ];
+    occupied.extend((0..16).map(|i| F_PALETTE + i));
+    occupied.sort_unstable();
+
+    // Contiguous 0,1,2,…,N-1 with no gaps and no overlaps (duplicate index).
+    let expected: Vec<usize> = (0..occupied.len()).collect();
+    assert_eq!(
+        occupied, expected,
+        "F_* indices must be contiguous with no gaps or overlapping slots"
+    );
+
+    // The index space must exactly cover the field vec built by from_config().
+    let panel = ConfigPanel::from_config(&Config::default());
+    assert_eq!(
+        occupied.len(),
+        panel.fields.len(),
+        "number of F_* slots must equal from_config().fields.len()"
+    );
+}
+
+/// Full round-trip: `build_config(from_config(cfg)) == cfg` for a config whose
+/// fields are all distinct. Catches a field read at the wrong `F_*` index even
+/// when the count and contiguity still line up.
+#[test]
+fn build_config_full_roundtrip_preserves_every_field() {
+    let cfg = distinct_config();
+    let panel = ConfigPanel::from_config(&cfg);
+    let rebuilt = panel.build_config().expect("distinct_config must rebuild");
+    assert_eq!(
+        rebuilt, cfg,
+        "every field must survive the from/build round-trip"
+    );
+}
+
 #[test]
 fn build_config_roundtrip_toggles_shell_integration() {
     let mut panel = make_panel();

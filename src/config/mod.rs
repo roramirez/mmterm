@@ -11,7 +11,7 @@ fn default_config() -> Config {
     toml::from_str(DEFAULT_CONFIG).expect("assets/config.toml is invalid")
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub font: FontConfig,
@@ -49,7 +49,7 @@ fn default_screenshot_dir() -> String {
     "~/mmterm/shot".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GeneralConfig {
     #[serde(default = "default_true")]
     pub restore_session: bool,
@@ -85,7 +85,7 @@ fn default_status_bar_right() -> String {
     "%pwd".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StatusBarConfig {
     #[serde(default = "default_status_bar_right")]
     pub right: String,
@@ -99,7 +99,7 @@ impl Default for StatusBarConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemeConfig {
     #[serde(default = "default_theme_name")]
     pub name: String,
@@ -121,7 +121,7 @@ fn default_scrollback_lines() -> usize {
     10_000
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TerminalConfig {
     #[serde(default = "default_scrollback_lines")]
     pub scrollback_lines: usize,
@@ -135,7 +135,7 @@ impl Default for TerminalConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FontConfig {
     pub family: String,
     pub size: f32,
@@ -148,7 +148,7 @@ fn default_detect_urls() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WindowConfig {
     pub width: u32,
     pub height: u32,
@@ -160,7 +160,7 @@ pub struct WindowConfig {
     pub detect_urls: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShellConfig {
     pub program: Option<String>,
 }
@@ -173,7 +173,7 @@ fn default_log_dir() -> String {
     String::new()
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct LogConfig {
     /// Start logging automatically for every new pane.
     #[serde(default = "default_auto_log")]
@@ -183,7 +183,7 @@ pub struct LogConfig {
     pub log_dir: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ColorsConfig {
     pub background: String,
     pub foreground: String,
