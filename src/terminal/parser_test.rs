@@ -1221,3 +1221,69 @@ fn param_or_one_nonzero_returns_value() {
     assert_eq!(super::param_or_one(5), 5);
     assert_eq!(super::param_or_one(100), 100);
 }
+
+#[test]
+fn osc133_prompt_states_track_shell_state() {
+    use super::super::grid::ShellState;
+    let mut p = make_parser(80, 24);
+
+    p.process(b"\x1b]133;A\x07");
+    assert_eq!(p.grid.shell_state, ShellState::PromptStart);
+
+    p.process(b"\x1b]133;B\x07");
+    assert_eq!(p.grid.shell_state, ShellState::Prompt);
+
+    p.process(b"\x1b]133;C\x07");
+    assert_eq!(p.grid.shell_state, ShellState::Running);
+}
+
+#[test]
+fn osc133_d_with_code_sets_exit_code() {
+    use super::super::grid::ShellState;
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;D;1\x07");
+    assert_eq!(p.grid.shell_state, ShellState::Finished);
+    assert_eq!(p.grid.last_exit_code, Some(1));
+}
+
+#[test]
+fn osc133_d_without_code_clears_exit_code() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;D\x07");
+    assert_eq!(p.grid.last_exit_code, None);
+}
+
+#[test]
+fn osc133_a_clears_previous_exit_code() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;D;127\x07");
+    assert_eq!(p.grid.last_exit_code, Some(127));
+    // A new prompt resets the exit-code badge.
+    p.process(b"\x1b]133;A\x07");
+    assert_eq!(p.grid.last_exit_code, None);
+}
+
+#[test]
+fn osc133_unknown_subcommand_is_ignored() {
+    use super::super::grid::ShellState;
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;Z\x07");
+    assert_eq!(p.grid.shell_state, ShellState::Unknown);
+}
+
+#[test]
+fn osc777_notify_sets_pending_notification() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]777;notify;Build done;exit 0\x07");
+    assert_eq!(
+        p.grid.pending_notification,
+        Some(("Build done".to_string(), "exit 0".to_string()))
+    );
+}
+
+#[test]
+fn osc777_without_notify_keyword_is_ignored() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]777;other;Title;Body\x07");
+    assert!(p.grid.pending_notification.is_none());
+}

@@ -280,4 +280,6 @@ fn general_update_defaults() {
     let cfg = Config::default();
     assert!(cfg.general.auto_update_check); // daily check on by default
     assert!(!cfg.general.auto_update_install); // silent self-replace opt-in (off)
+    assert!(cfg.general.shell_integration); // OSC 133 prompt/exit badges on by default
+    assert!(cfg.general.desktop_notifications); // OSC 777 desktop notifications on by default
 }

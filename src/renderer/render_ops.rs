@@ -142,16 +142,23 @@ impl App {
         // log_file.lock() must not be held while grid.read() is held:
         // the parser thread acquires log_file.lock first, then grid.write;
         // holding grid.read + waiting for log_file can stall both threads.
-        let (cwd_raw, pane_osc_title_raw) = self.state.tabs[self.state.active_tab]
+        let (cwd_raw, pane_osc_title_raw, shell_state, last_exit_code) = self.state.tabs
+            [self.state.active_tab]
             .panes
             .get(&active_id)
             .map(|e| {
                 let g = e.pane.grid.read().unwrap();
                 let cwd = g.cwd.clone().map(|p| statusbar::shorten_home(&p, &home));
                 let osc_title = g.osc_title.clone();
-                (cwd, osc_title)
+                (cwd, osc_title, g.shell_state, g.last_exit_code)
             })
-            .unwrap_or((None, None));
+            .unwrap_or((None, None, crate::terminal::grid::ShellState::Unknown, None));
+        // Shell integration UI is gated: when disabled, suppress the indicators.
+        let (shell_state, last_exit_code) = if self.state.config.general.shell_integration {
+            (shell_state, last_exit_code)
+        } else {
+            (crate::terminal::grid::ShellState::Unknown, None)
+        };
         let is_logging = self.state.tabs[self.state.active_tab]
             .panes
             .get(&active_id)
@@ -219,6 +226,8 @@ impl App {
                 bell_flash_intensity,
                 self.state.config.general.visual_bell,
                 is_logging,
+                shell_state,
+                last_exit_code,
                 &self.state.theme,
                 update_badge.as_ref(),
             );

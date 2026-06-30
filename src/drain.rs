@@ -40,6 +40,12 @@ pub enum ParseEffect {
     },
     /// Parser thread's PTY EOF — pane should be closed.
     Disconnected,
+    /// OSC 777 desktop notification request (title, body); dispatched on the
+    /// main thread, gated by general.desktop_notifications.
+    Notification {
+        title: String,
+        body: String,
+    },
     /// The parser processed a non-empty batch of PTY bytes this iteration.
     /// Emitted once per batch so the main thread can flag activity on inactive
     /// tabs (output that only repaints the visible grid produces no other effect).
@@ -139,7 +145,16 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
             // Parse, scan URLs, optionally resize, and extract side-effects in one write lock.
             // Resize is applied here so the main thread never calls grid.write() — it just
             // sets pending_resize and returns, keeping the event loop and renders fluid.
-            let (old_sb, new_sb, resp, clipboard_write, clipboard_read, bell, resize_effect) = {
+            let (
+                old_sb,
+                new_sb,
+                resp,
+                clipboard_write,
+                clipboard_read,
+                bell,
+                notification,
+                resize_effect,
+            ) = {
                 let mut g = grid.write().unwrap();
                 let old = g.scrollback_len();
                 parser.process(&batch, &mut g);
@@ -156,7 +171,8 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
                 let cw = g.pending_clipboard_write.take();
                 let cr = std::mem::take(&mut g.pending_clipboard_read);
                 let b = std::mem::take(&mut g.bell_pending);
-                (old, new, resp, cw, cr, b, resize_effect)
+                let notif = g.pending_notification.take();
+                (old, new, resp, cw, cr, b, notif, resize_effect)
             };
 
             if new_sb != old_sb {
@@ -179,6 +195,9 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
             }
             if bell {
                 let _ = effects_tx.send(ParseEffect::Bell);
+            }
+            if let Some((title, body)) = notification {
+                let _ = effects_tx.send(ParseEffect::Notification { title, body });
             }
             // Signal that this pane produced output this batch. Batches only form
             // when PTY bytes arrived, so reaching here always means real output.
@@ -305,6 +324,11 @@ impl App {
                                 kind: DeferredKind::ClipboardRead,
                             });
                         }
+                        ParseEffect::Notification { title, body } => {
+                            if self.state.config.general.desktop_notifications {
+                                dispatch_notification(title, body);
+                            }
+                        }
                         ParseEffect::Disconnected => {
                             deferred.push(Deferred {
                                 tab_idx,
@@ -361,3 +385,29 @@ fn trigger_bell(tab: &mut TabState, now: Instant) {
         tab.bell_cooldown_until = Some(now + std::time::Duration::from_millis(500));
     }
 }
+
+/// Dispatch an OSC 777 desktop notification from a detached thread so the event
+/// loop never blocks on the external notifier process.
+#[cfg(not(test))]
+fn dispatch_notification(title: String, body: String) {
+    #[cfg(target_os = "linux")]
+    std::thread::spawn(move || {
+        let _ = std::process::Command::new("notify-send")
+            .arg(&title)
+            .arg(&body)
+            .status();
+    });
+    #[cfg(target_os = "macos")]
+    std::thread::spawn(move || {
+        let script = format!("display notification {body:?} with title {title:?}");
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .status();
+    });
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let _ = (title, body);
+}
+
+#[cfg(test)]
+fn dispatch_notification(_title: String, _body: String) {}
