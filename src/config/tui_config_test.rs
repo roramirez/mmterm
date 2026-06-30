@@ -335,6 +335,8 @@ fn distinct_config() -> Config {
             visual_bell: true,
             auto_update_check: true,
             auto_update_install: false,
+            shell_integration: true,
+            desktop_notifications: true,
         },
     }
 }
@@ -371,6 +373,8 @@ fn field_index_sanity() {
         F_STATUS_BAR_RIGHT,
         F_AUTO_UPDATE_CHECK,
         F_AUTO_UPDATE_INSTALL,
+        F_SHELL_INTEGRATION,
+        F_DESKTOP_NOTIFICATIONS,
     ];
     occupied.extend((0..16).map(|i| F_PALETTE + i));
     occupied.sort_unstable();
