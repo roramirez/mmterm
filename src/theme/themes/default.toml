@@ -29,3 +29,8 @@ search_current  = "#fe640d"
 scrollbar       = "#454758"
 badge           = "#89b4fa"
 separator       = "#313244"
+
+# Overlay chrome — config panel / command palette backgrounds.
+# Omit in a theme to derive both from `background` + `color8`.
+overlay_bg      = "#1a1b26"
+overlay_bg_sel  = "#2a2b3d"

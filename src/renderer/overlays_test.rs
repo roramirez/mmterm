@@ -74,8 +74,7 @@ fn make_layout(bw: u32) -> FieldRowLayout {
         cw: 8,
         fp: 14.0,
         row_h: 20,
-        bg: 0xff_00_00_00,
-        border: 0xff_ff_ff_ff,
+        c: OverlayColors::from_theme(&crate::theme::default_theme()),
         sel: 0,
     }
 }
@@ -186,7 +185,15 @@ fn make_renderer() -> crate::renderer::Renderer {
 fn draw_command_palette_empty_entries_does_not_panic() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];
-    r.draw_command_palette(&mut buf, 800, 600, "", &[], 0);
+    r.draw_command_palette(
+        &mut buf,
+        800,
+        600,
+        "",
+        &[],
+        0,
+        &crate::theme::default_theme(),
+    );
 }
 
 #[test]
@@ -198,7 +205,15 @@ fn draw_command_palette_with_entries_does_not_panic() {
         ("New Tab", "Ctrl+T"),
         ("Quit", "Ctrl+Q"),
     ];
-    r.draw_command_palette(&mut buf, 800, 600, "sp", &entries, 0);
+    r.draw_command_palette(
+        &mut buf,
+        800,
+        600,
+        "sp",
+        &entries,
+        0,
+        &crate::theme::default_theme(),
+    );
     assert!(buf.iter().any(|&p| p != 0));
 }
 
@@ -208,10 +223,26 @@ fn draw_command_palette_selected_entry_differs_from_unselected() {
     let entries = vec![("Split Vertical", "Ctrl+W s"), ("New Tab", "Ctrl+T")];
 
     let mut buf_sel0 = vec![0u32; 800 * 600];
-    r.draw_command_palette(&mut buf_sel0, 800, 600, "", &entries, 0);
+    r.draw_command_palette(
+        &mut buf_sel0,
+        800,
+        600,
+        "",
+        &entries,
+        0,
+        &crate::theme::default_theme(),
+    );
 
     let mut buf_sel1 = vec![0u32; 800 * 600];
-    r.draw_command_palette(&mut buf_sel1, 800, 600, "", &entries, 1);
+    r.draw_command_palette(
+        &mut buf_sel1,
+        800,
+        600,
+        "",
+        &entries,
+        1,
+        &crate::theme::default_theme(),
+    );
 
     assert_ne!(
         buf_sel0, buf_sel1,
@@ -339,14 +370,34 @@ fn config_panel_hint_expanded_section_says_collapse() {
 fn draw_screenshot_name_input_does_not_panic() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];
-    r.draw_screenshot_name_input(&mut buf, 800, 600, 400, 300, 100, 80, "myshot");
+    r.draw_screenshot_name_input(
+        &mut buf,
+        800,
+        600,
+        400,
+        300,
+        100,
+        80,
+        "myshot",
+        &crate::theme::default_theme(),
+    );
 }
 
 #[test]
 fn draw_screenshot_name_input_draws_something() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];
-    r.draw_screenshot_name_input(&mut buf, 800, 600, 400, 300, 100, 80, "test");
+    r.draw_screenshot_name_input(
+        &mut buf,
+        800,
+        600,
+        400,
+        300,
+        100,
+        80,
+        "test",
+        &crate::theme::default_theme(),
+    );
     assert!(
         buf.iter().any(|&p| p != 0),
         "draw_screenshot_name_input must write at least one pixel"

@@ -34,6 +34,11 @@ pub struct ResolvedTheme {
     pub scrollbar: Color,
     pub badge: Color,
     pub separator: Color,
+    // Overlay chrome (config panel + command palette backgrounds). Every other
+    // overlay color maps to the fields above / the palette in the renderer, so
+    // only the two panel backgrounds need dedicated theme fields.
+    pub overlay_bg: Color,
+    pub overlay_bg_sel: Color,
 }
 
 /// Raw TOML shape of a theme file.
@@ -65,6 +70,14 @@ struct ThemeFile {
     scrollbar: Option<String>,
     badge: Option<String>,
     separator: Option<String>,
+    overlay_bg: Option<String>,
+    overlay_bg_sel: Option<String>,
+}
+
+/// Linear mix of two colors, `t` in 0.0..=1.0 (0 → a, 1 → b).
+fn mix(a: Color, b: Color, t: f32) -> Color {
+    let m = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color::rgb(m(a.r, b.r), m(a.g, b.g), m(a.b, b.b))
 }
 
 fn resolve(tf: &ThemeFile) -> ResolvedTheme {
@@ -97,6 +110,19 @@ fn resolve(tf: &ThemeFile) -> ResolvedTheme {
         scrollbar: tf.scrollbar.as_deref().map(h).unwrap_or(palette[8]),
         badge: tf.badge.as_deref().map(h).unwrap_or(palette[2]),
         separator: tf.separator.as_deref().map(h).unwrap_or(palette[0]),
+        // Panel background: a touch lighter than the terminal background so the
+        // overlay reads as a raised surface over the dimmed terminal. The
+        // selected row is lighter still. Both default-derive from the theme.
+        overlay_bg: tf
+            .overlay_bg
+            .as_deref()
+            .map(h)
+            .unwrap_or_else(|| mix(h(&tf.background), palette[8], 0.12)),
+        overlay_bg_sel: tf
+            .overlay_bg_sel
+            .as_deref()
+            .map(h)
+            .unwrap_or_else(|| mix(h(&tf.background), palette[8], 0.28)),
         palette,
     }
 }
