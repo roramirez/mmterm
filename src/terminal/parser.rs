@@ -480,9 +480,13 @@ fn osc_shell_integration(grid: &mut Grid, params: &[&[u8]]) {
         b"A" => {
             grid.last_exit_code = None;
             grid.shell_state = ShellState::PromptStart;
+            grid.osc133_prompt_start();
         }
         b"B" => grid.shell_state = ShellState::Prompt,
-        b"C" => grid.shell_state = ShellState::Running,
+        b"C" => {
+            grid.shell_state = ShellState::Running;
+            grid.osc133_output_start();
+        }
         b"D" => {
             let code = params
                 .get(2)
@@ -490,6 +494,7 @@ fn osc_shell_integration(grid: &mut Grid, params: &[&[u8]]) {
                 .and_then(|s| s.parse::<i32>().ok());
             grid.shell_state = ShellState::Finished;
             grid.last_exit_code = code;
+            grid.osc133_output_end(code);
         }
         _ => {}
     }

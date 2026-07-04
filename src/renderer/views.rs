@@ -55,6 +55,7 @@ pub fn collect_pane_views<'a>(
     let search_matches = &state.search_matches;
     let search_current_val = state.search_current;
     let insert_mode = matches!(state.mode, InputMode::Insert);
+    let show_prompt_marks = state.config.general.shell_integration;
 
     let guard_for = |id: usize| -> Option<&'a Grid> {
         guards.iter().find(|(gid, _)| *gid == id).map(|(_, g)| &**g)
@@ -85,6 +86,7 @@ pub fn collect_pane_views<'a>(
             search_current: sc,
             hovered_url: state.hovered_url.as_deref(),
             cursor_shape: grid.cursor_shape,
+            show_prompt_marks,
             metrics: &entry.metrics,
         }]
     } else {
@@ -114,6 +116,7 @@ pub fn collect_pane_views<'a>(
                     search_current: sc,
                     hovered_url: state.hovered_url.as_deref(),
                     cursor_shape: grid.cursor_shape,
+                    show_prompt_marks,
                     metrics: &entry.metrics,
                 })
             })

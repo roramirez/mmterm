@@ -39,6 +39,8 @@ pub struct PaneView<'a> {
     pub hovered_url: Option<&'a str>,
     /// Cursor shape requested by the running program via DECSCUSR.
     pub cursor_shape: CursorShape,
+    /// When true, draw a left-edge marker on OSC 133 prompt rows (grid.prompt_blocks).
+    pub show_prompt_marks: bool,
     /// Per-pane cell metrics (font size is per-pane, not per-tab).
     pub metrics: &'a FontMetrics,
 }
@@ -450,6 +452,25 @@ impl Renderer {
             );
 
             col += cell_cols as usize;
+        }
+
+        // OSC 133: mark prompt-start rows with a subtle left-edge bar.
+        if pane.show_prompt_marks
+            && grid
+                .prompt_blocks
+                .binary_search_by(|b| b.prompt_row.cmp(&abs_row))
+                .is_ok()
+        {
+            let mark_w = self.scale.chrome(2).max(1);
+            fill_rect(
+                buf,
+                buf_width,
+                rx + 1,
+                cell_y,
+                mark_w,
+                m.cell_height,
+                color_u32(theme.palette[6]),
+            );
         }
     }
 

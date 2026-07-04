@@ -210,6 +210,7 @@ fn draw_pane_fills_background_color() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     let mut buf = vec![0u32; 800 * 600];
@@ -615,6 +616,7 @@ fn make_pane<'a>(grid: &'a Grid, m: &'a crate::renderer::text::FontMetrics) -> P
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: m,
     }
 }
@@ -662,6 +664,21 @@ fn draw_pane_with_text_renders_glyphs() {
 }
 
 #[test]
+fn draw_pane_with_prompt_mark_renders_without_panic() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+    let mut grid = make_grid(cols, rows);
+    grid.write_char('$');
+    // Mark live row 0 (abs_row 0, since scrollback is empty) as a prompt line.
+    grid.cursor_row = 0;
+    grid.osc133_prompt_start();
+    let mut pane = make_pane(&grid, &m);
+    pane.show_prompt_marks = true;
+    do_draw(&mut r, &[pane], &InputMode::Insert);
+}
+
+#[test]
 fn draw_inactive_pane_does_not_panic() {
     let mut r = make_renderer();
     let m = r.make_metrics(Physical(16.0));
@@ -679,6 +696,7 @@ fn draw_inactive_pane_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -704,6 +722,7 @@ fn draw_pane_visual_selection_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     let mode = InputMode::Visual {
@@ -739,6 +758,7 @@ fn draw_pane_with_search_match_does_not_panic() {
         search_current: Some(0),
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -959,6 +979,7 @@ fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -981,6 +1002,7 @@ fn draw_pane_with_cursor_visible_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -1032,6 +1054,7 @@ fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -1076,6 +1099,7 @@ fn draw_pane_non_current_search_match_uses_match_color() {
         search_current: Some(1), // match 0 → non-current, match 1 → current
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -1101,6 +1125,7 @@ fn draw_pane_inactive_with_url_does_not_panic() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
@@ -1257,6 +1282,7 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     // Must not panic — actual pixel inspection is left to integration testing.
@@ -1288,6 +1314,7 @@ fn draw_pane_visual_mode_inactive_pane_no_cursor() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &mode);
@@ -1321,6 +1348,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     let mut buf = vec![0u32; 800 * 600];
@@ -1447,6 +1475,7 @@ fn draw_pane_sixel_image_scrolled_up_not_drawn() {
         search_current: None,
         hovered_url: None,
         cursor_shape: CursorShape::Block,
+        show_prompt_marks: false,
         metrics: &m,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);

@@ -1360,3 +1360,108 @@ fn search_history_clears_before_history_on_push() {
     s.push_search_history("committed".to_string());
     assert!(s.search_before_history.is_empty());
 }
+
+// ── OSC 133 prompt navigation & copy ─────────────────────────────────────────
+
+fn seed_prompt_blocks(
+    s: &mut AppState,
+    active: usize,
+    blocks: Vec<crate::terminal::grid::PromptBlock>,
+) {
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..40 {
+            e.pane.grid.write().unwrap().scroll_up(1);
+        }
+        e.pane.grid.write().unwrap().prompt_blocks = blocks;
+        e.pane.scroll_offset = 0;
+    }
+}
+
+#[test]
+fn dispatch_prompt_prev_jumps_to_previous_mark() {
+    use crate::terminal::grid::PromptBlock;
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    let blocks = vec![
+        PromptBlock {
+            prompt_row: 5,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        },
+        PromptBlock {
+            prompt_row: 20,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        },
+    ];
+    seed_prompt_blocks(&mut s, active, blocks);
+    let (sb, rows) = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| {
+            let g = e.pane.grid.read().unwrap();
+            (g.scrollback.len(), g.rows)
+        })
+        .unwrap();
+    let effects = s.dispatch_action(Action::PromptPrev);
+    assert!(matches!(effects.as_slice(), [AppEffect::Redraw]));
+    let expected = crate::search::compute_scroll_offset(20, sb, rows);
+    let got = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| e.pane.scroll_offset)
+        .unwrap();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn dispatch_prompt_nav_noop_when_disabled() {
+    use crate::terminal::grid::PromptBlock;
+    let mut s = make_state_with_pane();
+    s.config.general.shell_integration = false;
+    let active = s.tab().active;
+    let blocks = vec![PromptBlock {
+        prompt_row: 10,
+        output_start: None,
+        output_end: None,
+        exit_code: None,
+    }];
+    seed_prompt_blocks(&mut s, active, blocks);
+    let effects = s.dispatch_action(Action::PromptPrev);
+    assert!(effects.is_empty());
+    let got = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| e.pane.scroll_offset)
+        .unwrap();
+    assert_eq!(got, 0); // viewport unchanged
+}
+
+#[test]
+fn dispatch_copy_last_command_output_returns_redraw() {
+    use crate::terminal::grid::PromptBlock;
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    let blocks = vec![PromptBlock {
+        prompt_row: 5,
+        output_start: Some(6),
+        output_end: Some(8),
+        exit_code: Some(0),
+    }];
+    seed_prompt_blocks(&mut s, active, blocks);
+    let effects = s.dispatch_action(Action::CopyLastCommandOutput);
+    assert!(matches!(effects.as_slice(), [AppEffect::Redraw]));
+}
+
+#[test]
+fn dispatch_copy_last_command_output_noop_when_disabled() {
+    let mut s = make_state_with_pane();
+    s.config.general.shell_integration = false;
+    let effects = s.dispatch_action(Action::CopyLastCommandOutput);
+    assert!(effects.is_empty());
+}

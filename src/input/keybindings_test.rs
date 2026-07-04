@@ -2443,3 +2443,74 @@ fn ctrl_alt_b_also_toggles_passthrough() {
     let a = handle_key_inner(&char_key("b"), true, false, true, &insert(), 80, 24, false);
     assert!(matches!(a, Action::TogglePassthrough));
 }
+
+// ── OSC 133 prompt navigation ────────────────────────────────────────────────
+
+#[test]
+fn normal_bracket_left_is_prompt_prev() {
+    let a = handle_key_inner(
+        &char_key("["),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::PromptPrev));
+}
+
+#[test]
+fn normal_bracket_right_is_prompt_next() {
+    let a = handle_key_inner(
+        &char_key("]"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::PromptNext));
+}
+
+#[test]
+fn normal_y_copies_last_command_output() {
+    let a = handle_key_inner(
+        &char_key("y"),
+        false,
+        false,
+        false,
+        &normal(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::CopyLastCommandOutput));
+}
+
+#[test]
+fn insert_bracket_keys_pass_through_to_pty() {
+    // In Insert mode `[`/`]`/`y` are ordinary input, not prompt navigation.
+    for s in ["[", "]", "y"] {
+        let a = handle_key_inner(&char_key(s), false, false, false, &insert(), 80, 24, false);
+        assert!(
+            matches!(a, Action::SendToPty(ref v) if v == s.as_bytes()),
+            "{s} should reach the PTY in Insert mode"
+        );
+    }
+}
+
+#[test]
+fn normal_ctrl_bracket_falls_through_to_prompt_prev() {
+    // Normal-mode character bindings ignore an unclaimed Ctrl modifier and fall
+    // through to the plain-key action — same behavior as Ctrl+j → ScrollDown.
+    // (Global shortcuts get first crack; Ctrl+[ isn't one, so it reaches here.)
+    let ctrl_bracket =
+        handle_key_inner(&char_key("["), true, false, false, &normal(), 80, 24, false);
+    assert!(matches!(ctrl_bracket, Action::PromptPrev));
+    let ctrl_j = handle_key_inner(&char_key("j"), true, false, false, &normal(), 80, 24, false);
+    assert!(matches!(ctrl_j, Action::ScrollDown(_)));
+}

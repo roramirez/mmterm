@@ -26,6 +26,19 @@ pub enum ShellState {
     Finished,    // D — command finished
 }
 
+/// One OSC 133 command block: the prompt line and the output region it produced.
+/// All rows are in `abs_row` space (0..scrollback_len = scrollback, then live grid).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PromptBlock {
+    pub prompt_row: usize,           // A — the prompt line
+    pub output_start: Option<usize>, // C — first row of command output
+    pub output_end: Option<usize>,   // D — last row of command output
+    pub exit_code: Option<i32>,      // D — command exit status
+}
+
+/// Cap on retained prompt blocks to bound growth on very long sessions.
+const PROMPT_MARKS_MAX: usize = 4096;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
@@ -152,6 +165,7 @@ struct SavedScreen {
     scrollback_wrapped: VecDeque<bool>,
     row_wrapped: Vec<bool>,
     current_url: Option<Arc<String>>,
+    prompt_blocks: Vec<PromptBlock>,
 }
 
 pub struct Grid {
@@ -231,6 +245,8 @@ pub struct Grid {
     pub shell_state: ShellState,
     // Last command exit code from OSC 133 ; D ; <code>
     pub last_exit_code: Option<i32>,
+    // OSC 133 prompt/command zones, ascending by prompt_row (abs_row space)
+    pub prompt_blocks: Vec<PromptBlock>,
     // OSC 777 pending desktop notification (title, body); drained once by the parser thread
     pub pending_notification: Option<(String, String)>,
 }
@@ -298,6 +314,7 @@ impl Grid {
             images: Vec::new(),
             shell_state: ShellState::Unknown,
             last_exit_code: None,
+            prompt_blocks: Vec::new(),
             pending_notification: None,
         }
     }
@@ -330,6 +347,7 @@ impl Grid {
             scrollback_wrapped: std::mem::take(&mut self.scrollback_wrapped),
             row_wrapped: std::mem::replace(&mut self.row_wrapped, vec![false; self.rows]),
             current_url: self.current_url.take(),
+            prompt_blocks: std::mem::take(&mut self.prompt_blocks),
         });
         self.cursor_col = 0;
         self.cursor_row = 0;
@@ -380,6 +398,7 @@ impl Grid {
             self.row_wrapped = saved.row_wrapped;
             self.row_wrapped.resize(self.rows, false);
             self.current_url = saved.current_url;
+            self.prompt_blocks = saved.prompt_blocks;
             self.images.clear();
         }
     }
@@ -452,7 +471,71 @@ impl Grid {
         if self.scrollback.len() > self.scrollback_max {
             self.scrollback.pop_front();
             self.scrollback_wrapped.pop_front();
+            self.shift_prompt_blocks_on_evict();
         }
+    }
+
+    /// A scrollback line was evicted from the front: every abs_row shifts down by
+    /// one, and any block whose prompt line was the evicted row is dropped.
+    fn shift_prompt_blocks_on_evict(&mut self) {
+        self.prompt_blocks.retain(|b| b.prompt_row > 0);
+        for b in &mut self.prompt_blocks {
+            b.prompt_row -= 1;
+            b.output_start = b.output_start.map(|x| x.saturating_sub(1));
+            b.output_end = b.output_end.map(|x| x.saturating_sub(1));
+        }
+    }
+
+    /// OSC 133 A — start a new prompt block at the cursor's current abs_row.
+    pub fn osc133_prompt_start(&mut self) {
+        let row = self.scrollback_len() + self.cursor_row;
+        self.prompt_blocks.push(PromptBlock {
+            prompt_row: row,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        });
+        if self.prompt_blocks.len() > PROMPT_MARKS_MAX {
+            self.prompt_blocks.remove(0);
+        }
+    }
+
+    /// OSC 133 C — mark the start of the current command's output.
+    pub fn osc133_output_start(&mut self) {
+        let row = self.scrollback_len() + self.cursor_row;
+        if let Some(b) = self.prompt_blocks.last_mut() {
+            b.output_start = Some(row);
+        }
+    }
+
+    /// OSC 133 D — mark the end of the current command's output and its exit code.
+    pub fn osc133_output_end(&mut self, code: Option<i32>) {
+        let row = self.scrollback_len() + self.cursor_row;
+        if let Some(b) = self.prompt_blocks.last_mut() {
+            b.output_end = Some(row);
+            b.exit_code = code;
+        }
+    }
+
+    /// Text of a single `abs_row` (scrollback or live), with trailing blanks trimmed.
+    fn abs_row_text(&self, abs_row: usize) -> String {
+        let s: String = (0..self.cols)
+            .filter_map(|c| self.scrollback_char_at(abs_row, c))
+            .collect();
+        s.trim_end().to_string()
+    }
+
+    /// Join abs rows `start..=end` with newlines (used to copy a command's output).
+    pub fn text_between_abs_rows(&self, start: usize, end: usize) -> String {
+        let (lo, hi) = if start <= end {
+            (start, end)
+        } else {
+            (end, start)
+        };
+        (lo..=hi)
+            .map(|r| self.abs_row_text(r))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     /// Reflow scrollback lines to fit `new_cols`. Returns the signed change in
@@ -580,6 +663,12 @@ impl Grid {
     }
 
     pub fn resize(&mut self, cols: usize, rows: usize) -> isize {
+        // A column change reflows scrollback (re-splitting logical lines), which
+        // moves the abs_row of every prompt mark unpredictably — drop them rather
+        // than point at the wrong line. Row-only changes preserve abs_row.
+        if cols != self.cols {
+            self.prompt_blocks.clear();
+        }
         // Reflow scrollback first (reads self.cols for trimming logic).
         let mut delta = if cols != self.cols {
             self.reflow_scrollback(cols)
@@ -1040,6 +1129,7 @@ impl Grid {
         self.focus_report = false;
         self.shell_state = ShellState::Unknown;
         self.last_exit_code = None;
+        self.prompt_blocks.clear();
         self.pending_notification = None;
     }
 }

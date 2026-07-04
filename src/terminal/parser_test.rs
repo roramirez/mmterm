@@ -1272,6 +1272,28 @@ fn osc133_unknown_subcommand_is_ignored() {
 }
 
 #[test]
+fn osc133_records_prompt_block() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;A\x07");
+    assert_eq!(p.grid.prompt_blocks.len(), 1);
+    let row = p.grid.prompt_blocks[0].prompt_row;
+    // C then D fill the same block's output zone + exit code.
+    p.process(b"\x1b]133;C\x07");
+    assert_eq!(p.grid.prompt_blocks[0].output_start, Some(row));
+    p.process(b"\x1b]133;D;3\x07");
+    assert_eq!(p.grid.prompt_blocks[0].output_end, Some(row));
+    assert_eq!(p.grid.prompt_blocks[0].exit_code, Some(3));
+}
+
+#[test]
+fn osc133_multiple_prompts_accumulate_blocks() {
+    let mut p = make_parser(80, 24);
+    p.process(b"\x1b]133;A\x07");
+    p.process(b"\x1b]133;A\x07");
+    assert_eq!(p.grid.prompt_blocks.len(), 2);
+}
+
+#[test]
 fn osc777_notify_sets_pending_notification() {
     let mut p = make_parser(80, 24);
     p.process(b"\x1b]777;notify;Build done;exit 0\x07");

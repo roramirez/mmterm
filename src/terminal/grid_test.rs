@@ -1224,3 +1224,87 @@ fn reset_clears_shell_integration_state() {
     assert_eq!(g.shell_state, ShellState::Unknown);
     assert_eq!(g.last_exit_code, None);
 }
+
+// ── OSC 133 prompt blocks ────────────────────────────────────────────────────
+
+#[test]
+fn osc133_records_prompt_and_output_rows() {
+    let mut g = make_grid(10, 5);
+    // Simulate the cursor sitting at live row 2 with no scrollback yet.
+    g.cursor_row = 2;
+    g.osc133_prompt_start();
+    assert_eq!(g.prompt_blocks.len(), 1);
+    assert_eq!(g.prompt_blocks[0].prompt_row, 2); // sb_len(0) + cursor_row(2)
+
+    g.cursor_row = 3;
+    g.osc133_output_start();
+    assert_eq!(g.prompt_blocks[0].output_start, Some(3));
+
+    g.cursor_row = 4;
+    g.osc133_output_end(Some(7));
+    assert_eq!(g.prompt_blocks[0].output_end, Some(4));
+    assert_eq!(g.prompt_blocks[0].exit_code, Some(7));
+}
+
+#[test]
+fn evict_shift_decrements_and_drops_front_block() {
+    let mut g = make_grid(10, 5);
+    g.prompt_blocks = vec![
+        PromptBlock {
+            prompt_row: 0,
+            output_start: Some(1),
+            output_end: Some(2),
+            exit_code: Some(0),
+        },
+        PromptBlock {
+            prompt_row: 3,
+            output_start: Some(4),
+            output_end: Some(5),
+            exit_code: None,
+        },
+    ];
+    g.shift_prompt_blocks_on_evict();
+    // The block whose prompt line was evicted (row 0) is dropped; the rest shift -1.
+    assert_eq!(g.prompt_blocks.len(), 1);
+    assert_eq!(g.prompt_blocks[0].prompt_row, 2);
+    assert_eq!(g.prompt_blocks[0].output_start, Some(3));
+    assert_eq!(g.prompt_blocks[0].output_end, Some(4));
+}
+
+#[test]
+fn text_between_abs_rows_reads_live_rows() {
+    let mut g = make_grid(4, 3);
+    g.cell_mut(0, 0).c = 'a';
+    g.cell_mut(1, 0).c = 'b';
+    g.cell_mut(0, 1).c = 'c';
+    // sb_len is 0, so abs rows 0 and 1 map to live rows 0 and 1; trailing blanks trimmed.
+    assert_eq!(g.text_between_abs_rows(0, 1), "ab\nc");
+}
+
+#[test]
+fn resize_columns_clears_prompt_blocks() {
+    let mut g = make_grid(10, 5);
+    g.cursor_row = 1;
+    g.osc133_prompt_start();
+    assert_eq!(g.prompt_blocks.len(), 1);
+    g.resize(20, 5); // column change → reflow invalidates marks
+    assert!(g.prompt_blocks.is_empty());
+}
+
+#[test]
+fn resize_rows_only_keeps_prompt_blocks() {
+    let mut g = make_grid(10, 5);
+    g.cursor_row = 1;
+    g.osc133_prompt_start();
+    g.resize(10, 8); // rows only → abs_row preserved
+    assert_eq!(g.prompt_blocks.len(), 1);
+}
+
+#[test]
+fn reset_clears_prompt_blocks() {
+    let mut g = make_grid(10, 5);
+    g.cursor_row = 0;
+    g.osc133_prompt_start();
+    g.reset();
+    assert!(g.prompt_blocks.is_empty());
+}

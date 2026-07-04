@@ -64,6 +64,11 @@ pub enum Action {
     /// Move selection center by (dx, dy) pixels.
     ScreenshotMove(i32, i32),
     ScreenshotCapture,
+    /// OSC 133 navigation: jump the viewport to the previous / next shell prompt.
+    PromptPrev,
+    PromptNext,
+    /// OSC 133: copy the last command's output (C→D zone) to the clipboard.
+    CopyLastCommandOutput,
     Quit,
     QuitSaveSession,
     QuitNoSave,
@@ -446,6 +451,9 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
             "N" => Action::SearchPrev,
             "j" => Action::ScrollDown(3),
             "k" => Action::ScrollUp(3),
+            "[" => Action::PromptPrev,
+            "]" => Action::PromptNext,
+            "y" => Action::CopyLastCommandOutput,
             _ => Action::None,
         },
         _ => Action::None,

@@ -548,6 +548,62 @@ impl AppState {
         }
     }
 
+    /// OSC 133: jump the viewport to the next (`forward`) or previous prompt
+    /// relative to the current viewport top. No-op when shell integration is off.
+    fn do_prompt_jump(&mut self, forward: bool) -> Vec<AppEffect> {
+        if !self.config.general.shell_integration || self.tabs.is_empty() {
+            return vec![];
+        }
+        let tab_idx = self.active_tab;
+        let active = self.tabs[tab_idx].active;
+        let Some((sb_len, grid_rows, scroll_offset, prompt_rows)) =
+            self.tabs[tab_idx].panes.get(&active).map(|e| {
+                let g = e.pane.grid.read().unwrap();
+                let rows: Vec<usize> = g.prompt_blocks.iter().map(|b| b.prompt_row).collect();
+                (g.scrollback.len(), g.rows, e.pane.scroll_offset, rows)
+            })
+        else {
+            return vec![];
+        };
+        let top_abs = sb_len.saturating_sub(scroll_offset);
+        let target = if forward {
+            prompt_rows.iter().find(|&&r| r > top_abs).copied()
+        } else {
+            prompt_rows.iter().rev().find(|&&r| r < top_abs).copied()
+        };
+        let Some(target) = target else {
+            return vec![];
+        };
+        let new_offset = crate::search::compute_scroll_offset(target, sb_len, grid_rows);
+        if let Some(entry) = self.tabs[tab_idx].panes.get_mut(&active) {
+            entry.pane.scroll_offset = new_offset;
+        }
+        vec![AppEffect::Redraw]
+    }
+
+    /// OSC 133: copy the last completed command's output (C→D zone) to the
+    /// clipboard. No-op when shell integration is off or no command has finished.
+    fn do_copy_last_command_output(&mut self) -> Vec<AppEffect> {
+        if !self.config.general.shell_integration {
+            return vec![];
+        }
+        let text = self.active_entry().and_then(|entry| {
+            let g = entry.pane.grid.read().unwrap();
+            let block = g
+                .prompt_blocks
+                .iter()
+                .rev()
+                .find(|b| b.output_start.is_some() && b.output_end.is_some())?;
+            Some(g.text_between_abs_rows(block.output_start.unwrap(), block.output_end.unwrap()))
+        });
+        if let Some(text) = text {
+            let lines = text.lines().count();
+            self.copy_text_to_clipboard(text);
+            log::info!("copied last command output ({lines} lines) to clipboard");
+        }
+        vec![AppEffect::Redraw]
+    }
+
     fn do_go_to_tab(&mut self, idx: usize) -> Vec<AppEffect> {
         if idx < self.tabs.len() {
             self.active_tab = idx;
@@ -619,6 +675,11 @@ impl AppState {
                 self.do_clear_scrollback();
                 vec![AppEffect::Redraw]
             }
+
+            // ── OSC 133 prompt navigation ────────────────────────────────────
+            Action::PromptPrev => self.do_prompt_jump(false),
+            Action::PromptNext => self.do_prompt_jump(true),
+            Action::CopyLastCommandOutput => self.do_copy_last_command_output(),
 
             // ── Copy / Visual ────────────────────────────────────────────────
             Action::Copy
