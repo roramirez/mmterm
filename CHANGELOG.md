@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - the config panel and command palette overlays now follow the active theme instead of fixed colors; new `overlay_bg` / `overlay_bg_sel` theme fields control the panel backgrounds (derived from the palette when a theme omits them)
 
+### Documentation
+- document the per-pane lock hierarchy (`log_file` > `grid` > `pending_resize`) and the never-hold-two-at-once invariant in `drain.rs`
+
 ### Fixed
 - scroll the tab bar to keep the active tab visible when many tabs are open; previously tabs overflowed the window width and the header rendered garbled
 - avoid a ghost pane and a crash when a PTY spawn fails: a failed split/tab/restore no longer wires the layout or focus to a non-existent pane, and closing a pane in that state no longer panics

@@ -13,6 +13,40 @@ use crate::terminal::grid::Grid;
 
 use super::App;
 
+// ── Lock hierarchy (per pane) ─────────────────────────────────────────────────
+//
+// Each `PaneEntry` carries three locks shared between the parser thread (this
+// module) and the main thread (`renderer/render_ops.rs`, `pane_ops.rs`):
+//
+//   * `grid`           — `Arc<RwLock<Grid>>` (cell grid + scrollback)
+//   * `log_file`       — `Arc<Mutex<Option<File>>>` (raw-byte session log)
+//   * `pending_resize` — `Arc<Mutex<Option<(cols, rows)>>>` (main → parser signal)
+//
+// PRIMARY INVARIANT — never hold more than one of these at a time.
+// Every site acquires one lock, does the minimum work, and releases it before
+// acquiring the next. This is the rule that actually prevents deadlock and it
+// holds everywhere today:
+//   - parser thread (below): `log_file` is taken and dropped (~:130), then
+//     `pending_resize.take()` is taken and dropped (~:137), and only then is the
+//     single `grid.write()` held (~:143). The resize is applied *inside* that
+//     grid write lock so the main thread never needs `grid.write()` — it only
+//     sets `pending_resize` and returns.
+//   - `render_ops::redraw` reads `grid` in a scoped block, drops it, then checks
+//     `log_file` separately.
+//   - `pane_ops::sync_pane_sizes_tab` reads `grid` in a scoped block, drops it,
+//     then sets `pending_resize`.
+//
+// SECONDARY RULE — should future code ever be forced to hold two at once,
+// acquire them outermost-to-innermost in this order, and never acquire an outer
+// lock while already holding an inner one:
+//
+//       log_file  >  grid  >  pending_resize
+//
+// The `log_file > grid` half is load-bearing: the parser reaches `log_file`
+// before `grid`, so the main thread must never hold `grid` while waiting on
+// `log_file` (it would stall both threads — see the note in
+// `renderer/render_ops.rs::redraw`).
+
 #[cfg(test)]
 #[path = "drain_test.rs"]
 mod tests;
