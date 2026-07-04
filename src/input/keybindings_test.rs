@@ -2443,3 +2443,98 @@ fn ctrl_alt_b_also_toggles_passthrough() {
     let a = handle_key_inner(&char_key("b"), true, false, true, &insert(), 80, 24, false);
     assert!(matches!(a, Action::TogglePassthrough));
 }
+
+// ── Ctrl+Arrow word navigation ───────────────────────────────────────────────
+
+#[test]
+fn ctrl_arrow_left_sends_word_back() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowLeft),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[1;5D"));
+}
+
+#[test]
+fn ctrl_arrow_right_sends_word_forward() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[1;5C"));
+}
+
+#[test]
+fn ctrl_arrow_up_sends_ctrl_up() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowUp),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[1;5A"));
+}
+
+#[test]
+fn ctrl_arrow_down_sends_ctrl_down() {
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowDown),
+        true,
+        false,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[1;5B"));
+}
+
+#[test]
+fn ctrl_arrow_word_nav_works_in_normal_mode() {
+    // Global shortcut runs before mode dispatch, so Ctrl+Arrow reaches the PTY
+    // regardless of the active input mode.
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        true,
+        false,
+        false,
+        &InputMode::Normal,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::SendToPty(ref v) if v == b"\x1b[1;5C"));
+}
+
+#[test]
+fn ctrl_shift_arrow_right_still_resizes() {
+    // Regression: adding Ctrl+Arrow must not shadow Ctrl+Shift+Arrow resize.
+    let a = handle_key_inner(
+        &named(NamedKey::ArrowRight),
+        true,
+        true,
+        false,
+        &insert(),
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::ResizePaneRight));
+}
