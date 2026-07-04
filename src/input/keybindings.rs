@@ -191,6 +191,11 @@ fn ctrl_char_action(key: &Key, alt: bool) -> Option<Action> {
         Key::Named(NamedKey::PageUp) => Some(Action::PrevTab),
         Key::Named(NamedKey::PageDown) => Some(Action::NextTab),
         Key::Named(NamedKey::Enter) if !alt => Some(Action::ToggleFullscreen),
+        // Ctrl+Arrow → xterm word-navigation sequences (CSI 1;5 <dir>).
+        Key::Named(NamedKey::ArrowLeft) => Some(Action::SendToPty(b"\x1b[1;5D".to_vec())),
+        Key::Named(NamedKey::ArrowRight) => Some(Action::SendToPty(b"\x1b[1;5C".to_vec())),
+        Key::Named(NamedKey::ArrowUp) => Some(Action::SendToPty(b"\x1b[1;5A".to_vec())),
+        Key::Named(NamedKey::ArrowDown) => Some(Action::SendToPty(b"\x1b[1;5B".to_vec())),
         _ => None,
     }
 }
