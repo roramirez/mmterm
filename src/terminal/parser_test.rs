@@ -1287,3 +1287,33 @@ fn osc777_without_notify_keyword_is_ignored() {
     p.process(b"\x1b]777;other;Title;Body\x07");
     assert!(p.grid.pending_notification.is_none());
 }
+
+#[test]
+fn osc10_query_reports_foreground() {
+    let mut p = make_parser(80, 24);
+    // make_parser seeds fg = Color::WHITE (#d8d8d8).
+    p.process(b"\x1b]10;?\x1b\\");
+    assert_eq!(
+        p.grid.pending_responses,
+        b"\x1b]10;rgb:d8d8/d8d8/d8d8\x1b\\"
+    );
+}
+
+#[test]
+fn osc11_query_reports_background() {
+    let mut p = make_parser(80, 24);
+    // make_parser seeds bg = Color::BLACK (#1e1e2e).
+    p.process(b"\x1b]11;?\x1b\\");
+    assert_eq!(
+        p.grid.pending_responses,
+        b"\x1b]11;rgb:1e1e/1e1e/2e2e\x1b\\"
+    );
+}
+
+#[test]
+fn osc_color_set_is_ignored() {
+    let mut p = make_parser(80, 24);
+    // A *set* request (not `?`) must not produce a response.
+    p.process(b"\x1b]10;#ff0000\x1b\\");
+    assert!(p.grid.pending_responses.is_empty());
+}

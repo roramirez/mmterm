@@ -322,6 +322,7 @@ impl Perform for Performer<'_> {
         osc_set_cwd(self.grid, params);
         osc_set_hyperlink(self.grid, params);
         osc_clipboard(self.grid, params);
+        osc_color_query(self.grid, params);
         osc_shell_integration(self.grid, params);
         osc_notification(self.grid, params);
     }
@@ -493,6 +494,24 @@ fn osc_shell_integration(grid: &mut Grid, params: &[&[u8]]) {
         }
         _ => {}
     }
+}
+
+/// Respond to OSC 10 (foreground) / OSC 11 (background) color *queries*
+/// (`OSC 10 ; ? ST`). Reports the active theme color in the xterm
+/// `rgb:RRRR/GGGG/BBBB` 16-bit format so TUIs (Neovim's `background=auto`, etc.)
+/// can auto-detect a dark/light theme. Color *set* requests are ignored.
+fn osc_color_query(grid: &mut Grid, params: &[&[u8]]) {
+    let [code, b"?"] = params else { return };
+    let (n, color) = match *code {
+        b"10" => (10, grid.default_fg),
+        b"11" => (11, grid.default_bg),
+        _ => return,
+    };
+    let resp = format!(
+        "\x1b]{};rgb:{:02x}{:02x}/{:02x}{:02x}/{:02x}{:02x}\x1b\\",
+        n, color.r, color.r, color.g, color.g, color.b, color.b,
+    );
+    grid.pending_responses.extend_from_slice(resp.as_bytes());
 }
 
 fn osc_notification(grid: &mut Grid, params: &[&[u8]]) {
