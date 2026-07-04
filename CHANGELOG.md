@@ -19,6 +19,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Documentation
 - document the per-pane lock hierarchy (`log_file` > `grid` > `pending_resize`) and the never-hold-two-at-once invariant in `drain.rs`
 
+### Changed
+- log the cause when the PTY reader thread stops (EOF, I/O error, or closed output channel) under `RUST_LOG=debug`, instead of silently collapsing EOF and errors into a bare break
+
 ### Fixed
 - scroll the tab bar to keep the active tab visible when many tabs are open; previously tabs overflowed the window width and the header rendered garbled
 - avoid a ghost pane and a crash when a PTY spawn fails: a failed split/tab/restore no longer wires the layout or focus to a non-existent pane, and closing a pane in that state no longer panics
