@@ -319,9 +319,12 @@ impl App {
                                 // drain could have shrunk the scrollback, making `new`
                                 // stale. Using `new` would allow scroll_offset > actual
                                 // scrollback, causing a viewport glitch.
-                                let current_sb = e.pane.grid.read().unwrap().scrollback_len();
-                                e.pane.scroll_offset =
-                                    (e.pane.scroll_offset + added).min(current_sb);
+                                if let Some(current_sb) =
+                                    e.pane.grid_read().map(|g| g.scrollback_len())
+                                {
+                                    e.pane.scroll_offset =
+                                        (e.pane.scroll_offset + added).min(current_sb);
+                                }
                             }
                         }
                         ParseEffect::Resized { delta, new_sb } => {

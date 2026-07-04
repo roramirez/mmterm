@@ -156,11 +156,12 @@ impl App {
             [self.state.active_tab]
             .panes
             .get(&active_id)
-            .map(|e| {
-                let g = e.pane.grid.read().unwrap();
-                let cwd = g.cwd.clone().map(|p| statusbar::shorten_home(&p, &home));
-                let osc_title = g.osc_title.clone();
-                (cwd, osc_title, g.shell_state, g.last_exit_code)
+            .and_then(|e| {
+                e.pane.grid_read().map(|g| {
+                    let cwd = g.cwd.clone().map(|p| statusbar::shorten_home(&p, &home));
+                    let osc_title = g.osc_title.clone();
+                    (cwd, osc_title, g.shell_state, g.last_exit_code)
+                })
             })
             .unwrap_or((None, None, crate::terminal::grid::ShellState::Unknown, None));
         // Shell integration UI is gated: when disabled, suppress the indicators.
@@ -172,7 +173,7 @@ impl App {
         let is_logging = self.state.tabs[self.state.active_tab]
             .panes
             .get(&active_id)
-            .is_some_and(|e| e.log_file.lock().unwrap().is_some());
+            .is_some_and(|e| e.log_file.lock().is_ok_and(|g| g.is_some()));
 
         // build_tab_titles acquires short-lived read-locks (osc_title) on pane grids.
         // It must run BEFORE the render guards block — holding read-locks via guards
@@ -196,7 +197,13 @@ impl App {
         let screenshot_outcome = {
             let guards: Vec<(usize, std::sync::RwLockReadGuard<crate::terminal::Grid>)> = grid_arcs
                 .iter()
-                .map(|(id, arc)| (*id, arc.read().unwrap()))
+                .filter_map(|(id, arc)| match arc.read() {
+                    Ok(g) => Some((*id, g)),
+                    Err(e) => {
+                        log::warn!("grid read lock poisoned, skipping pane {id}: {e}");
+                        None
+                    }
+                })
                 .collect();
             let views = views::collect_pane_views(&self.state, &guards, w, h, tab_h, status_h);
 

@@ -201,7 +201,9 @@ impl App {
         let Some(entry) = self.state.tabs[tab_idx].panes.get(&active) else {
             return;
         };
-        let grid = entry.pane.grid.read().unwrap();
+        let Some(grid) = entry.pane.grid_read() else {
+            return;
+        };
         let text = search::extract_match_text(&grid, abs_row, col, len);
         if !text.is_empty() {
             let cb = self
@@ -227,8 +229,9 @@ impl App {
         let tab_idx = self.state.active_tab;
         let active = self.state.tabs[tab_idx].active;
 
-        if let Some(entry) = self.state.tabs[tab_idx].panes.get(&active) {
-            let grid = entry.pane.grid.read().unwrap();
+        if let Some(entry) = self.state.tabs[tab_idx].panes.get(&active)
+            && let Some(grid) = entry.pane.grid_read()
+        {
             self.state.search_matches = search::compute_search_matches(&grid, &query);
         }
 
@@ -250,10 +253,7 @@ impl App {
         let (sb_len, grid_rows) = self.state.tabs[tab_idx]
             .panes
             .get(&active)
-            .map(|e| {
-                let g = e.pane.grid.read().unwrap();
-                (g.scrollback.len(), g.rows)
-            })
+            .and_then(|e| e.pane.grid_read().map(|g| (g.scrollback.len(), g.rows)))
             .unwrap_or((0, 24));
 
         let new_offset = search::compute_scroll_offset(abs_row, sb_len, grid_rows);
@@ -296,12 +296,13 @@ impl App {
         let t = &self.state.theme;
         for tab in &mut self.state.tabs {
             for entry in tab.panes.values_mut() {
-                let mut g = entry.pane.grid.write().unwrap();
-                g.palette = t.palette;
-                g.default_fg = t.foreground;
-                g.default_bg = t.background;
-                g.cursor_color = t.cursor;
-                g.selection_color = t.selection;
+                if let Some(mut g) = entry.pane.grid_write() {
+                    g.palette = t.palette;
+                    g.default_fg = t.foreground;
+                    g.default_bg = t.background;
+                    g.cursor_color = t.cursor;
+                    g.selection_color = t.selection;
+                }
             }
         }
     }
@@ -429,9 +430,10 @@ impl App {
         let tab = self.tab();
         tab.panes
             .get(&tab.active)
-            .map(|e| {
-                let g = e.pane.grid.read().unwrap();
-                (g.cols, g.rows, g.application_cursor_keys)
+            .and_then(|e| {
+                e.pane
+                    .grid_read()
+                    .map(|g| (g.cols, g.rows, g.application_cursor_keys))
             })
             .unwrap_or((80, 24, false))
     }

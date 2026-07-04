@@ -29,10 +29,7 @@ impl App {
         self.tab()
             .panes
             .get(&active)
-            .map(|e| {
-                let g = e.pane.grid.read().unwrap();
-                (g.mouse_mode, g.mouse_sgr)
-            })
+            .and_then(|e| e.pane.grid_read().map(|g| (g.mouse_mode, g.mouse_sgr)))
             .unwrap_or((0, false))
     }
 
@@ -62,7 +59,7 @@ impl App {
         let entry = tab.panes.get(&pane_id)?;
         let m = &entry.metrics;
         let (grid_cols, grid_rows) = {
-            let g = entry.pane.grid.read().unwrap();
+            let g = entry.pane.grid_read()?;
             (g.cols, g.rows)
         };
         geometry::pixel_to_cell(
@@ -81,7 +78,7 @@ impl App {
         let (col, row) = self.pixel_to_cell(pane_id, px, py)?;
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
-        let grid = entry.pane.grid.read().unwrap();
+        let grid = entry.pane.grid_read()?;
         let url = geometry::cell_url_at_scroll(&grid, entry.pane.scroll_offset, col, row)?;
         Some(url.as_ref().clone())
     }
@@ -160,15 +157,16 @@ impl App {
     ) {
         let active = self.tab().active;
         // Extract text first so the immutable borrow on tab() is released.
-        let text = self.tab().panes.get(&active).map(|entry| {
-            let grid = entry.pane.grid.read().unwrap();
-            grid.selected_text(
-                start_col,
-                start_row,
-                cur_col,
-                cur_row,
-                entry.pane.scroll_offset,
-            )
+        let text = self.tab().panes.get(&active).and_then(|entry| {
+            entry.pane.grid_read().map(|grid| {
+                grid.selected_text(
+                    start_col,
+                    start_row,
+                    cur_col,
+                    cur_row,
+                    entry.pane.scroll_offset,
+                )
+            })
         });
         if let Some(text) = text.filter(|t| !t.is_empty()) {
             let cb = self
