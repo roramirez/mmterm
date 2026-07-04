@@ -149,6 +149,24 @@ pub fn word_end(grid: &Grid, scroll_offset: usize, col: usize, row: usize) -> (u
     (c, r)
 }
 
+/// Inclusive column span `[start, end]` of the word under `(col, row)` in the
+/// viewport, used for double-click word selection. If the character under the
+/// cursor is not a word character, returns `(col, col)`.
+pub fn word_bounds(grid: &Grid, scroll_offset: usize, col: usize, row: usize) -> (usize, usize) {
+    if !is_word(char_at(grid, scroll_offset, row, col)) {
+        return (col, col);
+    }
+    let mut start = col;
+    while start > 0 && is_word(char_at(grid, scroll_offset, row, start - 1)) {
+        start -= 1;
+    }
+    let mut end = col;
+    while end + 1 < grid.cols && is_word(char_at(grid, scroll_offset, row, end + 1)) {
+        end += 1;
+    }
+    (start, end)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,6 +198,31 @@ mod tests {
         let (c, r) = word_forward(&g, 0, 0, 0);
         assert_eq!(r, 0);
         assert_eq!(c, 6); // 'w' in "world"
+    }
+
+    #[test]
+    fn word_bounds_spans_whole_word_from_middle() {
+        let g = make_grid("hello world");
+        assert_eq!(word_bounds(&g, 0, 8, 0), (6, 10)); // inside "world" → whole word
+    }
+
+    #[test]
+    fn word_bounds_spans_first_word_from_edge() {
+        let g = make_grid("hello world");
+        assert_eq!(word_bounds(&g, 0, 0, 0), (0, 4)); // "hello"
+        assert_eq!(word_bounds(&g, 0, 4, 0), (0, 4)); // last char of "hello"
+    }
+
+    #[test]
+    fn word_bounds_on_space_selects_single_cell() {
+        let g = make_grid("hello world");
+        assert_eq!(word_bounds(&g, 0, 5, 0), (5, 5)); // the space
+    }
+
+    #[test]
+    fn word_bounds_treats_underscore_as_word() {
+        let g = make_grid("foo_bar baz");
+        assert_eq!(word_bounds(&g, 0, 3, 0), (0, 6)); // "foo_bar"
     }
 
     #[test]

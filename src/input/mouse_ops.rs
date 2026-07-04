@@ -102,6 +102,35 @@ impl App {
         }
     }
 
+    /// Select the word under the pixel (double-click): highlight it briefly,
+    /// copy it to the clipboard, and return to Insert mode (no persistent
+    /// selection), consistent with drag-selection.
+    pub(crate) fn select_word_at(&mut self, px: f64, py: f64) {
+        let Some(pane_id) = self.pane_at_pixel(px, py) else {
+            return;
+        };
+        self.tab_mut().active = pane_id;
+        let Some((col, row)) = self.pixel_to_cell(pane_id, px, py) else {
+            return;
+        };
+        let bounds = {
+            let tab = self.tab();
+            tab.panes.get(&pane_id).and_then(|entry| {
+                entry.pane.grid_read().map(|grid| {
+                    crate::input::motion::word_bounds(&grid, entry.pane.scroll_offset, col, row)
+                })
+            })
+        };
+        if let Some((start, end)) = bounds {
+            self.copy_selection_to_clipboard(start, row, end, row);
+        }
+        self.state.mode = InputMode::Insert;
+        self.state.mouse_selecting = false;
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
+    }
+
     pub(crate) fn update_mouse_selection(&mut self, px: f64, py: f64) {
         if let InputMode::Visual {
             start_col,
