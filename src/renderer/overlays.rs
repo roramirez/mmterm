@@ -5,32 +5,57 @@ use crate::ui::layout::STATUS_BAR_H;
 use super::text::{Renderer, blend, color_u32, dim_buffer, draw_rect_border, fill_rect};
 
 // ── Overlay palette ──────────────────────────────────────────────────────────
-// All color constants used by config panel and command palette overlays.
+// Colors used by the config panel and command palette overlays, all resolved
+// from the active `ResolvedTheme` so the overlays track the current theme.
+// Only the two panel backgrounds are dedicated theme fields; every other color
+// maps to an existing chrome field or palette slot (see `OverlayColors`).
 
-/// Panel background (dark blue).
-const C_PANEL_BG: u32 = 0xff_1a_1b_26;
-/// Panel border / selected-row left accent (bright blue).
-const C_BORDER: u32 = 0xff_89_b4_fa;
-/// Section separator / thin rule between sections.
-const C_SECTION_RULE: u32 = 0xff_24_25_3a;
-/// Footer separator line.
-const C_FOOTER_SEP: u32 = 0xff_31_32_44;
-/// Dimmed text: section headers, scroll indicator, hints, help.
-const C_DIM: u32 = 0xff_58_5b_70;
-/// Panel title (magenta).
-const C_TITLE: u32 = 0xff_cb_a6_f7;
-/// Selected row background.
-const C_ROW_SEL_BG: u32 = 0xff_2a_2b_3d;
-/// Label color when row is selected (yellow).
-const C_LABEL_SEL: u32 = 0xff_f9_e2_af;
-/// Label color when row is unselected (light blue-grey).
-const C_LABEL_UNSEL: u32 = 0xff_ba_c2_de;
-/// Error / invalid status text (pink).
-const C_ERROR: u32 = 0xff_f3_8b_a8;
-/// "[editing]" badge (green).
-const C_EDITING: u32 = 0xff_a6_e3_a1;
-/// Command palette query input text.
-const C_QUERY_TEXT: u32 = 0xff_cb_d5_f5;
+#[derive(Clone, Copy)]
+struct OverlayColors {
+    /// Panel background.
+    panel_bg: u32,
+    /// Panel border / selected-row left accent.
+    border: u32,
+    /// Thin rule between sections / under the palette query row.
+    section_rule: u32,
+    /// Footer separator line.
+    footer_sep: u32,
+    /// Dimmed text: section headers, scroll indicator, hints, help.
+    dim: u32,
+    /// Panel title.
+    title: u32,
+    /// Selected row background.
+    row_sel_bg: u32,
+    /// Label color when a row is selected.
+    label_sel: u32,
+    /// Label color when a row is unselected.
+    label_unsel: u32,
+    /// Error / invalid status text.
+    error: u32,
+    /// "[editing]" badge.
+    editing: u32,
+    /// Command palette query input text.
+    query_text: u32,
+}
+
+impl OverlayColors {
+    fn from_theme(t: &ResolvedTheme) -> Self {
+        Self {
+            panel_bg: color_u32(t.overlay_bg),
+            border: color_u32(t.badge),
+            section_rule: color_u32(t.separator),
+            footer_sep: color_u32(t.separator),
+            dim: color_u32(t.palette[8]),
+            title: color_u32(t.palette[5]),
+            row_sel_bg: color_u32(t.overlay_bg_sel),
+            label_sel: color_u32(t.search_match),
+            label_unsel: color_u32(t.foreground),
+            error: color_u32(t.palette[1]),
+            editing: color_u32(t.palette[2]),
+            query_text: color_u32(t.foreground),
+        }
+    }
+}
 
 // ── Screenshot helpers ───────────────────────────────────────────────────────
 
@@ -97,8 +122,7 @@ struct FieldRowLayout {
     cw: u32,
     fp: f32,
     row_h: u32,
-    bg: u32,
-    border: u32,
+    c: OverlayColors,
     sel: usize,
 }
 
@@ -208,7 +232,15 @@ impl Renderer {
         l: &FieldRowLayout,
     ) -> Option<u32> {
         let section_h = l.row_h - 2;
-        fill_rect(buf, bw, l.px + 1, draw_y, l.panel_w - 2, 1, C_SECTION_RULE);
+        fill_rect(
+            buf,
+            bw,
+            l.px + 1,
+            draw_y,
+            l.panel_w - 2,
+            1,
+            l.c.section_rule,
+        );
         let is_collapsed = panel.collapsed.contains(sec);
         let count = panel.collapsed_count(sec);
         let sec_label = if is_collapsed {
@@ -225,10 +257,10 @@ impl Renderer {
             &sec_label,
             l.fp,
             true,
-            C_DIM,
+            l.c.dim,
         );
         let indicator = collapse_indicator(is_collapsed);
-        let ind_color = if i == l.sel { C_LABEL_SEL } else { C_DIM };
+        let ind_color = if i == l.sel { l.c.label_sel } else { l.c.dim };
         let ind_x = l.px + l.panel_w - l.cw * indicator.len() as u32 - l.pad;
         self.draw_str(
             buf,
@@ -249,8 +281,16 @@ impl Renderer {
         }
     }
 
-    pub fn draw_config_panel(&mut self, buf: &mut [u32], bw: u32, bh: u32, panel: &ConfigPanel) {
+    pub fn draw_config_panel(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        panel: &ConfigPanel,
+        theme: &ResolvedTheme,
+    ) {
         dim_buffer(buf);
+        let c = OverlayColors::from_theme(theme);
 
         let (fp, cw, row_h) = self.panel_font_metrics();
         let pad = cw;
@@ -266,15 +306,15 @@ impl Renderer {
         let px = (bw - panel_w) / 2;
         let py = (bh.saturating_sub(panel_h)) / 2;
 
-        fill_rect(buf, bw, px, py, panel_w, panel_h, C_PANEL_BG);
-        draw_rect_border(buf, bw, px, py, panel_w, panel_h, C_BORDER);
+        fill_rect(buf, bw, px, py, panel_w, panel_h, c.panel_bg);
+        draw_rect_border(buf, bw, px, py, panel_w, panel_h, c.border);
 
         // Title bar: "CONFIGURATION" in title color, version dimmed right after
         let title = "CONFIGURATION";
-        self.draw_str(buf, bw, bh, px + pad, py + 4, title, fp, true, C_TITLE);
+        self.draw_str(buf, bw, bh, px + pad, py + 4, title, fp, true, c.title);
         let ver = format!("  v{}", panel.version);
         let ver_x = px + pad + cw * title.len() as u32;
-        self.draw_str(buf, bw, bh, ver_x, py + 4, &ver, fp, false, C_DIM);
+        self.draw_str(buf, bw, bh, ver_x, py + 4, &ver, fp, false, c.dim);
 
         // Scroll window: keep selected in view (using visible indices)
         let vis = panel.visible_indices();
@@ -285,7 +325,7 @@ impl Renderer {
         // Scroll indicator shows position within visible set
         let scroll_info = format!("{}/{}", sel_pos + 1, vis.len());
         let si_x = px + panel_w - cw * scroll_info.len() as u32 - pad;
-        self.draw_str(buf, bw, bh, si_x, py + 4, &scroll_info, fp, false, C_DIM);
+        self.draw_str(buf, bw, bh, si_x, py + 4, &scroll_info, fp, false, c.dim);
 
         let layout = FieldRowLayout {
             px,
@@ -294,8 +334,7 @@ impl Renderer {
             cw,
             fp,
             row_h,
-            bg: C_PANEL_BG,
-            border: C_BORDER,
+            c,
             sel,
         };
         let clip_y = py + panel_h - row_h * footer_rows;
@@ -326,6 +365,7 @@ impl Renderer {
             footer_rows,
             panel_h,
             py,
+            &c,
         );
     }
 
@@ -344,19 +384,20 @@ impl Renderer {
         footer_rows: u32,
         panel_h: u32,
         py: u32,
+        c: &OverlayColors,
     ) {
         let footer_y = py + panel_h - row_h * footer_rows;
-        fill_rect(buf, bw, px + 1, footer_y, panel_w - 2, 1, C_FOOTER_SEP);
+        fill_rect(buf, bw, px + 1, footer_y, panel_w - 2, 1, c.footer_sep);
         let hint = config_panel_hint(panel);
-        self.draw_str(buf, bw, bh, px + pad, footer_y + 2, &hint, fp, false, C_DIM);
+        self.draw_str(buf, bw, bh, px + pad, footer_y + 2, &hint, fp, false, c.dim);
         let status_y = py + panel_h - row_h;
         let status = panel.status.as_deref().unwrap_or(
             "j/k: move  Space: collapse  ]/[: section  Enter/i: edit  Ctrl+S: save  q: cancel",
         );
         let status_color = if panel.status.is_some() {
-            C_ERROR
+            c.error
         } else {
-            C_DIM
+            c.dim
         };
         self.draw_str(
             buf,
@@ -404,7 +445,17 @@ impl Renderer {
         y: u32,
     ) {
         let ex = l.px + l.panel_w - l.cw * 7 - l.pad;
-        self.draw_str(buf, bw, bh, ex, y + 2, "[editing]", l.fp, false, C_EDITING);
+        self.draw_str(
+            buf,
+            bw,
+            bh,
+            ex,
+            y + 2,
+            "[editing]",
+            l.fp,
+            false,
+            l.c.editing,
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -420,7 +471,7 @@ impl Renderer {
     ) {
         let ind = collapse_indicator(panel.collapsed.contains(sec));
         let bx = l.px + l.panel_w - l.cw * ind.len() as u32 - l.pad;
-        self.draw_str(buf, bw, bh, bx, y + 2, ind, l.fp, false, C_LABEL_SEL);
+        self.draw_str(buf, bw, bh, bx, y + 2, ind, l.fp, false, l.c.label_sel);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -438,15 +489,19 @@ impl Renderer {
         let is_sel = i == l.sel;
         let is_editing = panel.editing && is_sel;
 
-        let row_bg = if is_sel { C_ROW_SEL_BG } else { l.bg };
+        let row_bg = if is_sel { l.c.row_sel_bg } else { l.c.panel_bg };
         fill_rect(buf, bw, l.px + 1, draw_y, l.panel_w - 2, l.row_h, row_bg);
         if is_sel {
-            fill_rect(buf, bw, l.px + 1, draw_y, 1, l.row_h, l.border);
+            fill_rect(buf, bw, l.px + 1, draw_y, 1, l.row_h, l.c.border);
         }
 
         draw_hex_color_swatch(buf, bw, panel, i, draw_y, l);
 
-        let label_color = if is_sel { C_LABEL_SEL } else { C_LABEL_UNSEL };
+        let label_color = if is_sel {
+            l.c.label_sel
+        } else {
+            l.c.label_unsel
+        };
         let is_select = matches!(field.kind, crate::config::tui_config::FieldKind::Select(_));
         let value_display = field_value_display(panel, i, is_select, is_sel, is_editing);
         let text = format!("{:<18} {}", field.label, value_display);
@@ -489,13 +544,14 @@ impl Renderer {
         label: &str,
         shortcut: &str,
         is_sel: bool,
+        c: &OverlayColors,
     ) {
-        let row_bg = if is_sel { C_ROW_SEL_BG } else { C_PANEL_BG };
+        let row_bg = if is_sel { c.row_sel_bg } else { c.panel_bg };
         fill_rect(buf, bw, px + 1, row_y, panel_w - 2, row_h, row_bg);
         if is_sel {
-            fill_rect(buf, bw, px + 1, row_y, 1, row_h, C_BORDER);
+            fill_rect(buf, bw, px + 1, row_y, 1, row_h, c.border);
         }
-        let label_color = if is_sel { C_LABEL_SEL } else { C_LABEL_UNSEL };
+        let label_color = if is_sel { c.label_sel } else { c.label_unsel };
         self.draw_str(
             buf,
             bw,
@@ -517,11 +573,12 @@ impl Renderer {
             shortcut,
             fp,
             false,
-            C_DIM,
+            c.dim,
         );
     }
 
     /// `entries` is a slice of `(label, shortcut)` pairs — e.g. `("Split Vertical", "Ctrl+W s")`.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_command_palette(
         &mut self,
         buf: &mut [u32],
@@ -530,8 +587,10 @@ impl Renderer {
         query: &str,
         entries: &[(&str, &str)],
         selected: usize,
+        theme: &ResolvedTheme,
     ) {
         dim_buffer(buf);
+        let c = OverlayColors::from_theme(theme);
 
         let (fp, cw, row_h) = self.panel_font_metrics();
 
@@ -544,8 +603,8 @@ impl Renderer {
 
         let pad = cw;
 
-        fill_rect(buf, bw, px, py, panel_w, panel_h, C_PANEL_BG);
-        draw_rect_border(buf, bw, px, py, panel_w, panel_h, C_BORDER);
+        fill_rect(buf, bw, px, py, panel_w, panel_h, c.panel_bg);
+        draw_rect_border(buf, bw, px, py, panel_w, panel_h, c.border);
 
         // Query input row
         let query_display = format!("> {query}_");
@@ -558,17 +617,17 @@ impl Renderer {
             &query_display,
             fp,
             false,
-            C_QUERY_TEXT,
+            c.query_text,
         );
 
         // Entry count indicator
         let count_str = format!("{}/{}", entries.len(), crate::ui::command_palette::total());
         let count_x = px + panel_w - cw * count_str.len() as u32 - pad;
-        self.draw_str(buf, bw, bh, count_x, py + 4, &count_str, fp, false, C_DIM);
+        self.draw_str(buf, bw, bh, count_x, py + 4, &count_str, fp, false, c.dim);
 
         // Separator line under query row
         let sep_y = py + row_h;
-        fill_rect(buf, bw, px + 1, sep_y, panel_w - 2, 1, C_SECTION_RULE);
+        fill_rect(buf, bw, px + 1, sep_y, panel_w - 2, 1, c.section_rule);
 
         // Scroll window: keep selected visible
         let scroll_start = selected.saturating_sub(MAX_VISIBLE - 1);
@@ -595,6 +654,7 @@ impl Renderer {
                 label,
                 shortcut,
                 list_i == selected,
+                &c,
             );
         }
 
@@ -609,7 +669,7 @@ impl Renderer {
             "↑↓ navigate   Enter execute   Esc close",
             fp,
             false,
-            C_DIM,
+            c.dim,
         );
     }
 
@@ -697,7 +757,9 @@ impl Renderer {
         half_w: u32,
         half_h: u32,
         name: &str,
+        theme: &ResolvedTheme,
     ) {
+        let c = OverlayColors::from_theme(theme);
         let left = cx.saturating_sub(half_w);
         let top = cy.saturating_sub(half_h);
         let right = (cx + half_w).min(bw);
@@ -718,8 +780,8 @@ impl Renderer {
         let bx = bw.saturating_sub(box_w) / 2;
         let by = bh.saturating_sub(box_h + 8);
 
-        fill_rect(buf, bw, bx, by, box_w, box_h, C_PANEL_BG);
-        draw_rect_border(buf, bw, bx, by, box_w, box_h, C_BORDER);
+        fill_rect(buf, bw, bx, by, box_w, box_h, c.panel_bg);
+        draw_rect_border(buf, bw, bx, by, box_w, box_h, c.border);
         self.draw_str(
             buf,
             bw,
@@ -729,14 +791,14 @@ impl Renderer {
             &display,
             fp,
             false,
-            C_QUERY_TEXT,
+            c.query_text,
         );
 
         let hint = "Enter save  (empty = mmterm-<timestamp>.png)   Esc cancel";
         let hint_w = hint.chars().count() as u32 * cw;
         let hint_x = bw.saturating_sub(hint_w) / 2;
         let hint_y = by.saturating_sub(row_h + 2);
-        self.draw_str(buf, bw, bh, hint_x, hint_y, hint, fp, false, C_DIM);
+        self.draw_str(buf, bw, bh, hint_x, hint_y, hint, fp, false, c.dim);
     }
 
     pub fn draw_quit_confirm(&mut self, buf: &mut [u32], bw: u32, bh: u32, theme: &ResolvedTheme) {

@@ -89,6 +89,30 @@ fn load_theme_without_ui_fields_uses_palette_defaults() {
     assert_eq!(theme.search_match.b, 0x00);
     // scrollbar defaults to palette[8] = gray
     assert_eq!(theme.scrollbar.r, 0x88);
+    // overlay backgrounds derive from background mixed toward palette[8]:
+    // both must differ from a flat background and be ordered bg < bg_sel (lighter).
+    assert!(theme.overlay_bg.r > theme.background.r);
+    assert!(theme.overlay_bg_sel.r > theme.overlay_bg.r);
+}
+
+#[test]
+fn default_theme_overlay_fields_match_toml_overrides() {
+    // default.toml sets explicit overlay backgrounds; they must round-trip.
+    let theme = default_theme();
+    assert_eq!(
+        (theme.overlay_bg.r, theme.overlay_bg.g, theme.overlay_bg.b),
+        (0x1a, 0x1b, 0x26),
+        "overlay_bg must come from default.toml, not a derived default"
+    );
+    assert_eq!(
+        (
+            theme.overlay_bg_sel.r,
+            theme.overlay_bg_sel.g,
+            theme.overlay_bg_sel.b
+        ),
+        (0x2a, 0x2b, 0x3d),
+        "overlay_bg_sel must come from default.toml"
+    );
 }
 
 #[test]

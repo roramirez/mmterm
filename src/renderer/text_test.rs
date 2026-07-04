@@ -466,7 +466,7 @@ fn draw_config_panel_renders_without_panic() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];
     let panel = ConfigPanel::from_config(&Config::default());
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
@@ -1179,7 +1179,7 @@ fn draw_config_panel_with_error_status_uses_error_color() {
     let mut buf = vec![0u32; 800 * 600];
     let mut panel = ConfigPanel::from_config(&Config::default());
     panel.status = Some("invalid value".to_string());
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
@@ -1189,7 +1189,7 @@ fn draw_config_panel_selected_past_max_visible_scrolls() {
     let mut buf = vec![0u32; 800 * 600];
     let mut panel = ConfigPanel::from_config(&Config::default());
     panel.selected = panel.fields.len() - 1; // last field, well past max_visible
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
@@ -1201,7 +1201,7 @@ fn draw_config_panel_hexcolor_field_selected_renders_swatch() {
     let mut panel = ConfigPanel::from_config(&Config::default());
     // F_COLOR_BG is the first HexColor field (index 13).
     panel.selected = 13;
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
@@ -1211,7 +1211,7 @@ fn draw_config_panel_select_field_selected_shows_arrows() {
     let mut buf = vec![0u32; 800 * 600];
     let mut panel = ConfigPanel::from_config(&Config::default());
     panel.selected = 12; // F_THEME_NAME
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
@@ -1223,7 +1223,7 @@ fn draw_config_panel_editing_select_field_shows_editing_label() {
     panel.selected = 12; // F_THEME_NAME (Select kind)
     panel.editing = true;
     panel.edit_buf = panel.fields[12].value.clone();
-    r.draw_config_panel(&mut buf, 800, 600, &panel);
+    r.draw_config_panel(&mut buf, 800, 600, &panel, &crate::theme::default_theme());
 }
 
 #[test]
