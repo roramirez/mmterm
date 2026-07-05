@@ -6,7 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- double-click selects the word under the cursor and copies it to the clipboard
+- double-click selects and highlights the word under the cursor and copies it to the clipboard
 - activity indicator: tabs with output while not focused now show the activity dot in the tab bar; the marker clears as soon as the tab is focused
 - OSC 133 shell integration with prompt and exit-code status-bar indicators, gated by `general.shell_integration`
 - OSC 777 desktop notifications gated by `general.desktop_notifications`
