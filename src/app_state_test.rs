@@ -1465,3 +1465,77 @@ fn dispatch_copy_last_command_output_noop_when_disabled() {
     let effects = s.dispatch_action(Action::CopyLastCommandOutput);
     assert!(effects.is_empty());
 }
+
+#[test]
+fn dispatch_prompt_next_after_prev_walks_down_not_stuck() {
+    use crate::terminal::grid::PromptBlock;
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    let blocks = vec![
+        PromptBlock {
+            prompt_row: 5,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        },
+        PromptBlock {
+            prompt_row: 15,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        },
+        PromptBlock {
+            prompt_row: 30,
+            output_start: None,
+            output_end: None,
+            exit_code: None,
+        },
+    ];
+    seed_prompt_blocks(&mut s, active, blocks);
+    let (sb, rows) = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| {
+            let g = e.pane.grid.read().unwrap();
+            (g.scrollback.len(), g.rows)
+        })
+        .unwrap();
+    let off = |s: &AppState| {
+        s.tab()
+            .panes
+            .get(&active)
+            .map(|e| e.pane.scroll_offset)
+            .unwrap()
+    };
+
+    s.dispatch_action(Action::PromptPrev); // from bottom → centers 30
+    assert_eq!(off(&s), crate::search::compute_scroll_offset(30, sb, rows));
+    s.dispatch_action(Action::PromptPrev); // → 15
+    assert_eq!(off(&s), crate::search::compute_scroll_offset(15, sb, rows));
+    s.dispatch_action(Action::PromptNext); // must move DOWN to 30, not stick on 15
+    assert_eq!(off(&s), crate::search::compute_scroll_offset(30, sb, rows));
+}
+
+#[test]
+fn last_command_output_text_excludes_end_row() {
+    use crate::terminal::grid::PromptBlock;
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    {
+        let e = s.tab_mut().panes.get_mut(&active).unwrap();
+        let mut g = e.pane.grid.write().unwrap();
+        // scrollback empty → abs_row == live row.
+        g.cell_mut(0, 0).c = 'O';
+        g.cell_mut(1, 0).c = 'K';
+        g.cell_mut(0, 1).c = 'X';
+        g.cell_mut(0, 2).c = 'P'; // the "next prompt" row — must be excluded
+        g.prompt_blocks = vec![PromptBlock {
+            prompt_row: 0,
+            output_start: Some(0),
+            output_end: Some(2), // exclusive: output is rows 0..=1
+            exit_code: Some(0),
+        }];
+    }
+    assert_eq!(s.last_command_output_text().as_deref(), Some("OK\nX"));
+}

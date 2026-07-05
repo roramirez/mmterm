@@ -548,8 +548,10 @@ impl AppState {
         }
     }
 
-    /// OSC 133: jump the viewport to the next (`forward`) or previous prompt
-    /// relative to the current viewport top. No-op when shell integration is off.
+    /// OSC 133: jump the viewport to the next (`forward`) or previous prompt.
+    /// The reference point is the viewport *center* (matching how a jump centers
+    /// its target), so repeated `[`/`]` walk through prompts instead of sticking
+    /// on the one currently centered. No-op when shell integration is off.
     fn do_prompt_jump(&mut self, forward: bool) -> Vec<AppEffect> {
         if !self.config.general.shell_integration || self.tabs.is_empty() {
             return vec![];
@@ -565,11 +567,11 @@ impl AppState {
         else {
             return vec![];
         };
-        let top_abs = sb_len.saturating_sub(scroll_offset);
+        let ref_abs = sb_len.saturating_sub(scroll_offset) + grid_rows / 2;
         let target = if forward {
-            prompt_rows.iter().find(|&&r| r > top_abs).copied()
+            prompt_rows.iter().find(|&&r| r > ref_abs).copied()
         } else {
-            prompt_rows.iter().rev().find(|&&r| r < top_abs).copied()
+            prompt_rows.iter().rev().find(|&&r| r < ref_abs).copied()
         };
         let Some(target) = target else {
             return vec![];
@@ -581,22 +583,32 @@ impl AppState {
         vec![AppEffect::Redraw]
     }
 
+    /// Text of the last completed command's output. The OSC 133 `D` marker lands
+    /// on the line where the *next* prompt is drawn, so `output_end` is treated
+    /// as exclusive. Returns None when no command has completed.
+    pub(crate) fn last_command_output_text(&self) -> Option<String> {
+        let g = self.active_entry()?.pane.grid.read().unwrap();
+        let block = g
+            .prompt_blocks
+            .iter()
+            .rev()
+            .find(|b| b.output_start.is_some() && b.output_end.is_some())?;
+        let start = block.output_start.unwrap();
+        let end = block.output_end.unwrap();
+        if end > start {
+            Some(g.text_between_abs_rows(start, end - 1))
+        } else {
+            None
+        }
+    }
+
     /// OSC 133: copy the last completed command's output (C→D zone) to the
     /// clipboard. No-op when shell integration is off or no command has finished.
     fn do_copy_last_command_output(&mut self) -> Vec<AppEffect> {
         if !self.config.general.shell_integration {
             return vec![];
         }
-        let text = self.active_entry().and_then(|entry| {
-            let g = entry.pane.grid.read().unwrap();
-            let block = g
-                .prompt_blocks
-                .iter()
-                .rev()
-                .find(|b| b.output_start.is_some() && b.output_end.is_some())?;
-            Some(g.text_between_abs_rows(block.output_start.unwrap(), block.output_end.unwrap()))
-        });
-        if let Some(text) = text {
+        if let Some(text) = self.last_command_output_text() {
             let lines = text.lines().count();
             self.copy_text_to_clipboard(text);
             log::info!("copied last command output ({lines} lines) to clipboard");
