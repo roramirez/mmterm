@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-05
+
 ### Added
 - double-click selects and highlights the word under the cursor and copies it to the clipboard
 - activity indicator: tabs with output while not focused now show the activity dot in the tab bar; the marker clears as soon as the tab is focused
@@ -13,15 +15,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - derive `PartialEq` on the config structs to support a full config round-trip test
-
-### Changed
 - the config panel and command palette overlays now follow the active theme instead of fixed colors; new `overlay_bg` / `overlay_bg_sel` theme fields control the panel backgrounds (derived from the palette when a theme omits them)
+- log the cause when the PTY reader thread stops (EOF, I/O error, or closed output channel) under `RUST_LOG=debug`, instead of silently collapsing EOF and errors into a bare break
 
 ### Documentation
 - document the per-pane lock hierarchy (`log_file` > `grid` > `pending_resize`) and the never-hold-two-at-once invariant in `drain.rs`
-
-### Changed
-- log the cause when the PTY reader thread stops (EOF, I/O error, or closed output channel) under `RUST_LOG=debug`, instead of silently collapsing EOF and errors into a bare break
 
 ### Fixed
 - degrade instead of crashing when a pane's grid lock is poisoned by a panicked parser thread: main-thread reads (render, input, search, scroll, resize) now skip the frame/action and log a warning rather than panicking in cascade
@@ -350,7 +348,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - App icon with MM branding
 - event loop yields on idle to eliminate CPU busy-loop during quiescent periods
 
-[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/roramirez/mmterm/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/roramirez/mmterm/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/roramirez/mmterm/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/roramirez/mmterm/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/roramirez/mmterm/compare/v0.6.0...v0.6.1
