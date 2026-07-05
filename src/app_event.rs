@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use arboard::Clipboard;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
@@ -471,7 +473,6 @@ impl App {
         event: winit::event::KeyEvent,
         event_loop: &ActiveEventLoop,
     ) {
-        use std::time::Instant;
         self.state.cursor_blink = true;
         self.state.blink_last = Instant::now();
 
@@ -703,11 +704,34 @@ impl App {
         }
     }
 
+    /// True when this left-press lands within ~400 ms and ~4 px of the previous
+    /// one (a double-click). Records the press position for the next comparison,
+    /// clearing it after a positive match so a third click is not treated as
+    /// another double-click.
+    fn is_double_click(&mut self, mx: f64, my: f64) -> bool {
+        let now = Instant::now();
+        let is_double = self
+            .state
+            .last_click
+            .map(|(t, x, y)| {
+                now.duration_since(t) < Duration::from_millis(400)
+                    && (x - mx).abs() < 4.0
+                    && (y - my).abs() < 4.0
+            })
+            .unwrap_or(false);
+        self.state.last_click = if is_double { None } else { Some((now, mx, my)) };
+        is_double
+    }
+
     fn handle_selection_click(&mut self, state: ElementState) {
         match state {
             ElementState::Pressed => {
                 if let Some((mx, my)) = self.state.mouse_pos {
-                    self.start_mouse_selection(mx, my);
+                    if self.is_double_click(mx, my) {
+                        self.select_word_at(mx, my);
+                    } else {
+                        self.start_mouse_selection(mx, my);
+                    }
                 }
             }
             ElementState::Released => {

@@ -89,6 +89,9 @@ pub struct AppState {
     pub clipboard: Option<Clipboard>,
     pub mouse_pos: Option<(f64, f64)>,
     pub mouse_selecting: bool,
+    /// Time and pixel position of the last left-button press, for double-click
+    /// detection (word selection).
+    pub last_click: Option<(Instant, f64, f64)>,
     pub search_matches: Vec<(usize, usize, usize)>,
     pub search_current: usize,
     pub search_history: Vec<String>,
@@ -118,6 +121,7 @@ impl AppState {
             clipboard: Clipboard::new().ok(),
             mouse_pos: None,
             mouse_selecting: false,
+            last_click: None,
             search_matches: Vec::new(),
             search_current: 0,
             search_history: Vec::new(),

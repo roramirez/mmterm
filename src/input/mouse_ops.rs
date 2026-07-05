@@ -102,6 +102,50 @@ impl App {
         }
     }
 
+    /// Select the word under the pixel (double-click): leave it highlighted in
+    /// anchored Visual mode so the user sees what was picked, and copy it to the
+    /// clipboard. A blank cell selects nothing. `Esc`/click returns to Insert.
+    pub(crate) fn select_word_at(&mut self, px: f64, py: f64) {
+        let Some(pane_id) = self.pane_at_pixel(px, py) else {
+            return;
+        };
+        self.tab_mut().active = pane_id;
+        let Some((col, row)) = self.pixel_to_cell(pane_id, px, py) else {
+            return;
+        };
+        // Resolve the word span and its text in one grid read; a blank cell
+        // yields empty text and is treated as "nothing to select".
+        let selection = {
+            let tab = self.tab();
+            tab.panes.get(&pane_id).and_then(|entry| {
+                entry.pane.grid_read().and_then(|grid| {
+                    let (start, end) = crate::input::motion::word_bounds(
+                        &grid,
+                        entry.pane.scroll_offset,
+                        col,
+                        row,
+                    );
+                    let text = grid.selected_text(start, row, end, row, entry.pane.scroll_offset);
+                    (!text.is_empty()).then_some((start, end))
+                })
+            })
+        };
+        if let Some((start, end)) = selection {
+            self.state.mode = InputMode::Visual {
+                start_col: start,
+                start_row: row,
+                cur_col: end,
+                cur_row: row,
+                anchored: true,
+            };
+            self.copy_selection_to_clipboard(start, row, end, row);
+        }
+        self.state.mouse_selecting = false;
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
+    }
+
     pub(crate) fn update_mouse_selection(&mut self, px: f64, py: f64) {
         if let InputMode::Visual {
             start_col,
