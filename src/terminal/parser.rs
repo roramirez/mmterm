@@ -66,29 +66,46 @@ struct Performer<'a> {
 
 impl Performer<'_> {
     fn handle_dec_private_modes(&mut self, action: char, p0: u16) {
+        // DECRQM (CSI ? Ps $ p): reply CSI ? Ps ; Pm $ y.
+        if action == 'p' {
+            let resp = format!("\x1b[?{};{}$y", p0, self.decrqm_state(p0));
+            self.grid
+                .pending_responses
+                .extend_from_slice(resp.as_bytes());
+            return;
+        }
+        // Only DECSET (h) / DECRST (l) toggle modes; `on` is meaningless otherwise
+        // and the `('h' | 'l', _)` patterns keep other actions out of these arms.
+        let on = action == 'h';
         match (action, p0) {
-            ('h', 1) => self.grid.application_cursor_keys = true,
-            ('l', 1) => self.grid.application_cursor_keys = false,
-            ('h', 7) => self.grid.autowrap = true,
-            ('l', 7) => self.grid.autowrap = false,
-            ('h', 25) => self.grid.cursor_visible = true,
-            ('l', 25) => self.grid.cursor_visible = false,
-            ('h', 1000) => self.grid.mouse_mode = 1000,
-            ('l', 1000) => self.grid.mouse_mode = 0,
-            ('h', 1002) => self.grid.mouse_mode = 1002,
-            ('l', 1002) => self.grid.mouse_mode = 0,
-            ('h', 1003) => self.grid.mouse_mode = 1003,
-            ('l', 1003) => self.grid.mouse_mode = 0,
-            ('h', 1004) => self.grid.focus_report = true,
-            ('l', 1004) => self.grid.focus_report = false,
-            ('h', 1006) => self.grid.mouse_sgr = true,
-            ('l', 1006) => self.grid.mouse_sgr = false,
+            ('h' | 'l', 1) => self.grid.application_cursor_keys = on,
+            ('h' | 'l', 7) => self.grid.autowrap = on,
+            ('h' | 'l', 25) => self.grid.cursor_visible = on,
+            ('h' | 'l', 1000 | 1002 | 1003) => self.grid.mouse_mode = if on { p0 } else { 0 },
+            ('h' | 'l', 1004) => self.grid.focus_report = on,
+            ('h' | 'l', 1006) => self.grid.mouse_sgr = on,
+            ('h' | 'l', 2004) => self.grid.bracketed_paste = on,
             ('h', 1049) => self.grid.enter_alternate_screen(),
             ('l', 1049) => self.grid.exit_alternate_screen(),
-            ('h', 2004) => self.grid.bracketed_paste = true,
-            ('l', 2004) => self.grid.bracketed_paste = false,
             _ => {}
         }
+    }
+
+    // DECRQM reply state for a DEC private mode: 0 = not recognized, 1 = set, 2 = reset.
+    fn decrqm_state(&self, mode: u16) -> u8 {
+        let g = &self.grid;
+        let set = match mode {
+            1 => g.application_cursor_keys,
+            7 => g.autowrap,
+            25 => g.cursor_visible,
+            1000 | 1002 | 1003 => g.mouse_mode == mode,
+            1004 => g.focus_report,
+            1006 => g.mouse_sgr,
+            1049 => g.in_alternate_screen(),
+            2004 => g.bracketed_paste,
+            _ => return 0,
+        };
+        2 - u8::from(set)
     }
 
     fn erase_partial_row(&mut self, row: usize, col_start: usize, col_end: usize) {
@@ -259,7 +276,9 @@ impl Perform for Performer<'_> {
         let p0 = ps.first().copied().unwrap_or(0);
         let p1 = ps.get(1).copied().unwrap_or(0);
 
-        if intermediates == b"?" {
+        // All `?`-prefixed sequences (set/reset with h/l, and DECRQM query with
+        // `$ p`) are handled together; vte reports the `$` in the intermediates.
+        if intermediates.first() == Some(&b'?') {
             self.handle_dec_private_modes(action, p0);
             return;
         }
