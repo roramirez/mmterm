@@ -217,6 +217,16 @@ impl Performer<'_> {
         }
     }
 
+    // REP (CSI Ps b): re-emit the last printed graphic character `n` times.
+    fn handle_repeat(&mut self, n: usize) {
+        let Some(c) = self.grid.last_printed else {
+            return;
+        };
+        for _ in 0..n {
+            self.grid.write_char(c);
+        }
+    }
+
     fn handle_scroll_region(&mut self, p0: u16, p1: u16) {
         let top = (p0.saturating_sub(1) as usize).min(self.grid.max_row());
         let bot = if p1 == 0 {
@@ -290,6 +300,8 @@ impl Perform for Performer<'_> {
             // Delete Line
             'M' => self.handle_delete_line(param_or_one(p0)),
             'P' | '@' | 'X' => self.handle_char_ops(action, p0),
+            // REP: repeat the last printed graphic character Ps times (default 1)
+            'b' => self.handle_repeat(param_or_one(p0)),
             // CHA: cursor horizontal absolute (1-indexed)
             'G' => self.grid.cursor_col = (p0.saturating_sub(1) as usize).min(self.grid.max_col()),
             // VPA: vertical position absolute (1-indexed)

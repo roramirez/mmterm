@@ -1287,3 +1287,42 @@ fn osc777_without_notify_keyword_is_ignored() {
     p.process(b"\x1b]777;other;Title;Body\x07");
     assert!(p.grid.pending_notification.is_none());
 }
+
+#[test]
+fn rep_repeats_last_printed_char() {
+    let mut p = make_parser(10, 3);
+    p.process(b"X\x1b[3b"); // print 'X', then REP 3 → total 4 'X'
+    for col in 0..4 {
+        assert_eq!(p.grid.cell(col, 0).c, 'X');
+    }
+    assert_eq!(p.grid.cell(4, 0).c, ' ');
+    assert_eq!(p.grid.cursor_col, 4);
+}
+
+#[test]
+fn rep_without_param_repeats_once() {
+    let mut p = make_parser(10, 3);
+    p.process(b"A\x1b[b"); // REP with no param → repeat once → 2 'A'
+    assert_eq!(p.grid.cell(0, 0).c, 'A');
+    assert_eq!(p.grid.cell(1, 0).c, 'A');
+    assert_eq!(p.grid.cell(2, 0).c, ' ');
+}
+
+#[test]
+fn rep_with_no_prior_char_is_noop() {
+    let mut p = make_parser(10, 3);
+    p.process(b"\x1b[5b"); // REP before any print → nothing happens, no panic
+    assert_eq!(p.grid.cell(0, 0).c, ' ');
+    assert_eq!(p.grid.cursor_col, 0);
+}
+
+#[test]
+fn rep_repeats_most_recent_char_only() {
+    let mut p = make_parser(10, 3);
+    p.process(b"ab\x1b[2b"); // 'a','b', then repeat 'b' twice
+    assert_eq!(p.grid.cell(0, 0).c, 'a');
+    assert_eq!(p.grid.cell(1, 0).c, 'b');
+    assert_eq!(p.grid.cell(2, 0).c, 'b');
+    assert_eq!(p.grid.cell(3, 0).c, 'b');
+    assert_eq!(p.grid.cell(4, 0).c, ' ');
+}
