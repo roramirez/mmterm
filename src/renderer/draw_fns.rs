@@ -20,6 +20,7 @@ pub(super) static BLANK_CELL: Cell = Cell {
     overline: false,
     reverse: false,
     blink: false,
+    double_underline: false,
     wide: false,
     wide_cont: false,
     url: None,

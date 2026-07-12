@@ -757,6 +757,18 @@ fn draw_pane_with_underline_cell_does_not_panic() {
 }
 
 #[test]
+fn draw_pane_with_double_underline_cell_does_not_panic() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+    let mut grid = make_grid(cols, rows);
+    grid.write_char('D');
+    grid.cell_mut(0, 0).double_underline = true;
+    let pane = make_pane(&grid, &m);
+    do_draw(&mut r, &[pane], &InputMode::Insert);
+}
+
+#[test]
 fn draw_pane_osc8_link_without_hover_does_not_panic() {
     let mut r = make_renderer();
     let m = r.make_metrics(Physical(16.0));

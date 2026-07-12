@@ -1018,27 +1018,18 @@ fn draw_cell_decorations(
         dim_color(color_u32(fg), dim_factor)
     };
 
+    let hline =
+        |buf: &mut [u32], y: u32| draw_clipped_hline(buf, buf_width, y, cell_x, draw_w, clip, fg32);
     if cell.underline {
-        draw_clipped_hline(
-            buf,
-            buf_width,
-            cell_y + m.cell_height.saturating_sub(2),
-            cell_x,
-            draw_w,
-            clip,
-            fg32,
-        );
+        hline(buf, cell_y + m.cell_height.saturating_sub(2));
+    }
+    if cell.double_underline {
+        let base = cell_y + m.cell_height.saturating_sub(1);
+        hline(buf, base);
+        hline(buf, base.saturating_sub(2));
     }
     if cell.strikethrough {
-        draw_clipped_hline(
-            buf,
-            buf_width,
-            cell_y + m.cell_height / 2,
-            cell_x,
-            draw_w,
-            clip,
-            fg32,
-        );
+        hline(buf, cell_y + m.cell_height / 2);
     }
     if cell.overline {
         draw_clipped_hline(buf, buf_width, cell_y, cell_x, draw_w, clip, fg32);

@@ -202,6 +202,33 @@ fn sgr_reset_clears_attributes() {
 }
 
 #[test]
+fn sgr_double_underline_stamped_on_cell() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[21mA");
+    assert!(p.grid.cell(0, 0).double_underline);
+    assert!(p.grid.double_underline);
+}
+
+#[test]
+fn sgr_24_clears_single_and_double_underline() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[4;21m"); // both underline and double underline on
+    assert!(p.grid.underline);
+    assert!(p.grid.double_underline);
+    p.process(b"\x1b[24m");
+    assert!(!p.grid.underline);
+    assert!(!p.grid.double_underline);
+}
+
+#[test]
+fn sgr_reset_clears_double_underline() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[21m");
+    p.process(b"\x1b[0m");
+    assert!(!p.grid.double_underline);
+}
+
+#[test]
 fn erase_in_line_to_end() {
     let mut p = make_parser(10, 5);
     p.process(b"hello");
