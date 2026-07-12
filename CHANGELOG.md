@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SGR conceal (attribute 8, reset 28): hidden text is painted in the background color
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 
 ### Changed

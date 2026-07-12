@@ -202,6 +202,24 @@ fn sgr_reset_clears_attributes() {
 }
 
 #[test]
+fn sgr_conceal_stamped_and_reset() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[8mA\x1b[28mB");
+    assert!(p.grid.cell(0, 0).conceal);
+    assert!(!p.grid.cell(1, 0).conceal);
+    assert!(!p.grid.conceal);
+}
+
+#[test]
+fn sgr_reset_clears_conceal() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[8m");
+    assert!(p.grid.conceal);
+    p.process(b"\x1b[0m");
+    assert!(!p.grid.conceal);
+}
+
+#[test]
 fn erase_in_line_to_end() {
     let mut p = make_parser(10, 5);
     p.process(b"hello");

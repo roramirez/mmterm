@@ -1,12 +1,13 @@
 use super::{
     PaneView, Renderer, blend, cell_url_hovered, color_u32, dim_color, get_cell, mode_style,
+    resolve_cell_colors,
 };
 use crate::InputMode;
 use crate::config::Config;
 use crate::config::tui_config::ConfigPanel;
 use crate::dpi::Physical;
 use crate::terminal::Grid;
-use crate::terminal::grid::{Color, CursorShape, GridColors, ShellState};
+use crate::terminal::grid::{Cell, Color, CursorShape, GridColors, ShellState};
 use crate::theme::default_theme;
 
 // ── Task 20 proxy tests — pure arithmetic, no rendering ──────────────────────
@@ -1480,4 +1481,28 @@ fn draw_pane_sixel_transparent_pixels_preserved() {
     });
     let pane = make_pane(&grid, &m);
     do_draw(&mut r, &[pane], &InputMode::Insert);
+}
+
+#[test]
+fn resolve_cell_colors_conceal_paints_fg_as_bg() {
+    let cell = Cell {
+        bg: Color::rgb(10, 20, 30),
+        conceal: true,
+        ..Cell::default()
+    };
+    let b = Color::BLACK;
+    let th = default_theme();
+    // Concealed glyph is painted in the background color, so it is invisible.
+    let (bg32, fg) = resolve_cell_colors(
+        &cell,
+        false,
+        false,
+        false,
+        false,
+        CursorShape::Block,
+        b,
+        b,
+        &th,
+    );
+    assert_eq!(color_u32(fg), bg32);
 }

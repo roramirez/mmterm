@@ -66,6 +66,7 @@ pub struct Cell {
     pub overline: bool,
     pub reverse: bool,
     pub blink: bool,
+    pub conceal: bool,
     /// True when this is the left half of a 2-column wide character.
     pub wide: bool,
     /// True when this is the right (placeholder) half of a wide character.
@@ -88,6 +89,7 @@ impl Default for Cell {
             overline: false,
             reverse: false,
             blink: false,
+            conceal: false,
             wide: false,
             wide_cont: false,
             url: None,
@@ -108,6 +110,7 @@ fn cell_with_colors(c: char, fg: Color, bg: Color) -> Cell {
         overline: false,
         reverse: false,
         blink: false,
+        conceal: false,
         wide: false,
         wide_cont: false,
         url: None,
@@ -127,6 +130,7 @@ struct SavedCursor {
     overline: bool,
     reverse: bool,
     blink: bool,
+    conceal: bool,
 }
 
 struct SavedScreen {
@@ -148,6 +152,7 @@ struct SavedScreen {
     overline: bool,
     reverse: bool,
     blink: bool,
+    conceal: bool,
     scrollback: VecDeque<Vec<Cell>>,
     scrollback_wrapped: VecDeque<bool>,
     row_wrapped: Vec<bool>,
@@ -173,6 +178,7 @@ pub struct Grid {
     pub overline: bool,
     pub reverse: bool,
     pub blink: bool,
+    pub conceal: bool,
     // DECSC/DECRC saved cursor (ESC 7 / ESC 8)
     decsc: Option<SavedCursor>,
     // Scrollback: lines that have scrolled off the top (oldest first)
@@ -268,6 +274,7 @@ impl Grid {
             overline: false,
             reverse: false,
             blink: false,
+            conceal: false,
             decsc: None,
             scrollback: VecDeque::new(),
             scrollback_wrapped: VecDeque::new(),
@@ -326,6 +333,7 @@ impl Grid {
             overline: self.overline,
             reverse: self.reverse,
             blink: self.blink,
+            conceal: self.conceal,
             scrollback: std::mem::take(&mut self.scrollback),
             scrollback_wrapped: std::mem::take(&mut self.scrollback_wrapped),
             row_wrapped: std::mem::replace(&mut self.row_wrapped, vec![false; self.rows]),
@@ -375,6 +383,7 @@ impl Grid {
             self.overline = saved.overline;
             self.reverse = saved.reverse;
             self.blink = saved.blink;
+            self.conceal = saved.conceal;
             self.scrollback = saved.scrollback;
             self.scrollback_wrapped = saved.scrollback_wrapped;
             self.row_wrapped = saved.row_wrapped;
@@ -638,6 +647,7 @@ impl Grid {
             overline: self.overline,
             reverse: self.reverse,
             blink: self.blink,
+            conceal: self.conceal,
             wide,
             url: self.current_url.clone(),
             ..cell_with_colors(c, self.fg, self.bg)
@@ -974,6 +984,7 @@ impl Grid {
         self.overline = false;
         self.reverse = false;
         self.blink = false;
+        self.conceal = false;
     }
 
     pub fn save_cursor(&mut self) {
@@ -990,6 +1001,7 @@ impl Grid {
             overline: self.overline,
             reverse: self.reverse,
             blink: self.blink,
+            conceal: self.conceal,
         });
     }
 
@@ -1007,6 +1019,7 @@ impl Grid {
             self.overline = s.overline;
             self.reverse = s.reverse;
             self.blink = s.blink;
+            self.conceal = s.conceal;
         }
     }
 
