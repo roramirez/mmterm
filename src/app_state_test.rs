@@ -17,7 +17,56 @@ fn make_state_with_tabs(n: usize) -> AppState {
 
 #[test]
 fn initial_mode_is_insert() {
-    assert!(matches!(make_state().mode, InputMode::Insert));
+    assert!(matches!(make_state().mode(), InputMode::Insert));
+}
+
+#[test]
+fn new_tab_starts_in_insert_mode() {
+    let mut s = make_state_with_tabs(2);
+    s.active_tab = 0;
+    s.set_mode(InputMode::Normal);
+    // A freshly created sibling tab is unaffected.
+    assert!(matches!(s.tabs[1].mode, InputMode::Insert));
+}
+
+#[test]
+fn mode_is_tracked_per_tab_across_switches() {
+    let mut s = make_state_with_tabs(2);
+    s.active_tab = 0;
+    s.set_mode(InputMode::Normal);
+    assert!(matches!(s.mode(), InputMode::Normal));
+    s.next_tab(); // -> tab 1
+    assert!(matches!(s.mode(), InputMode::Insert));
+    s.prev_tab(); // -> tab 0, mode restored
+    assert!(matches!(s.mode(), InputMode::Normal));
+}
+
+#[test]
+fn visual_mode_does_not_leak_to_other_tab() {
+    let mut s = make_state_with_tabs(2);
+    s.active_tab = 0;
+    s.set_mode(InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 2,
+        cur_row: 1,
+        anchored: true,
+    });
+    assert!(matches!(s.mode(), InputMode::Visual { .. }));
+    s.next_tab();
+    assert!(!matches!(s.mode(), InputMode::Visual { .. }));
+    assert!(matches!(s.mode(), InputMode::Insert));
+}
+
+#[test]
+fn search_matches_cleared_on_tab_switch() {
+    let mut s = make_state_with_tabs(2);
+    s.active_tab = 0;
+    s.search_matches = vec![(0, 0, 1)];
+    s.search_current = 0;
+    s.next_tab();
+    assert!(s.search_matches.is_empty());
+    assert_eq!(s.search_current, 0);
 }
 
 #[test]
@@ -110,15 +159,17 @@ fn dispatch_move_tab_right() {
 #[test]
 fn dispatch_set_mode_normal() {
     let mut s = make_state();
+    s.add_empty_tab();
     s.dispatch_action(Action::SetMode(InputMode::Normal));
-    assert!(matches!(s.mode, InputMode::Normal));
+    assert!(matches!(s.mode(), InputMode::Normal));
 }
 
 #[test]
 fn dispatch_search_open_sets_search_mode() {
     let mut s = make_state();
+    s.add_empty_tab();
     s.dispatch_action(Action::SearchOpen);
-    assert!(matches!(s.mode, InputMode::Search { .. }));
+    assert!(matches!(s.mode(), InputMode::Search { .. }));
     assert!(s.search_matches.is_empty());
 }
 
@@ -126,7 +177,7 @@ fn dispatch_search_open_sets_search_mode() {
 fn dispatch_rename_tab_sets_rename_mode() {
     let mut s = make_state_with_tabs(1);
     s.dispatch_action(Action::RenameTab);
-    assert!(matches!(s.mode, InputMode::RenameTab { .. }));
+    assert!(matches!(s.mode(), InputMode::RenameTab { .. }));
 }
 
 // ── apply_rename_key ──────────────────────────────────────────────────────
@@ -145,7 +196,7 @@ fn apply_rename_key_appends_characters() {
     s.dispatch_action(Action::RenameTab);
     s.apply_rename_key(&rename_key("h"));
     s.apply_rename_key(&rename_key("i"));
-    let InputMode::RenameTab { buf } = &s.mode else {
+    let InputMode::RenameTab { buf } = s.mode() else {
         panic!("wrong mode")
     };
     assert_eq!(buf, "hi");
@@ -158,7 +209,7 @@ fn apply_rename_key_backspace_removes_last_char() {
     s.apply_rename_key(&rename_key("a"));
     s.apply_rename_key(&rename_key("b"));
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
-    let InputMode::RenameTab { buf } = &s.mode else {
+    let InputMode::RenameTab { buf } = s.mode() else {
         panic!("wrong mode")
     };
     assert_eq!(buf, "a");
@@ -173,7 +224,7 @@ fn apply_rename_key_enter_commits_name() {
     s.apply_rename_key(&rename_key("r"));
     s.apply_rename_key(&rename_key("k"));
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Enter));
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
     assert_eq!(s.tabs[s.active_tab].name.as_deref(), Some("work"));
 }
 
@@ -186,7 +237,7 @@ fn apply_rename_key_enter_empty_clears_name() {
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Backspace));
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Enter));
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
     assert_eq!(s.tabs[s.active_tab].name, None);
 }
 
@@ -197,7 +248,7 @@ fn apply_rename_key_escape_cancels_without_rename() {
     s.dispatch_action(Action::RenameTab);
     s.apply_rename_key(&rename_key("x"));
     s.apply_rename_key(&rename_named(winit::keyboard::NamedKey::Escape));
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
     assert_eq!(s.tabs[s.active_tab].name.as_deref(), Some("keep"));
 }
 
@@ -206,7 +257,7 @@ fn apply_rename_key_noop_when_not_in_rename_mode() {
     let mut s = make_state_with_tabs(1);
     // mode is Insert, not RenameTab — should be a no-op
     s.apply_rename_key(&rename_key("x"));
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
 }
 
 // ── Zoom ─────────────────────────────────────────────────────────────────
@@ -267,7 +318,7 @@ fn dispatch_quit_with_restore_session_enters_quit_save_mode() {
     assert!(s.config.general.restore_session);
     let effects = s.dispatch_action(Action::Quit);
     assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
-    assert!(matches!(s.mode, crate::input::InputMode::QuitSave));
+    assert!(matches!(s.mode(), crate::input::InputMode::QuitSave));
 }
 
 #[test]
@@ -363,7 +414,8 @@ fn dispatch_open_config_creates_panel() {
 #[test]
 fn dispatch_visual_anchor_sets_anchored() {
     let mut s = make_state();
-    s.mode = InputMode::Visual {
+    s.add_empty_tab();
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 5,
         start_row: 2,
         cur_col: 3,
@@ -371,12 +423,12 @@ fn dispatch_visual_anchor_sets_anchored() {
         anchored: false,
     };
     s.dispatch_action(Action::VisualAnchor);
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         start_col,
         start_row,
         anchored,
         ..
-    } = s.mode
+    } = s.mode()
     {
         assert!(anchored);
         assert_eq!(start_col, 3); // cur becomes start
@@ -389,7 +441,8 @@ fn dispatch_visual_anchor_sets_anchored() {
 #[test]
 fn dispatch_visual_swap_anchor_swaps_start_and_cur() {
     let mut s = make_state();
-    s.mode = InputMode::Visual {
+    s.add_empty_tab();
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 5,
@@ -397,13 +450,13 @@ fn dispatch_visual_swap_anchor_swaps_start_and_cur() {
         anchored: true,
     };
     s.dispatch_action(Action::VisualSwapAnchor);
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         start_col,
         start_row,
         cur_col,
         cur_row,
         ..
-    } = s.mode
+    } = s.mode()
     {
         assert_eq!(start_col, 5);
         assert_eq!(start_row, 3);
@@ -559,7 +612,7 @@ fn update_search_matches_finds_content() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Search {
+    s.tab_mut().mode = InputMode::Search {
         query: "needle".to_string(),
         history_pos: None,
     };
@@ -597,7 +650,7 @@ fn poisoned_grid_does_not_crash_main_thread_reads() {
     );
 
     // None of these may panic; they must return degraded values.
-    s.mode = InputMode::Search {
+    s.tab_mut().mode = InputMode::Search {
         query: "needle".to_string(),
         history_pos: None,
     };
@@ -644,7 +697,7 @@ fn dispatch_visual_word_forward_with_pane_does_not_panic() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 0,
@@ -652,7 +705,7 @@ fn dispatch_visual_word_forward_with_pane_does_not_panic() {
         anchored: false,
     };
     s.dispatch_action(Action::VisualWordForward);
-    if let InputMode::Visual { cur_col, .. } = s.mode {
+    if let &InputMode::Visual { cur_col, .. } = s.mode() {
         assert!(cur_col > 0, "cursor should have moved forward");
     }
 }
@@ -666,7 +719,7 @@ fn dispatch_visual_yank_line_exits_visual_mode() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 4,
@@ -674,7 +727,7 @@ fn dispatch_visual_yank_line_exits_visual_mode() {
         anchored: true,
     };
     s.dispatch_action(Action::VisualYankLine);
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
 }
 
 #[test]
@@ -686,7 +739,7 @@ fn dispatch_copy_with_anchored_selection_exits_visual() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 4,
@@ -694,7 +747,7 @@ fn dispatch_copy_with_anchored_selection_exits_visual() {
         anchored: true,
     };
     s.dispatch_action(Action::Copy);
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
 }
 
 #[test]
@@ -714,7 +767,7 @@ fn visual_boundary_up_start_row_grows_beyond_one_page() {
             e.pane.grid.write().unwrap().scroll_up(1);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 0,
@@ -724,9 +777,9 @@ fn visual_boundary_up_start_row_grows_beyond_one_page() {
     // Scroll up two full pages via boundary scroll
     s.dispatch_action(Action::VisualBoundaryUp(grid_rows));
     s.dispatch_action(Action::VisualBoundaryUp(grid_rows));
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         start_row, cur_row, ..
-    } = s.mode
+    } = s.mode()
     {
         // start_row must track both pages; cur_row stays at 0
         assert_eq!(cur_row, 0);
@@ -749,7 +802,7 @@ fn dispatch_visual_boundary_up_scrolls_pane() {
             e.pane.grid.write().unwrap().scroll_up(1);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 0,
@@ -785,7 +838,7 @@ fn dispatch_visual_word_backward_moves_cursor() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 6,
@@ -793,9 +846,9 @@ fn dispatch_visual_word_backward_moves_cursor() {
         anchored: false,
     };
     s.dispatch_action(Action::VisualWordBackward);
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         cur_col, cur_row, ..
-    } = s.mode
+    } = s.mode()
     {
         assert!(
             cur_col < 6 || cur_row == 0,
@@ -815,7 +868,7 @@ fn dispatch_visual_word_end_moves_cursor_forward() {
             e.pane.grid.write().unwrap().write_char(c);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 0,
         cur_col: 0,
@@ -823,7 +876,7 @@ fn dispatch_visual_word_end_moves_cursor_forward() {
         anchored: false,
     };
     s.dispatch_action(Action::VisualWordEnd);
-    if let InputMode::Visual { cur_col, .. } = s.mode {
+    if let &InputMode::Visual { cur_col, .. } = s.mode() {
         assert!(cur_col > 0, "cursor should have moved to word end");
     } else {
         panic!("expected Visual mode");
@@ -847,7 +900,7 @@ fn dispatch_visual_boundary_down_scrolls_pane() {
         .get(&active)
         .map(|e| e.pane.grid.read().unwrap().rows)
         .unwrap_or(1);
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 5,
         cur_col: 0,
@@ -862,7 +915,7 @@ fn dispatch_visual_boundary_down_scrolls_pane() {
         .map(|e| e.pane.scroll_offset)
         .unwrap_or(99);
     assert!(off < 10, "scroll_down should have reduced offset");
-    if let InputMode::Visual { cur_row, .. } = s.mode {
+    if let &InputMode::Visual { cur_row, .. } = s.mode() {
         assert_eq!(
             cur_row,
             grid_rows.saturating_sub(1),
@@ -882,7 +935,7 @@ fn dispatch_scroll_up_adjusts_visual_coords() {
             e.pane.grid.write().unwrap().scroll_up(1);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 2,
         cur_col: 0,
@@ -890,9 +943,9 @@ fn dispatch_scroll_up_adjusts_visual_coords() {
         anchored: true,
     };
     s.dispatch_action(Action::ScrollUp(2));
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         start_row, cur_row, ..
-    } = s.mode
+    } = s.mode()
     {
         assert_eq!(start_row, 4);
         assert_eq!(cur_row, 5);
@@ -911,7 +964,7 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
         }
         e.pane.scroll_offset = 5;
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 0,
         start_row: 4,
         cur_col: 0,
@@ -919,9 +972,9 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
         anchored: true,
     };
     s.dispatch_action(Action::ScrollDown(2));
-    if let InputMode::Visual {
+    if let &InputMode::Visual {
         start_row, cur_row, ..
-    } = s.mode
+    } = s.mode()
     {
         assert_eq!(start_row, 2);
         assert_eq!(cur_row, 4);
@@ -941,7 +994,7 @@ fn viewport_scroll_up_adjusts_visual_selection() {
             e.pane.grid.write().unwrap().scroll_up(1);
         }
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 1,
         start_row: 2,
         cur_col: 3,
@@ -949,9 +1002,9 @@ fn viewport_scroll_up_adjusts_visual_selection() {
         anchored: true,
     };
     s.viewport_scroll(3.0); // positive = scroll up
-    let InputMode::Visual {
+    let &InputMode::Visual {
         start_row, cur_row, ..
-    } = s.mode
+    } = s.mode()
     else {
         panic!("expected Visual mode");
     };
@@ -969,7 +1022,7 @@ fn viewport_scroll_down_adjusts_visual_selection() {
         }
         e.pane.scroll_offset = 5;
     }
-    s.mode = InputMode::Visual {
+    s.tab_mut().mode = InputMode::Visual {
         start_col: 1,
         start_row: 6,
         cur_col: 3,
@@ -977,9 +1030,9 @@ fn viewport_scroll_down_adjusts_visual_selection() {
         anchored: true,
     };
     s.viewport_scroll(-2.0); // negative = scroll down
-    let InputMode::Visual {
+    let &InputMode::Visual {
         start_row, cur_row, ..
-    } = s.mode
+    } = s.mode()
     else {
         panic!("expected Visual mode");
     };
@@ -996,9 +1049,9 @@ fn viewport_scroll_outside_visual_mode_does_not_crash() {
             e.pane.grid.write().unwrap().scroll_up(1);
         }
     }
-    s.mode = InputMode::Insert;
+    s.tab_mut().mode = InputMode::Insert;
     s.viewport_scroll(3.0);
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
 }
 
 // ── Delegated simple effects ──────────────────────────────────────────────────
@@ -1143,9 +1196,10 @@ fn dispatch_toggle_log_returns_effect() {
 #[test]
 fn dispatch_open_command_palette_sets_mode() {
     let mut s = make_state();
+    s.add_empty_tab();
     s.dispatch_action(Action::OpenCommandPalette);
     assert!(
-        matches!(s.mode, InputMode::CommandPalette { .. }),
+        matches!(s.mode(), InputMode::CommandPalette { .. }),
         "mode should be CommandPalette"
     );
 }
@@ -1224,21 +1278,22 @@ fn dispatch_screenshot_open_returns_effect() {
 #[test]
 fn dispatch_screenshot_edge_resize_moves_right_bottom_edge() {
     let mut s = make_state();
+    s.add_empty_tab();
     // cx=400, cy=300, half_w=100, half_h=80
     // left=300 (fixed), top=220 (fixed), right=500, bottom=380
-    s.mode = InputMode::Screenshot {
+    s.tab_mut().mode = InputMode::Screenshot {
         cx: 400,
         cy: 300,
         half_w: 100,
         half_h: 80,
     };
     s.dispatch_action(Action::ScreenshotEdgeResize(1, 1));
-    if let InputMode::Screenshot {
+    if let &InputMode::Screenshot {
         cx,
         cy,
         half_w,
         half_h,
-    } = s.mode
+    } = s.mode()
     {
         // left = cx - half_w must remain 300
         assert_eq!(cx - half_w, 300, "left edge must stay fixed");
@@ -1256,20 +1311,21 @@ fn dispatch_screenshot_edge_resize_moves_right_bottom_edge() {
 fn dispatch_screenshot_edge_resize_in_non_screenshot_mode_is_noop() {
     let mut s = make_state();
     s.dispatch_action(Action::ScreenshotEdgeResize(1, 1));
-    assert!(matches!(s.mode, InputMode::Insert));
+    assert!(matches!(s.mode(), InputMode::Insert));
 }
 
 #[test]
 fn dispatch_screenshot_move_updates_center() {
     let mut s = make_state();
-    s.mode = InputMode::Screenshot {
+    s.add_empty_tab();
+    s.tab_mut().mode = InputMode::Screenshot {
         cx: 400,
         cy: 300,
         half_w: 100,
         half_h: 80,
     };
     s.dispatch_action(Action::ScreenshotMove(10, -5));
-    if let InputMode::Screenshot { cx, cy, .. } = s.mode {
+    if let &InputMode::Screenshot { cx, cy, .. } = s.mode() {
         assert_eq!(cx, 410);
         assert_eq!(cy, 295);
     } else {
@@ -1280,14 +1336,15 @@ fn dispatch_screenshot_move_updates_center() {
 #[test]
 fn dispatch_screenshot_move_clamps_at_zero() {
     let mut s = make_state();
-    s.mode = InputMode::Screenshot {
+    s.add_empty_tab();
+    s.tab_mut().mode = InputMode::Screenshot {
         cx: 5,
         cy: 3,
         half_w: 50,
         half_h: 50,
     };
     s.dispatch_action(Action::ScreenshotMove(-1000, -1000));
-    if let InputMode::Screenshot { cx, cy, .. } = s.mode {
+    if let &InputMode::Screenshot { cx, cy, .. } = s.mode() {
         assert_eq!(cx, 0);
         assert_eq!(cy, 0);
     } else {
@@ -1298,7 +1355,8 @@ fn dispatch_screenshot_move_clamps_at_zero() {
 #[test]
 fn dispatch_screenshot_capture_enters_name_mode() {
     let mut s = make_state();
-    s.mode = InputMode::Screenshot {
+    s.add_empty_tab();
+    s.tab_mut().mode = InputMode::Screenshot {
         cx: 400,
         cy: 300,
         half_w: 100,
@@ -1308,7 +1366,7 @@ fn dispatch_screenshot_capture_enters_name_mode() {
     assert!(effects.iter().any(|e| matches!(e, AppEffect::Redraw)));
     assert!(
         matches!(
-            s.mode,
+            s.mode(),
             InputMode::ScreenshotName {
                 cx: 400,
                 cy: 300,

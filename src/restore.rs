@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ui::Layout;
-use crate::{TabState, session};
+use crate::{InputMode, TabState, session};
 
 use super::App;
 
@@ -79,6 +79,7 @@ impl App {
                 bell_flash_until: None,
                 bell_cooldown_until: None,
                 passthrough: false,
+                mode: InputMode::Insert,
             });
             let rect = [0, tab_h, win_w, win_h.saturating_sub(tab_h + status_h)];
             let slot_to_id: Vec<usize> = tab_sess

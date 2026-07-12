@@ -35,7 +35,7 @@ pub(super) fn draw_overlays(
     if let Some(panel) = &state.config_panel {
         renderer.draw_config_panel(pixels, w, h, panel, &state.theme);
     }
-    if let InputMode::CommandPalette { query, selected } = &state.mode {
+    if let InputMode::CommandPalette { query, selected } = state.mode() {
         let filtered = command_palette::filter(query);
         let entries: Vec<(&str, &str)> = filtered
             .iter()
@@ -51,25 +51,25 @@ pub(super) fn draw_overlays(
     if state.quit_pending {
         renderer.draw_quit_confirm(pixels, w, h, &state.theme);
     }
-    if matches!(state.mode, InputMode::QuitSave) {
+    if matches!(state.mode(), InputMode::QuitSave) {
         renderer.draw_save_session_confirm(pixels, w, h, &state.theme);
     }
-    if let InputMode::Screenshot {
+    if let &InputMode::Screenshot {
         cx,
         cy,
         half_w,
         half_h,
-    } = state.mode
+    } = state.mode()
     {
         renderer.draw_screenshot_selector(pixels, w, h, cx, cy, half_w, half_h);
     }
-    if let InputMode::ScreenshotName {
+    if let &InputMode::ScreenshotName {
         cx,
         cy,
         half_w,
         half_h,
         ref name,
-    } = state.mode
+    } = state.mode()
     {
         renderer.draw_screenshot_name_input(
             pixels,
@@ -232,7 +232,7 @@ impl App {
                 h,
                 &views,
                 draw_separators,
-                &self.state.mode,
+                self.state.mode(),
                 self.state.tabs[self.state.active_tab].passthrough,
                 &tab_titles,
                 self.state.search_matches.len(),

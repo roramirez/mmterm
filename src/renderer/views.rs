@@ -54,7 +54,7 @@ pub fn collect_pane_views<'a>(
     let has_search = !state.search_matches.is_empty();
     let search_matches = &state.search_matches;
     let search_current_val = state.search_current;
-    let insert_mode = matches!(state.mode, InputMode::Insert);
+    let insert_mode = matches!(state.mode(), InputMode::Insert);
 
     let guard_for = |id: usize| -> Option<&'a Grid> {
         guards.iter().find(|(gid, _)| *gid == id).map(|(_, g)| &**g)
@@ -134,7 +134,7 @@ pub fn build_tab_titles(state: &AppState) -> Vec<(String, bool, bool)> {
                 .and_then(|e| e.pane.grid_read().and_then(|g| g.osc_title.clone()))
                 .filter(|t| !t.starts_with('/') && !t.starts_with('~'));
             let rename_buf = if is_active {
-                if let InputMode::RenameTab { buf } = &state.mode {
+                if let InputMode::RenameTab { buf } = state.mode() {
                     Some(buf.as_str())
                 } else {
                     None

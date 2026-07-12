@@ -20,6 +20,7 @@ fn tab_with_bell(bell_until: Option<Instant>) -> TabState {
         bell_flash_until: bell_until,
         bell_cooldown_until: None,
         passthrough: false,
+        mode: crate::input::InputMode::Insert,
     }
 }
 

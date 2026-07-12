@@ -66,7 +66,7 @@ impl App {
                 AppEffect::ScreenshotOpen => {
                     let (w, h) = self.surface_size;
                     let half = w.min(h) / 4;
-                    self.state.mode = InputMode::Screenshot {
+                    self.state.tab_mut().mode = InputMode::Screenshot {
                         cx: w / 2,
                         cy: h / 2,
                         half_w: half,

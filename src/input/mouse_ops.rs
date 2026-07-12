@@ -87,7 +87,7 @@ impl App {
         if let Some(pane_id) = self.pane_at_pixel(px, py) {
             self.tab_mut().active = pane_id;
             if let Some((col, row)) = self.pixel_to_cell(pane_id, px, py) {
-                self.state.mode = InputMode::Visual {
+                self.state.tab_mut().mode = InputMode::Visual {
                     start_col: col,
                     start_row: row,
                     cur_col: col,
@@ -131,7 +131,7 @@ impl App {
             })
         };
         if let Some((start, end)) = selection {
-            self.state.mode = InputMode::Visual {
+            self.state.tab_mut().mode = InputMode::Visual {
                 start_col: start,
                 start_row: row,
                 cur_col: end,
@@ -151,11 +151,11 @@ impl App {
             start_col,
             start_row,
             ..
-        } = self.state.mode.clone()
+        } = self.state.mode().clone()
         {
             let active = self.tab().active;
             if let Some((col, row)) = self.pixel_to_cell(active, px, py) {
-                self.state.mode = InputMode::Visual {
+                self.state.tab_mut().mode = InputMode::Visual {
                     start_col,
                     start_row,
                     cur_col: col,
@@ -173,9 +173,9 @@ impl App {
             cur_col,
             cur_row,
             ..
-        } = self.state.mode.clone()
+        } = self.state.mode().clone()
         {
-            self.state.mode = InputMode::Insert;
+            self.state.tab_mut().mode = InputMode::Insert;
             if start_col == cur_col && start_row == cur_row {
                 if let Some(url) = self.state.hovered_url.clone() {
                     open_url(&url);
