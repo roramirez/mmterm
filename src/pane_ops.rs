@@ -85,7 +85,7 @@ impl App {
                     None
                 };
                 let log_file = Arc::new(Mutex::new(log_file_opt));
-                let pending_resize: Arc<Mutex<Option<(usize, usize)>>> = Arc::new(Mutex::new(None));
+                let pending_resize: drain::PendingResize = Arc::new(Mutex::new(None));
                 let (effects_tx, effects_rx) = unbounded::<drain::ParseEffect>();
                 let parser_thread = drain::spawn_parser_thread(drain::ParserThreadArgs {
                     rx: pty_rx,
@@ -278,7 +278,12 @@ impl App {
                     // grid.write() while the parser holds it (up to ~36 ms), keeping
                     // resize fluid even during heavy output.
                     if let Ok(mut pr) = entry.pending_resize.lock() {
-                        *pr = Some((cols, rows));
+                        *pr = Some((
+                            cols,
+                            rows,
+                            entry.metrics.cell_width,
+                            entry.metrics.cell_height,
+                        ));
                     }
                     let _ = entry.pty.resize(cols as u16, rows as u16);
                 }

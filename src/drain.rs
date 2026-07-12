@@ -51,6 +51,9 @@ use super::App;
 #[path = "drain_test.rs"]
 mod tests;
 
+/// Non-blocking resize signal (main → parser): `(cols, rows, cell_width_px, cell_height_px)` in px.
+pub type PendingResize = Arc<Mutex<Option<(usize, usize, u32, u32)>>>;
+
 // ── ParseEffect ───────────────────────────────────────────────────────────────
 
 /// Side-effects produced by a parser thread batch and consumed on the main thread.
@@ -104,7 +107,7 @@ pub struct ParserThreadArgs {
     pub wakeup_pending: Arc<AtomicBool>,
     /// Non-blocking resize request set by the main thread; parser applies it
     /// within its existing write lock so the event loop never blocks on grid.write().
-    pub pending_resize: Arc<Mutex<Option<(usize, usize)>>>,
+    pub pending_resize: PendingResize,
     pub wakeup: Box<dyn Fn() + Send + 'static>,
 }
 
@@ -141,8 +144,9 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
                 Err(RecvTimeoutError::Timeout) => {
                     // Check for a pending resize while the channel is quiet.
                     let pending = pending_resize.lock().unwrap().take();
-                    if let Some((new_cols, new_rows)) = pending {
+                    if let Some((new_cols, new_rows, cw, ch)) = pending {
                         let mut g = grid.write().unwrap();
+                        g.cell_px = (cw, ch);
                         let delta = g.resize(new_cols, new_rows);
                         let new_sb = g.scrollback_len();
                         drop(g);
@@ -194,7 +198,8 @@ pub fn spawn_parser_thread(args: ParserThreadArgs) -> thread::JoinHandle<()> {
                 parser.process(&batch, &mut g);
                 g.scan_urls();
                 let new = g.scrollback_len(); // parse-only scrollback delta (before any resize)
-                let resize_effect = pending.map(|(new_cols, new_rows)| {
+                let resize_effect = pending.map(|(new_cols, new_rows, cw, ch)| {
+                    g.cell_px = (cw, ch);
                     let delta = g.resize(new_cols, new_rows);
                     ParseEffect::Resized {
                         delta,

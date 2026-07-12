@@ -233,6 +233,8 @@ pub struct Grid {
     pub last_exit_code: Option<i32>,
     // OSC 777 pending desktop notification (title, body); drained once by the parser thread
     pub pending_notification: Option<(String, String)>,
+    // Cell (width, height) in pixels, mirrored from FontMetrics on resize; used by XTWINOPS (CSI 14 t)
+    pub cell_px: (u32, u32),
 }
 
 impl Grid {
@@ -299,6 +301,7 @@ impl Grid {
             shell_state: ShellState::Unknown,
             last_exit_code: None,
             pending_notification: None,
+            cell_px: (0, 0),
         }
     }
 
