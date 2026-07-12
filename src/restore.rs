@@ -51,6 +51,15 @@ impl App {
             active_tab: self.state.active_tab,
             tabs,
             theme: Some(self.state.config.theme.name.clone()),
+            window_state: self.window.as_ref().map(|w| {
+                let sz = w.inner_size();
+                session::SavedWindowState {
+                    maximized: w.is_maximized(),
+                    fullscreen: w.fullscreen().is_some(),
+                    width: sz.width,
+                    height: sz.height,
+                }
+            }),
         }
     }
 

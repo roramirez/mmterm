@@ -9,6 +9,20 @@ pub struct SavedSession {
     /// Theme override for this scope; absent means use the global config theme.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// Window geometry captured at save time; absent means use the config size.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_state: Option<SavedWindowState>,
+}
+
+/// Persisted window geometry so a restored session reopens the way it was left.
+/// `fullscreen` takes precedence over `maximized`; `width`/`height` are the last
+/// known inner size used when neither flag is set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SavedWindowState {
+    pub maximized: bool,
+    pub fullscreen: bool,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

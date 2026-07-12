@@ -37,10 +37,21 @@ impl ApplicationHandler for App {
             .ok()
             .flatten();
 
+        let session_path = self.session_path();
+        // Load the session once up front so the saved window geometry can be
+        // applied to the attributes before the window is mapped (avoids a
+        // visible post-map resize); the same value seeds tab restore below.
+        let saved = if self.state.config.general.restore_session {
+            session::load_from(&session_path)
+        } else {
+            None
+        };
+
         let mut attrs = Window::default_attributes()
             .with_title(self.state.config.window.title.clone())
             .with_window_icon(icon);
-        // A `--maximized` / `--fullscreen` flag overrides the config window size.
+        // A `--maximized` / `--fullscreen` flag takes precedence over the saved
+        // session geometry, which in turn overrides the config window size.
         match self.startup_window {
             Some(StartupWindowMode::Fullscreen) => {
                 attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
@@ -48,12 +59,24 @@ impl ApplicationHandler for App {
             Some(StartupWindowMode::Maximized) => {
                 attrs = attrs.with_maximized(true);
             }
-            None => {
-                attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(
-                    self.state.config.window.width,
-                    self.state.config.window.height,
-                ));
-            }
+            None => match saved.as_ref().and_then(|s| s.window_state) {
+                Some(ws) if ws.fullscreen => {
+                    attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
+                }
+                Some(ws) if ws.maximized => {
+                    attrs = attrs.with_maximized(true);
+                }
+                Some(ws) => {
+                    attrs =
+                        attrs.with_inner_size(winit::dpi::LogicalSize::new(ws.width, ws.height));
+                }
+                None => {
+                    attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(
+                        self.state.config.window.width,
+                        self.state.config.window.height,
+                    ));
+                }
+            },
         }
 
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
@@ -68,11 +91,9 @@ impl ApplicationHandler for App {
         self.renderer.scale = self.scale;
 
         let size = window.inner_size();
-        let session_path = self.session_path();
-        let did_restore = self.state.config.general.restore_session
-            && session::load_from(&session_path)
-                .map(|s| self.restore_session(s, size.width, size.height))
-                .unwrap_or(false);
+        let did_restore = saved
+            .map(|s| self.restore_session(s, size.width, size.height))
+            .unwrap_or(false);
         if !did_restore {
             self.new_tab(size.width, size.height);
         }
