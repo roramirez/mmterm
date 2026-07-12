@@ -26,7 +26,7 @@ pub struct PaneEntry {
     /// Non-blocking resize request: main thread writes Some((cols, rows));
     /// parser thread applies grid.resize() within its existing write lock and
     /// clears the Option. Avoids blocking the event loop on grid.write().
-    pub pending_resize: Arc<Mutex<Option<(usize, usize)>>>,
+    pub pending_resize: crate::drain::PendingResize,
     pub(crate) _parser_thread: std::thread::JoinHandle<()>,
     /// Per-pane density-independent font size. Physical px = scale.px(logical_font_size).
     /// Mutated by Ctrl±/reset; re-derived (not persisted) on ScaleFactorChanged.

@@ -109,12 +109,12 @@ fn sync_uses_per_pane_metrics() {
     // sync_pane_sizes_tab writes target dimensions to pending_resize; the parser
     // thread applies them asynchronously. Test the contract that sync_pane_sizes_tab
     // keeps: it must compute the correct (cols, rows) for each pane's metrics.
-    let (c1, r1) = tab.panes[&1]
+    let (c1, r1, _, _) = tab.panes[&1]
         .pending_resize
         .lock()
         .unwrap()
         .expect("pane 1 should have a pending resize");
-    let (c2, r2) = tab.panes[&2]
+    let (c2, r2, _, _) = tab.panes[&2]
         .pending_resize
         .lock()
         .unwrap()

@@ -199,7 +199,7 @@ fn pending_resize_applied_during_parse() {
     for _ in 0..20 {
         tx.send(b"AAAAA\r\n".to_vec()).unwrap();
     }
-    *entry.pending_resize.lock().unwrap() = Some((100, 40));
+    *entry.pending_resize.lock().unwrap() = Some((100, 40, 8, 16));
 
     std::thread::sleep(std::time::Duration::from_millis(150));
 

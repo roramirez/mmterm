@@ -1287,3 +1287,12 @@ fn osc777_without_notify_keyword_is_ignored() {
     p.process(b"\x1b]777;other;Title;Body\x07");
     assert!(p.grid.pending_notification.is_none());
 }
+
+#[test]
+fn xtwinops_reports_text_area_size() {
+    let mut p = make_parser(80, 24);
+    p.grid.cell_px = (8, 16);
+    // 18 → cells (CSI 8;rows;cols t), 14 → pixels (CSI 4;h;w t), 999 → unsupported (no reply)
+    p.process(b"\x1b[18t\x1b[14t\x1b[999t");
+    assert_eq!(p.grid.pending_responses, b"\x1b[8;24;80t\x1b[4;384;640t");
+}
