@@ -291,6 +291,15 @@ fn bracketed_paste_mode() {
 }
 
 #[test]
+fn synchronized_output_mode() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[?2026h");
+    assert!(p.grid.synchronized_output);
+    p.process(b"\x1b[?2026l");
+    assert!(!p.grid.synchronized_output);
+}
+
+#[test]
 fn scroll_region_sets_top_and_bottom() {
     let mut p = make_parser(10, 10);
     p.process(b"\x1b[2;5r");

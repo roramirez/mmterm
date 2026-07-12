@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- synchronized output (DEC mode `?2026`): frames are held while a program is mid-update, eliminating tearing
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 
 ### Changed

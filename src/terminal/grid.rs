@@ -197,6 +197,8 @@ pub struct Grid {
     pub cursor_shape: CursorShape,
     // Bracketed paste mode (?2004)
     pub bracketed_paste: bool,
+    // Synchronized output (?2026): while true, the renderer skips presenting frames
+    pub synchronized_output: bool,
     // Mouse reporting mode: 0=off, 1000=click, 1002=button-motion, 1003=any-motion
     pub mouse_mode: u16,
     // SGR extended mouse encoding (?1006)
@@ -281,6 +283,7 @@ impl Grid {
             cursor_visible: true,
             cursor_shape: CursorShape::Block,
             bracketed_paste: false,
+            synchronized_output: false,
             mouse_mode: 0,
             mouse_sgr: false,
             alternate_saved: None,
@@ -1033,6 +1036,7 @@ impl Grid {
         self.cursor_visible = true;
         self.cursor_shape = CursorShape::Block;
         self.bracketed_paste = false;
+        self.synchronized_output = false;
         self.mouse_mode = 0;
         self.mouse_sgr = false;
         self.application_cursor_keys = false;

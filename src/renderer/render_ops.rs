@@ -86,10 +86,25 @@ pub(super) fn draw_overlays(
 }
 
 impl App {
+    /// True while the active pane's program holds synchronized output (?2026h).
+    fn active_grid_synchronized(&self) -> bool {
+        let tab = &self.state.tabs[self.state.active_tab];
+        tab.panes
+            .get(&tab.active)
+            .and_then(|e| e.pane.grid_read().map(|g| g.synchronized_output))
+            .unwrap_or(false)
+    }
+
     pub(crate) fn redraw(&mut self) {
         // No tabs means startup failed to spawn any pane and an exit is pending;
         // skip the frame rather than indexing an empty `tabs`.
         if self.state.tabs.is_empty() {
+            return;
+        }
+        // Synchronized output (?2026): the running program is mid-update, so skip
+        // the frame entirely — the window keeps the last presented buffer and never
+        // shows a partial screen. The next PTY byte (the ?2026l reset) redraws.
+        if self.active_grid_synchronized() {
             return;
         }
         if self.state.blink_last.elapsed()
