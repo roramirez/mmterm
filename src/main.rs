@@ -25,8 +25,8 @@ mod winit_handler;
 
 pub use app_state::{AppEffect, AppState, PaneEntry, TabState};
 pub(crate) use cli::{
-    debug_log_path, help_requested, list_scopes_requested, print_help, scope_from_args,
-    version_requested,
+    StartupWindowMode, debug_log_path, help_requested, list_scopes_requested, print_help,
+    scope_from_args, startup_window_mode, version_requested,
 };
 pub use input::InputMode;
 
@@ -67,6 +67,9 @@ struct App {
     pending_screenshot: Option<([u32; 4], String)>,
     /// Named session scope from `--scope <name>`; `None` means the default session.
     scope: Option<String>,
+    /// Startup window mode from `--maximized` / `--fullscreen`; overrides the
+    /// config window size when set.
+    startup_window: Option<StartupWindowMode>,
     /// Receives the daily update-check outcome.
     update_rx: Option<std::sync::mpsc::Receiver<crate::update::CheckOutcome>>,
     /// Receives the result of a Linux background self-apply (Ok(version) on success).
@@ -78,7 +81,12 @@ struct App {
 }
 
 impl App {
-    fn new(config: Config, proxy: EventLoopProxy<()>, scope: Option<String>) -> Self {
+    fn new(
+        config: Config,
+        proxy: EventLoopProxy<()>,
+        scope: Option<String>,
+        startup_window: Option<StartupWindowMode>,
+    ) -> Self {
         let renderer = Renderer::new(&config.font.family, config.font.size);
         let td = themes_dir();
         install_bundled_themes(&td);
@@ -110,6 +118,7 @@ impl App {
             wakeup_pending,
             pending_screenshot: None,
             scope,
+            startup_window,
             update_rx,
             update_apply_rx: None,
             scale: crate::dpi::Scale::new(1.0),
@@ -302,11 +311,12 @@ fn main() {
     }
 
     let scope = scope_from_args(std::env::args());
+    let startup_window = startup_window_mode(std::env::args());
 
     Config::write_default_if_missing();
     let config = Config::load();
     let event_loop = EventLoop::new().unwrap();
     let proxy = event_loop.create_proxy();
-    let mut app = App::new(config, proxy, scope);
+    let mut app = App::new(config, proxy, scope, startup_window);
     event_loop.run_app(&mut app).unwrap();
 }

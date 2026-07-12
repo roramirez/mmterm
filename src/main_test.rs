@@ -55,7 +55,7 @@ fn make_app() -> Option<App> {
     // Keep el alive long enough for proxy to be valid, then leak it.
     // The proxy remains usable after the EventLoop is dropped on Linux.
     std::mem::forget(el);
-    Some(App::new(Config::default(), proxy, None))
+    Some(App::new(Config::default(), proxy, None, None))
 }
 
 #[test]
@@ -155,7 +155,9 @@ fn help_output_contains_all_flags() {
            --scope <name>      Use a named session scope (~/.config/mmterm/sessions/<name>.toml)\n\
            --scope=<name>      Same as --scope <name>\n\
            -s <name>           Short form of --scope\n\
-           --list-scopes       Print all saved scope names and exit"
+           --list-scopes       Print all saved scope names and exit\n\
+           --maximized         Start with the window maximized\n\
+           --fullscreen        Start with the window in fullscreen (wins over --maximized)"
     );
     assert!(text.contains("--version"));
     assert!(text.contains("-V"));
@@ -164,6 +166,8 @@ fn help_output_contains_all_flags() {
     assert!(text.contains("--debug"));
     assert!(text.contains("--scope"));
     assert!(text.contains("--list-scopes"));
+    assert!(text.contains("--maximized"));
+    assert!(text.contains("--fullscreen"));
     assert!(text.contains(version));
 }
 
@@ -228,6 +232,61 @@ fn scope_from_args_unrelated_flags_only() {
     assert_eq!(
         scope_from_args(str_args(&["mmterm", "--debug", "--version"])),
         None
+    );
+}
+
+// ── startup_window_mode tests ─────────────────────────────────────────────────
+
+#[test]
+fn startup_window_mode_absent() {
+    assert_eq!(startup_window_mode(str_args(&["mmterm"])), None);
+    assert_eq!(startup_window_mode(str_args(&["mmterm", "--debug"])), None);
+}
+
+#[test]
+fn startup_window_mode_maximized() {
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--maximized"])),
+        Some(StartupWindowMode::Maximized)
+    );
+}
+
+#[test]
+fn startup_window_mode_fullscreen() {
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--fullscreen"])),
+        Some(StartupWindowMode::Fullscreen)
+    );
+}
+
+#[test]
+fn startup_window_mode_fullscreen_wins_over_maximized() {
+    // Regardless of order, --fullscreen takes precedence.
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--maximized", "--fullscreen"])),
+        Some(StartupWindowMode::Fullscreen)
+    );
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--fullscreen", "--maximized"])),
+        Some(StartupWindowMode::Fullscreen)
+    );
+}
+
+#[test]
+fn startup_window_mode_ignores_scope_args() {
+    // A --scope value must not be mistaken for a window-mode flag.
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--scope", "maximized"])),
+        None
+    );
+    // And parsing the two features together stays independent.
+    assert_eq!(
+        scope_from_args(str_args(&["mmterm", "--maximized", "--scope", "work"])),
+        Some("work".to_string())
+    );
+    assert_eq!(
+        startup_window_mode(str_args(&["mmterm", "--maximized", "--scope", "work"])),
+        Some(StartupWindowMode::Maximized)
     );
 }
 

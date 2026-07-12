@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- add `--maximized` and `--fullscreen` flags to start the window in that mode
+
 ### Changed
 - input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode
 

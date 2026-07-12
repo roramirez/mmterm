@@ -48,7 +48,7 @@ fn make_app() -> Option<App> {
     let el = make_event_loop()?;
     let proxy = el.create_proxy();
     std::mem::forget(el);
-    Some(App::new(Config::default(), proxy, None))
+    Some(App::new(Config::default(), proxy, None, None))
 }
 
 /// Pushes a one-pane tab (id 1) onto `app` and focuses it, so split/close paths
