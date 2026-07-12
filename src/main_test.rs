@@ -86,7 +86,7 @@ fn app_change_font_size_increase() {
 #[test]
 fn app_initial_mode_is_insert() {
     let Some(app) = make_app() else { return };
-    assert!(matches!(app.state.mode, InputMode::Insert));
+    assert!(matches!(app.state.mode(), InputMode::Insert));
 }
 
 #[test]
@@ -312,6 +312,7 @@ fn next_bell_wakeup_no_active_bell_returns_default() {
         bell_flash_until: None,
         bell_cooldown_until: None,
         passthrough: false,
+        mode: crate::input::InputMode::Insert,
     };
     let default = Instant::now() + Duration::from_secs(10);
     let result = next_bell_wakeup(&[tab], default);
@@ -336,6 +337,7 @@ fn next_bell_wakeup_active_bell_returns_earlier() {
         bell_flash_until: Some(bell_expiry),
         bell_cooldown_until: None,
         passthrough: false,
+        mode: crate::input::InputMode::Insert,
     };
     let default = Instant::now() + Duration::from_secs(10);
     let result = next_bell_wakeup(&[tab], default);
@@ -365,6 +367,7 @@ fn next_bell_wakeup_returns_earliest_of_multiple() {
         bell_flash_until: expiry,
         bell_cooldown_until: None,
         passthrough: false,
+        mode: crate::input::InputMode::Insert,
     };
 
     let tab1 = make_tab(Some(expiry1));

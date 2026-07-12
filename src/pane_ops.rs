@@ -9,7 +9,7 @@ use crate::drain;
 use crate::terminal::grid::{Grid, GridColors};
 use crate::ui::tabs;
 use crate::ui::{Layout, Pane, SplitDir};
-use crate::{PaneEntry, TabState, logging, pty};
+use crate::{InputMode, PaneEntry, TabState, logging, pty};
 use winit::event_loop::ActiveEventLoop;
 
 use super::App;
@@ -155,6 +155,7 @@ impl App {
             bell_flash_until: None,
             bell_cooldown_until: None,
             passthrough: false,
+            mode: InputMode::Insert,
         });
         match self.spawn_pane_into(tab_idx, initial_rect, cwd) {
             Some(id) => {

@@ -61,6 +61,7 @@ fn recompute_two_panes_2x() {
             bell_flash_until: None,
             bell_cooldown_until: None,
             passthrough: false,
+            mode: crate::input::InputMode::Insert,
         };
         tab.panes.insert(1, AppState::test_pane_entry(logical, m));
         tab

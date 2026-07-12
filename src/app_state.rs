@@ -46,6 +46,8 @@ pub struct TabState {
     pub bell_flash_until: Option<Instant>,
     pub bell_cooldown_until: Option<Instant>,
     pub passthrough: bool,
+    /// Per-tab input mode (Normal/Insert/Visual/…). Session-only, never persisted.
+    pub mode: InputMode,
 }
 
 // ── Side-effects reported back to the winit App ──────────────────────────────
@@ -79,7 +81,6 @@ pub struct AppState {
     pub tabs: Vec<TabState>,
     pub active_tab: usize,
     pub next_pane_id: usize,
-    pub mode: InputMode,
     pub cursor_blink: bool,
     pub blink_last: Instant,
     pub ctrl_w_pending: bool,
@@ -106,13 +107,15 @@ pub struct AppState {
     pub update_applied: Option<crate::update::Version>,
 }
 
+/// Default input mode returned by `AppState::mode()` when no tab exists.
+static DEFAULT_MODE: InputMode = InputMode::Insert;
+
 impl AppState {
     pub fn new(config: Config, theme: ResolvedTheme) -> Self {
         Self {
             tabs: Vec::new(),
             active_tab: 0,
             next_pane_id: 0,
-            mode: InputMode::Insert,
             cursor_blink: true,
             blink_last: Instant::now(),
             ctrl_w_pending: false,
@@ -146,12 +149,41 @@ impl AppState {
         &mut self.tabs[self.active_tab]
     }
 
+    /// Input mode of the active tab. Panic-free: returns `Insert` when there is
+    /// no active tab (matches the empty-tab guards elsewhere).
+    pub fn mode(&self) -> &InputMode {
+        self.tabs
+            .get(self.active_tab)
+            .map(|t| &t.mode)
+            .unwrap_or(&DEFAULT_MODE)
+    }
+
+    /// Set the active tab's input mode. No-op when there is no active tab.
+    pub fn set_mode(&mut self, m: InputMode) {
+        if let Some(t) = self.tabs.get_mut(self.active_tab) {
+            t.mode = m;
+        }
+    }
+
     pub fn next_tab(&mut self) {
         self.active_tab = crate::ui::tabs::next_tab_index(self.active_tab, self.tabs.len());
+        self.on_active_tab_changed();
     }
 
     pub fn prev_tab(&mut self) {
         self.active_tab = crate::ui::tabs::prev_tab_index(self.active_tab, self.tabs.len());
+        self.on_active_tab_changed();
+    }
+
+    /// Called whenever the *focused* tab changes (not on tab reordering). The
+    /// global `search_matches`/`search_current` describe only the active tab's
+    /// grid, so drop them; recompute if the newly-focused tab is in Search mode.
+    fn on_active_tab_changed(&mut self) {
+        self.search_matches.clear();
+        self.search_current = 0;
+        if matches!(self.mode(), InputMode::Search { .. }) {
+            self.update_search_matches();
+        }
     }
 
     pub fn move_tab_left(&mut self) {
@@ -198,7 +230,7 @@ impl AppState {
     }
 
     pub fn update_search_matches(&mut self) {
-        let query = match &self.mode {
+        let query = match self.mode() {
             InputMode::Search { query, .. } => query.clone(),
             _ => return,
         };
@@ -281,7 +313,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
-        } = self.mode.clone()
+        } = self.mode().clone()
         else {
             return;
         };
@@ -293,7 +325,7 @@ impl AppState {
         };
         let (nc, nr) = motion(&grid, entry.pane.scroll_offset, cur_col, cur_row);
         drop(grid);
-        self.mode = InputMode::Visual {
+        self.tab_mut().mode = InputMode::Visual {
             start_col,
             start_row,
             cur_col: nc,
@@ -325,9 +357,9 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col,
                 start_row: start_row + n,
                 cur_col,
@@ -344,9 +376,9 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col,
                 start_row: start_row.saturating_sub(n),
                 cur_col,
@@ -382,7 +414,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored: true,
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
             let text = self.active_entry().and_then(|entry| {
                 entry.pane.grid_read().map(|g| {
@@ -398,12 +430,12 @@ impl AppState {
             if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
             }
-            self.mode = InputMode::Insert;
+            self.tab_mut().mode = InputMode::Insert;
         }
     }
 
     fn do_visual_yank_line(&mut self) {
-        if let InputMode::Visual { cur_row, .. } = self.mode.clone() {
+        if let InputMode::Visual { cur_row, .. } = self.mode().clone() {
             let text = self.active_entry().and_then(|entry| {
                 entry.pane.grid_read().map(|grid| {
                     let cols = grid.cols.saturating_sub(1);
@@ -413,7 +445,7 @@ impl AppState {
             if let Some(text) = text {
                 self.copy_text_to_clipboard(text);
             }
-            self.mode = InputMode::Insert;
+            self.tab_mut().mode = InputMode::Insert;
         }
     }
 
@@ -424,10 +456,10 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
             let grid_rows = self.active_grid_rows();
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col: cur_col,
                 start_row: cur_row,
                 cur_col: start_col,
@@ -440,9 +472,9 @@ impl AppState {
     fn set_visual_anchor(&mut self) {
         if let InputMode::Visual {
             cur_col, cur_row, ..
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col: cur_col,
                 start_row: cur_row,
                 cur_col,
@@ -480,9 +512,9 @@ impl AppState {
             cur_col,
             anchored,
             ..
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col,
                 start_row: start_row + n,
                 cur_col,
@@ -503,9 +535,9 @@ impl AppState {
             cur_col,
             anchored,
             ..
-        } = self.mode.clone()
+        } = self.mode().clone()
         {
-            self.mode = InputMode::Visual {
+            self.tab_mut().mode = InputMode::Visual {
                 start_col,
                 start_row: start_row.saturating_sub(n),
                 cur_col,
@@ -557,6 +589,7 @@ impl AppState {
     fn do_go_to_tab(&mut self, idx: usize) -> Vec<AppEffect> {
         if idx < self.tabs.len() {
             self.active_tab = idx;
+            self.on_active_tab_changed();
             vec![AppEffect::Redraw]
         } else {
             vec![]
@@ -699,7 +732,7 @@ impl AppState {
                 self.search_matches.clear();
                 self.search_current = 0;
                 self.search_before_history.clear();
-                self.mode = InputMode::Search {
+                self.tab_mut().mode = InputMode::Search {
                     query: String::new(),
                     history_pos: None,
                 };
@@ -749,7 +782,7 @@ impl AppState {
             // ── UI ───────────────────────────────────────────────────────────
             Action::ToggleFullscreen => vec![AppEffect::ToggleFullscreen],
             Action::OpenCommandPalette => {
-                self.mode = InputMode::CommandPalette {
+                self.tab_mut().mode = InputMode::CommandPalette {
                     query: String::new(),
                     selected: 0,
                 };
@@ -789,8 +822,8 @@ impl AppState {
     }
 
     fn do_set_mode(&mut self, new_mode: InputMode) -> Vec<AppEffect> {
-        self.mode = if let InputMode::Visual { .. } = &new_mode {
-            if matches!(self.mode, InputMode::Visual { .. }) {
+        let resolved = if let InputMode::Visual { .. } = &new_mode {
+            if matches!(self.mode(), InputMode::Visual { .. }) {
                 new_mode
             } else {
                 let (col, row) = self.visual_start_pos();
@@ -805,6 +838,7 @@ impl AppState {
         } else {
             new_mode
         };
+        self.set_mode(resolved);
         vec![AppEffect::Redraw]
     }
 
@@ -829,11 +863,11 @@ impl AppState {
             .get(self.active_tab)
             .and_then(|t| t.name.clone())
             .unwrap_or_default();
-        self.mode = InputMode::RenameTab { buf: current };
+        self.tab_mut().mode = InputMode::RenameTab { buf: current };
     }
 
     pub(crate) fn apply_rename_key(&mut self, key: &Key) {
-        let buf = if let InputMode::RenameTab { buf } = &self.mode {
+        let buf = if let InputMode::RenameTab { buf } = self.mode() {
             buf.clone()
         } else {
             return;
@@ -841,24 +875,24 @@ impl AppState {
         use winit::keyboard::NamedKey;
         match key {
             Key::Named(NamedKey::Escape) => {
-                self.mode = InputMode::Insert;
+                self.tab_mut().mode = InputMode::Insert;
             }
             Key::Named(NamedKey::Enter) => {
                 let name = buf.trim().to_string();
                 if let Some(tab) = self.tabs.get_mut(self.active_tab) {
                     tab.name = if name.is_empty() { None } else { Some(name) };
                 }
-                self.mode = InputMode::Insert;
+                self.tab_mut().mode = InputMode::Insert;
             }
             Key::Named(NamedKey::Backspace) => {
                 let mut b = buf;
                 b.pop();
-                self.mode = InputMode::RenameTab { buf: b };
+                self.tab_mut().mode = InputMode::RenameTab { buf: b };
             }
             Key::Character(s) => {
                 let mut b = buf;
                 b.push_str(s);
-                self.mode = InputMode::RenameTab { buf: b };
+                self.tab_mut().mode = InputMode::RenameTab { buf: b };
             }
             _ => {}
         }
@@ -883,12 +917,12 @@ impl AppState {
     }
 
     fn do_screenshot_edge_resize(&mut self, dw: i32, dh: i32) {
-        let InputMode::Screenshot {
+        let &InputMode::Screenshot {
             cx,
             cy,
             half_w,
             half_h,
-        } = self.mode
+        } = self.mode()
         else {
             return;
         };
@@ -901,7 +935,7 @@ impl AppState {
         let new_right = ((cx + half_w) as i32 + dw * STEP).max(left + MIN_FULL);
         let new_bottom = ((cy + half_h) as i32 + dh * STEP).max(top + MIN_FULL);
 
-        self.mode = InputMode::Screenshot {
+        self.tab_mut().mode = InputMode::Screenshot {
             cx: (left + (new_right - left) / 2) as u32,
             cy: (top + (new_bottom - top) / 2) as u32,
             half_w: ((new_right - left) / 2) as u32,
@@ -910,16 +944,16 @@ impl AppState {
     }
 
     fn do_screenshot_move(&mut self, dx: i32, dy: i32) {
-        let InputMode::Screenshot {
+        let &InputMode::Screenshot {
             cx,
             cy,
             half_w,
             half_h,
-        } = self.mode
+        } = self.mode()
         else {
             return;
         };
-        self.mode = InputMode::Screenshot {
+        self.tab_mut().mode = InputMode::Screenshot {
             cx: (cx as i32 + dx).max(0) as u32,
             cy: (cy as i32 + dy).max(0) as u32,
             half_w,
@@ -928,16 +962,16 @@ impl AppState {
     }
 
     fn do_screenshot_capture(&mut self) -> Vec<AppEffect> {
-        let InputMode::Screenshot {
+        let &InputMode::Screenshot {
             cx,
             cy,
             half_w,
             half_h,
-        } = self.mode
+        } = self.mode()
         else {
             return vec![];
         };
-        self.mode = InputMode::ScreenshotName {
+        self.tab_mut().mode = InputMode::ScreenshotName {
             cx,
             cy,
             half_w,
@@ -949,7 +983,7 @@ impl AppState {
 
     fn do_quit(&mut self) -> Vec<AppEffect> {
         if self.config.general.restore_session {
-            self.mode = crate::input::InputMode::QuitSave;
+            self.tab_mut().mode = crate::input::InputMode::QuitSave;
             return vec![AppEffect::Redraw];
         }
         let total_panes = self.tabs.iter().map(|t| t.panes.len()).sum::<usize>();
@@ -979,6 +1013,7 @@ impl AppState {
             bell_flash_until: None,
             bell_cooldown_until: None,
             passthrough: false,
+            mode: InputMode::Insert,
         });
         self.active_tab = self.tabs.len() - 1;
     }

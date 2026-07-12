@@ -194,7 +194,7 @@ fn build_tab_titles_activity_flag_reflected() {
 fn build_tab_titles_rename_mode_shows_cursor() {
     let mut state = make_state();
     state.add_empty_tab();
-    state.mode = InputMode::RenameTab {
+    state.tab_mut().mode = InputMode::RenameTab {
         buf: "newname".into(),
     };
     let titles = build_tab_titles(&state);
@@ -210,7 +210,7 @@ fn build_tab_titles_rename_mode_inactive_tab_not_affected() {
     state.add_empty_tab();
     state.add_empty_tab();
     state.active_tab = 0;
-    state.mode = InputMode::RenameTab {
+    state.tab_mut().mode = InputMode::RenameTab {
         buf: "newname".into(),
     };
     let titles = build_tab_titles(&state);

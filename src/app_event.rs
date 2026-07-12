@@ -41,7 +41,7 @@ fn cursor_icon_for_hover(hover_sep: Option<&SeparatorHandle>, has_url: bool) -> 
 
 impl App {
     pub(super) fn handle_search_key(&mut self, event: &winit::event::KeyEvent) {
-        let query = if let InputMode::Search { query, .. } = &self.state.mode {
+        let query = if let InputMode::Search { query, .. } = self.state.mode() {
             query.clone()
         } else {
             return;
@@ -50,7 +50,7 @@ impl App {
             Key::Named(NamedKey::Escape) => {
                 self.state.push_search_history(query);
                 crate::history::save_search_history(&self.state.search_history);
-                self.state.mode = InputMode::Normal;
+                self.state.tab_mut().mode = InputMode::Normal;
                 self.state.search_matches.clear();
             }
             Key::Named(NamedKey::Enter) if !self.state.search_matches.is_empty() => {
@@ -64,7 +64,7 @@ impl App {
                 if len == 0 {
                     return;
                 }
-                let history_pos = if let InputMode::Search { history_pos, .. } = &self.state.mode {
+                let history_pos = if let InputMode::Search { history_pos, .. } = self.state.mode() {
                     *history_pos
                 } else {
                     return;
@@ -78,14 +78,14 @@ impl App {
                     Some((i, _)) => i - 1,
                 };
                 let new_query = self.state.search_history[new_idx].clone();
-                self.state.mode = InputMode::Search {
+                self.state.tab_mut().mode = InputMode::Search {
                     query: new_query,
                     history_pos: Some((new_idx, len)),
                 };
                 self.update_search_matches();
             }
             Key::Named(NamedKey::ArrowDown) => {
-                let history_pos = if let InputMode::Search { history_pos, .. } = &self.state.mode {
+                let history_pos = if let InputMode::Search { history_pos, .. } = self.state.mode() {
                     *history_pos
                 } else {
                     return;
@@ -95,7 +95,7 @@ impl App {
                     None => {}
                     Some((i, _)) if i + 1 >= len => {
                         let restored = self.state.search_before_history.clone();
-                        self.state.mode = InputMode::Search {
+                        self.state.tab_mut().mode = InputMode::Search {
                             query: restored,
                             history_pos: None,
                         };
@@ -104,7 +104,7 @@ impl App {
                     Some((i, _)) => {
                         let new_idx = i + 1;
                         let new_query = self.state.search_history[new_idx].clone();
-                        self.state.mode = InputMode::Search {
+                        self.state.tab_mut().mode = InputMode::Search {
                             query: new_query,
                             history_pos: Some((new_idx, len)),
                         };
@@ -115,7 +115,7 @@ impl App {
             Key::Named(NamedKey::Backspace) => {
                 let mut q = query;
                 q.pop();
-                self.state.mode = InputMode::Search {
+                self.state.tab_mut().mode = InputMode::Search {
                     query: q,
                     history_pos: None,
                 };
@@ -127,7 +127,7 @@ impl App {
             Key::Character(s) => {
                 let mut q = query;
                 q.push_str(s);
-                self.state.mode = InputMode::Search {
+                self.state.tab_mut().mode = InputMode::Search {
                     query: q,
                     history_pos: None,
                 };
@@ -143,7 +143,7 @@ impl App {
         event_loop: &ActiveEventLoop,
     ) {
         let (query, selected) =
-            if let InputMode::CommandPalette { query, selected } = &self.state.mode {
+            if let InputMode::CommandPalette { query, selected } = self.state.mode() {
                 (query.clone(), *selected)
             } else {
                 return;
@@ -152,22 +152,22 @@ impl App {
         let filtered = command_palette::filter(&query);
         match &event.logical_key {
             Key::Named(NamedKey::Escape) => {
-                self.state.mode = InputMode::Insert;
+                self.state.tab_mut().mode = InputMode::Insert;
             }
             Key::Named(NamedKey::ArrowUp) => {
-                self.state.mode = InputMode::CommandPalette {
+                self.state.tab_mut().mode = InputMode::CommandPalette {
                     query,
                     selected: palette_move_selection(selected, filtered.len(), true),
                 };
             }
             Key::Named(NamedKey::ArrowDown) => {
-                self.state.mode = InputMode::CommandPalette {
+                self.state.tab_mut().mode = InputMode::CommandPalette {
                     query,
                     selected: palette_move_selection(selected, filtered.len(), false),
                 };
             }
             Key::Named(NamedKey::Enter) => {
-                self.state.mode = InputMode::Insert;
+                self.state.tab_mut().mode = InputMode::Insert;
                 if let Some(&entry_idx) = filtered.get(selected) {
                     let action = command_palette::entry_action(entry_idx);
                     self.execute_action(action, event_loop);
@@ -176,7 +176,7 @@ impl App {
             Key::Named(NamedKey::Backspace) => {
                 let mut q = query;
                 q.pop();
-                self.state.mode = InputMode::CommandPalette {
+                self.state.tab_mut().mode = InputMode::CommandPalette {
                     selected: 0,
                     query: q,
                 };
@@ -184,7 +184,7 @@ impl App {
             Key::Character(s) => {
                 let mut q = query;
                 q.push_str(s);
-                self.state.mode = InputMode::CommandPalette {
+                self.state.tab_mut().mode = InputMode::CommandPalette {
                     selected: 0,
                     query: q,
                 };
@@ -220,7 +220,7 @@ impl App {
     }
 
     pub(super) fn update_search_matches(&mut self) {
-        let query = match &self.state.mode {
+        let query = match self.state.mode() {
             InputMode::Search { query, .. } => query.clone(),
             _ => return,
         };
@@ -320,7 +320,7 @@ impl App {
             half_w,
             half_h,
             name,
-        } = &self.state.mode
+        } = self.state.mode()
         {
             (*cx, *cy, *half_w, *half_h, name.clone())
         } else {
@@ -328,7 +328,7 @@ impl App {
         };
         match &event.logical_key {
             Key::Named(NamedKey::Escape) => {
-                self.state.mode = InputMode::Insert;
+                self.state.tab_mut().mode = InputMode::Insert;
             }
             Key::Named(NamedKey::Enter) => {
                 let (w, h) = self.surface_size;
@@ -337,12 +337,12 @@ impl App {
                 let sw = (half_w * 2).min(w.saturating_sub(x));
                 let sh = (half_h * 2).min(h.saturating_sub(y));
                 self.pending_screenshot = Some(([x, y, sw, sh], name.trim().to_string()));
-                self.state.mode = InputMode::Insert;
+                self.state.tab_mut().mode = InputMode::Insert;
             }
             Key::Named(NamedKey::Backspace) => {
                 let mut n = name;
                 n.pop();
-                self.state.mode = InputMode::ScreenshotName {
+                self.state.tab_mut().mode = InputMode::ScreenshotName {
                     cx,
                     cy,
                     half_w,
@@ -353,7 +353,7 @@ impl App {
             Key::Character(s) => {
                 let mut n = name;
                 n.push_str(s);
-                self.state.mode = InputMode::ScreenshotName {
+                self.state.tab_mut().mode = InputMode::ScreenshotName {
                     cx,
                     cy,
                     half_w,
@@ -491,7 +491,7 @@ impl App {
         let action = handle_key(
             &event,
             &self.modifiers,
-            &self.state.mode,
+            self.state.mode(),
             grid_cols,
             grid_rows,
             app_cursor,
@@ -504,7 +504,7 @@ impl App {
         event: &winit::event::KeyEvent,
         event_loop: &ActiveEventLoop,
     ) -> bool {
-        match &self.state.mode {
+        match self.state.mode() {
             InputMode::RenameTab { .. } => {
                 self.handle_rename_key(event);
             }

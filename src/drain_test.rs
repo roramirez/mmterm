@@ -48,6 +48,7 @@ fn make_tab() -> TabState {
         bell_flash_until: None,
         bell_cooldown_until: None,
         passthrough: false,
+        mode: crate::input::InputMode::Insert,
     }
 }
 

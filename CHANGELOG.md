@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode
+
 ## [0.9.0] - 2026-07-05
 
 ### Added
