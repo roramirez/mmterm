@@ -3,11 +3,11 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::input::keybindings::Action;
-use crate::{TabState, session};
+use crate::{StartupWindowMode, TabState, session};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
-use winit::window::{CursorIcon, Icon, Window, WindowId};
+use winit::window::{CursorIcon, Fullscreen, Icon, Window, WindowId};
 
 use super::App;
 
@@ -37,13 +37,24 @@ impl ApplicationHandler for App {
             .ok()
             .flatten();
 
-        let attrs = Window::default_attributes()
+        let mut attrs = Window::default_attributes()
             .with_title(self.state.config.window.title.clone())
-            .with_inner_size(winit::dpi::LogicalSize::new(
-                self.state.config.window.width,
-                self.state.config.window.height,
-            ))
             .with_window_icon(icon);
+        // A `--maximized` / `--fullscreen` flag overrides the config window size.
+        match self.startup_window {
+            Some(StartupWindowMode::Fullscreen) => {
+                attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
+            }
+            Some(StartupWindowMode::Maximized) => {
+                attrs = attrs.with_maximized(true);
+            }
+            None => {
+                attrs = attrs.with_inner_size(winit::dpi::LogicalSize::new(
+                    self.state.config.window.width,
+                    self.state.config.window.height,
+                ));
+            }
+        }
 
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
         window.set_cursor(CursorIcon::Text);

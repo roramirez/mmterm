@@ -278,6 +278,7 @@ fn make_app() -> Option<crate::App> {
         crate::config::Config::default(),
         proxy,
         None,
+        None,
     ))
 }
 

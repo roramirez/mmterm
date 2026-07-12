@@ -23,9 +23,33 @@ Options:
   --scope <name>      Use a named session scope (~/.config/mmterm/sessions/<name>.toml)
   --scope=<name>      Same as --scope <name>
   -s <name>           Short form of --scope
-  --list-scopes       Print all saved scope names and exit",
+  --list-scopes       Print all saved scope names and exit
+  --maximized         Start with the window maximized
+  --fullscreen        Start with the window in fullscreen (wins over --maximized)",
         version = env!("MMTERM_VERSION")
     );
+}
+
+/// How the window should be sized at startup, when requested on the command line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StartupWindowMode {
+    Maximized,
+    Fullscreen,
+}
+
+/// Extracts the startup window mode from `--maximized` / `--fullscreen`.
+///
+/// `--fullscreen` takes precedence when both are present.
+pub(crate) fn startup_window_mode(args: impl Iterator<Item = String>) -> Option<StartupWindowMode> {
+    let mut mode = None;
+    for a in args {
+        match a.as_str() {
+            "--fullscreen" => return Some(StartupWindowMode::Fullscreen),
+            "--maximized" => mode = Some(StartupWindowMode::Maximized),
+            _ => {}
+        }
+    }
+    mode
 }
 
 /// Extracts the `--scope <name>` / `--scope=<name>` / `-s <name>` value from args.
