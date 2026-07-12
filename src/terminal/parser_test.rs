@@ -1287,3 +1287,16 @@ fn osc777_without_notify_keyword_is_ignored() {
     p.process(b"\x1b]777;other;Title;Body\x07");
     assert!(p.grid.pending_notification.is_none());
 }
+
+#[test]
+fn decrqm_reports_mode_state() {
+    let mut p = make_parser(80, 24);
+    // reset by default (2), set (1) without the query toggling it, reset after
+    // disable (2), and unknown mode (0).
+    p.process(b"\x1b[?2004$p\x1b[?2004h\x1b[?2004$p\x1b[?1000h\x1b[?1000l\x1b[?1000$p\x1b[?9999$p");
+    assert_eq!(
+        p.grid.pending_responses,
+        b"\x1b[?2004;2$y\x1b[?2004;1$y\x1b[?1000;2$y\x1b[?9999;0$y"
+    );
+    assert!(p.grid.bracketed_paste);
+}

@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- DECRQM (`CSI ? Ps $ p`): report whether a DEC private mode is set/reset
+
 ### Changed
 - input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode
 
