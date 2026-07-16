@@ -727,7 +727,10 @@ impl App {
         match state {
             ElementState::Pressed => {
                 if let Some((mx, my)) = self.state.mouse_pos {
-                    if self.is_double_click(mx, my) {
+                    let shift = self.modifiers.state().shift_key();
+                    if shift {
+                        self.extend_mouse_selection(mx, my);
+                    } else if self.is_double_click(mx, my) {
                         self.select_word_at(mx, my);
                     } else {
                         self.start_mouse_selection(mx, my);
