@@ -221,6 +221,7 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | cursor_blink_ms | uint | `500` |
 | window | inactive_dim | float | `0.55` |
 | window | detect_urls | bool | `true` |
+| window | url_opener | string | `""` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
 | logging | auto_log | bool | `false` |

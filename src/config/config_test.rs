@@ -135,6 +135,44 @@ fn default_detect_urls_value() {
 }
 
 #[test]
+fn default_url_opener_is_empty() {
+    let cfg = Config::default();
+    assert!(cfg.window.url_opener.is_empty());
+}
+
+#[test]
+fn url_opener_default_applied_when_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert!(cfg.window.url_opener.is_empty());
+}
+
+#[test]
+fn config_roundtrip_preserves_url_opener() {
+    let mut cfg = Config::default();
+    cfg.window.url_opener = "firefox".to_string();
+    let s = toml::to_string_pretty(&cfg).expect("serialize failed");
+    let restored: Config = toml::from_str(&s).expect("deserialize failed");
+    assert_eq!(restored.window.url_opener, "firefox");
+}
+
+#[test]
 fn detect_urls_default_applied_when_missing() {
     let toml = r###"
 [font]
