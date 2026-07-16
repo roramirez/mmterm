@@ -158,6 +158,44 @@ palette = []
 }
 
 #[test]
+fn default_cursor_style_value() {
+    assert_eq!(default_cursor_style(), "block");
+    assert_eq!(Config::default().window.cursor_style, "block");
+}
+
+#[test]
+fn cursor_style_default_applied_when_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert_eq!(cfg.window.cursor_style, "block");
+}
+
+#[test]
+fn config_roundtrip_preserves_cursor_style() {
+    let mut cfg = Config::default();
+    cfg.window.cursor_style = "beam".into();
+    let s = toml::to_string_pretty(&cfg).expect("serialize failed");
+    let restored: Config = toml::from_str(&s).expect("deserialize failed");
+    assert_eq!(restored.window.cursor_style, "beam");
+}
+
+#[test]
 fn save_does_not_panic() {
     Config::default().save();
 }

@@ -15,6 +15,20 @@ pub enum CursorShape {
     Beam,
 }
 
+/// Map a config string to a [`CursorShape`] (case-insensitive).
+/// Unknown values fall back to `Block` with a warning.
+pub fn cursor_shape_from_str(s: &str) -> CursorShape {
+    match s.to_ascii_lowercase().as_str() {
+        "block" => CursorShape::Block,
+        "beam" => CursorShape::Beam,
+        "underline" => CursorShape::Underline,
+        other => {
+            log::warn!("unknown cursor_style {other:?}, falling back to \"block\"");
+            CursorShape::Block
+        }
+    }
+}
+
 /// OSC 133 shell integration state.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ShellState {
@@ -195,6 +209,8 @@ pub struct Grid {
     pub cursor_visible: bool,
     // DECSCUSR: cursor shape set by the running program
     pub cursor_shape: CursorShape,
+    // Configured default cursor shape; restored on reset and `CSI 0 SP q`.
+    pub default_cursor_shape: CursorShape,
     // Bracketed paste mode (?2004)
     pub bracketed_paste: bool,
     // Mouse reporting mode: 0=off, 1000=click, 1002=button-motion, 1003=any-motion
@@ -282,6 +298,7 @@ impl Grid {
             application_cursor_keys: false,
             cursor_visible: true,
             cursor_shape: CursorShape::Block,
+            default_cursor_shape: CursorShape::Block,
             bracketed_paste: false,
             mouse_mode: 0,
             mouse_sgr: false,
@@ -337,7 +354,7 @@ impl Grid {
         self.cursor_col = 0;
         self.cursor_row = 0;
         self.cursor_visible = true;
-        self.cursor_shape = CursorShape::Block;
+        self.cursor_shape = self.default_cursor_shape;
         self.scroll_top = 0;
         self.scroll_bottom = self.max_row();
         self.reset_sgr();
@@ -1036,7 +1053,7 @@ impl Grid {
         self.current_url = None;
         self.osc_title = None;
         self.cursor_visible = true;
-        self.cursor_shape = CursorShape::Block;
+        self.cursor_shape = self.default_cursor_shape;
         self.bracketed_paste = false;
         self.mouse_mode = 0;
         self.mouse_sgr = false;

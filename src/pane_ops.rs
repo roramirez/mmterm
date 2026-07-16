@@ -33,7 +33,7 @@ impl App {
         let pad2 = self.scale.chrome(crate::ui::layout::PANE_PADDING) * 2;
         let (cols, rows) = metrics.grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
         let t = &self.state.theme;
-        let grid = Arc::new(RwLock::new(Grid::with_colors(
+        let mut grid = Grid::with_colors(
             cols,
             rows,
             GridColors {
@@ -44,7 +44,12 @@ impl App {
                 palette: t.palette,
             },
             self.state.config.terminal.scrollback_lines,
-        )));
+        );
+        let shape =
+            crate::terminal::grid::cursor_shape_from_str(&self.state.config.window.cursor_style);
+        grid.default_cursor_shape = shape;
+        grid.cursor_shape = shape;
+        let grid = Arc::new(RwLock::new(grid));
         let pane = Pane::new(grid.clone(), rect);
         // Bounded channel caps PTY output backlog at ~1 MB (256 × 4 KB chunks),
         // matching WezTerm's socketpair size. Provides natural backpressure:

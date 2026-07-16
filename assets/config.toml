@@ -11,6 +11,8 @@ title           = "mmterm"
 cursor_blink_ms = 500
 inactive_dim    = 0.55
 detect_urls     = true
+# default cursor shape: block | beam | underline
+cursor_style    = "block"
 
 [shell]
 # program = "/bin/zsh"
