@@ -159,6 +159,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+url_opener      = ""        # command to open URLs (empty = xdg-open/open)
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL

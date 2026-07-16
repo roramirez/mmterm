@@ -158,6 +158,10 @@ pub struct WindowConfig {
     pub inactive_dim: f32,
     #[serde(default = "default_detect_urls")]
     pub detect_urls: bool,
+    /// Command used to open URLs. Empty string means the per-OS default
+    /// (xdg-open on Linux, open on macOS, cmd /c start on Windows).
+    #[serde(default)]
+    pub url_opener: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

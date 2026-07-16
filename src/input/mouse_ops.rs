@@ -6,7 +6,11 @@ use crate::input::InputMode;
 
 use crate::App;
 
-pub(super) fn open_url(url: &str) {
+pub(super) fn open_url(url: &str, opener: &str) {
+    if !opener.is_empty() {
+        let _ = std::process::Command::new(opener).arg(url).spawn();
+        return;
+    }
     #[cfg(target_os = "linux")]
     {
         let _ = std::process::Command::new("xdg-open").arg(url).spawn();
@@ -178,7 +182,8 @@ impl App {
             self.state.tab_mut().mode = InputMode::Insert;
             if start_col == cur_col && start_row == cur_row {
                 if let Some(url) = self.state.hovered_url.clone() {
-                    open_url(&url);
+                    let opener = self.state.config.window.url_opener.clone();
+                    open_url(&url, &opener);
                 }
                 if let Some(w) = &self.window {
                     w.request_redraw();

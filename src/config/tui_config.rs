@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_URL_OPENER: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -299,6 +300,14 @@ impl ConfigPanel {
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
+            section: None,
+        });
+
+        fields.push(Field {
+            label: "URL Opener",
+            hint: "command to open URLs (empty = system default)",
+            value: cfg.window.url_opener.clone(),
+            kind: FieldKind::OptText,
             section: None,
         });
 
@@ -678,6 +687,8 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid desktop_notifications — use true or false")?;
 
+        let url_opener = get(F_URL_OPENER);
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -687,6 +698,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                url_opener,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },
