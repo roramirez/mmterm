@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_COPY_ON_SELECT: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -298,6 +299,14 @@ impl ConfigPanel {
             label: "Desktop Notifications",
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
+            kind: FieldKind::Bool,
+            section: None,
+        });
+
+        fields.push(Field {
+            label: "Copy On Select",
+            hint: "true or false — auto-copy mouse selection to clipboard",
+            value: cfg.window.copy_on_select.to_string(),
             kind: FieldKind::Bool,
             section: None,
         });
@@ -624,6 +633,9 @@ impl ConfigPanel {
         let detect_urls = get(F_DETECT_URLS)
             .parse::<bool>()
             .map_err(|_| "Invalid detect_urls — use true or false")?;
+        let copy_on_select = get(F_COPY_ON_SELECT)
+            .parse::<bool>()
+            .map_err(|_| "Invalid copy_on_select — use true or false")?;
         let shell = {
             let s = get(F_SHELL);
             if s.is_empty() { None } else { Some(s) }
@@ -687,6 +699,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                copy_on_select,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },

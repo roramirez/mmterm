@@ -159,6 +159,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+copy_on_select  = true         # auto-copy mouse selection to the clipboard
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
