@@ -165,6 +165,7 @@ impl Renderer {
         tab_titles: &[(String, bool, bool)],
         search_total: usize,
         search_current: usize,
+        search_case_insensitive: bool,
         right_text: Option<&str>,
         pane_title: Option<&str>,
         inactive_dim: f32,
@@ -221,6 +222,7 @@ impl Renderer {
             passthrough,
             search_total,
             search_current,
+            search_case_insensitive,
             right_text,
             pane_title,
             bell_flash_intensity.is_some(),
@@ -715,6 +717,7 @@ impl Renderer {
         passthrough: bool,
         search_total: usize,
         search_current: usize,
+        search_case_insensitive: bool,
         right_text: Option<&str>,
         pane_title: Option<&str>,
         bell_active: bool,
@@ -768,6 +771,7 @@ impl Renderer {
             mode,
             search_total,
             search_current,
+            search_case_insensitive,
             badge_x + badge_w + 10,
             badge_y + 2,
             px,
@@ -898,18 +902,20 @@ impl Renderer {
         mode: &InputMode,
         search_total: usize,
         search_current: usize,
+        case_insensitive: bool,
         x: u32,
         y: u32,
         px: f32,
         color: u32,
     ) {
         if let InputMode::Search { query, history_pos } = mode {
+            let ci = if case_insensitive { "  [i]" } else { "" };
             let base = if query.is_empty() {
-                "/".to_string()
+                format!("/{ci}")
             } else if search_total == 0 {
-                format!("/{query}  [no matches]")
+                format!("/{query}  [no matches]{ci}")
             } else {
-                format!("/{query}  [{}/{}]", search_current + 1, search_total)
+                format!("/{query}  [{}/{}]{ci}", search_current + 1, search_total)
             };
             let info = if let Some((pos, len)) = history_pos {
                 format!("{base}  [hist {}/{}]", pos + 1, len)

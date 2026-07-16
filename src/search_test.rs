@@ -19,13 +19,13 @@ fn make_grid(cols: usize, rows: usize) -> Grid {
 #[test]
 fn empty_query_returns_empty() {
     let g = make_grid(10, 5);
-    assert!(compute_search_matches(&g, "").is_empty());
+    assert!(compute_search_matches(&g, "", false).is_empty());
 }
 
 #[test]
 fn invalid_regex_returns_empty() {
     let g = make_grid(10, 5);
-    assert!(compute_search_matches(&g, "[invalid").is_empty());
+    assert!(compute_search_matches(&g, "[invalid", false).is_empty());
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn finds_match_in_live_grid() {
     for c in "hello".chars() {
         g.write_char(c);
     }
-    let matches = compute_search_matches(&g, "hello");
+    let matches = compute_search_matches(&g, "hello", false);
     assert_eq!(matches.len(), 1);
     let sb_len = g.scrollback.len();
     assert_eq!(matches[0].0, sb_len); // first live row
@@ -54,7 +54,7 @@ fn finds_match_in_scrollback() {
         g.write_char(c);
     }
     assert!(!g.scrollback.is_empty());
-    let matches = compute_search_matches(&g, "hello");
+    let matches = compute_search_matches(&g, "hello", false);
     assert!(!matches.is_empty());
     assert_eq!(matches[0].0, 0); // scrollback row 0
     assert_eq!(matches[0].1, 0);
@@ -64,7 +64,7 @@ fn finds_match_in_scrollback() {
 fn no_match_returns_empty() {
     let mut g = make_grid(10, 3);
     g.write_char('a');
-    assert!(compute_search_matches(&g, "xyz").is_empty());
+    assert!(compute_search_matches(&g, "xyz", false).is_empty());
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn multiple_matches_same_row() {
     for c in "ab_ab_ab            ".chars() {
         g.write_char(c);
     }
-    let matches = compute_search_matches(&g, "ab");
+    let matches = compute_search_matches(&g, "ab", false);
     assert_eq!(matches.len(), 3);
 }
 
@@ -83,10 +83,30 @@ fn regex_pattern_works() {
     for c in "foo123bar           ".chars() {
         g.write_char(c);
     }
-    let matches = compute_search_matches(&g, r"\d+");
+    let matches = compute_search_matches(&g, r"\d+", false);
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].1, 3); // col 3
     assert_eq!(matches[0].2, 3); // len 3
+}
+
+#[test]
+fn case_sensitive_misses_differing_case() {
+    let mut g = make_grid(20, 3);
+    for c in "Hello hello HELLO   ".chars() {
+        g.write_char(c);
+    }
+    // Case-sensitive: only the exact lowercase "hello" matches.
+    assert_eq!(compute_search_matches(&g, "hello", false).len(), 1);
+}
+
+#[test]
+fn case_insensitive_matches_all_cases() {
+    let mut g = make_grid(20, 3);
+    for c in "Hello hello HELLO   ".chars() {
+        g.write_char(c);
+    }
+    // Case-insensitive: all three variants match.
+    assert_eq!(compute_search_matches(&g, "hello", true).len(), 3);
 }
 
 #[test]

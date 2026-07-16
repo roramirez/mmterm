@@ -121,6 +121,13 @@ impl App {
                 };
                 self.update_search_matches();
             }
+            Key::Character(s)
+                if self.modifiers.state().alt_key() && s.eq_ignore_ascii_case("c") =>
+            {
+                // Alt+C toggles case-insensitive matching and recomputes live.
+                self.state.search_case_insensitive = !self.state.search_case_insensitive;
+                self.update_search_matches();
+            }
             Key::Character(s) if s == "\x03" || s == "c" => {
                 self.copy_current_match();
             }
@@ -234,7 +241,8 @@ impl App {
         if let Some(entry) = self.state.tabs[tab_idx].panes.get(&active)
             && let Some(grid) = entry.pane.grid_read()
         {
-            self.state.search_matches = search::compute_search_matches(&grid, &query);
+            self.state.search_matches =
+                search::compute_search_matches(&grid, &query, self.state.search_case_insensitive);
         }
 
         if !self.state.search_matches.is_empty() {

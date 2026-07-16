@@ -620,6 +620,32 @@ fn update_search_matches_finds_content() {
     assert!(!s.search_matches.is_empty());
 }
 
+#[test]
+fn toggling_case_insensitive_changes_match_count() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for c in "Needle needle NEEDLE".chars() {
+            e.pane.grid.write().unwrap().write_char(c);
+        }
+    }
+    s.tab_mut().mode = InputMode::Search {
+        query: "needle".to_string(),
+        history_pos: None,
+    };
+
+    // Case-sensitive (default): only the exact lowercase "needle" matches.
+    s.update_search_matches();
+    let sensitive = s.search_matches.len();
+    assert_eq!(sensitive, 1);
+
+    // Flip the flag and recompute: all three case variants match.
+    s.search_case_insensitive = true;
+    s.update_search_matches();
+    assert!(s.search_matches.len() > sensitive);
+    assert_eq!(s.search_matches.len(), 3);
+}
+
 /// Poison the active pane's grid lock (simulating a parser thread that panicked
 /// while holding the write lock) and confirm the main-thread read paths degrade
 /// instead of panicking in cascade. Before the poison-tolerant `grid_read`

@@ -97,6 +97,8 @@ pub struct AppState {
     pub search_current: usize,
     pub search_history: Vec<String>,
     pub search_before_history: String,
+    /// When true, scrollback search matching ignores case (toggled with Alt+C).
+    pub search_case_insensitive: bool,
     pub hovered_url: Option<String>,
     pub swallow_next_tab: bool,
     pub theme: ResolvedTheme,
@@ -129,6 +131,7 @@ impl AppState {
             search_current: 0,
             search_history: Vec::new(),
             search_before_history: String::new(),
+            search_case_insensitive: false,
             hovered_url: None,
             swallow_next_tab: false,
             theme,
@@ -244,7 +247,8 @@ impl AppState {
         if let Some(entry) = self.tabs[tab_idx].panes.get(&active)
             && let Some(grid) = entry.pane.grid_read()
         {
-            self.search_matches = crate::search::compute_search_matches(&grid, &query);
+            self.search_matches =
+                crate::search::compute_search_matches(&grid, &query, self.search_case_insensitive);
         }
         if !self.search_matches.is_empty() {
             self.scroll_to_match(0);

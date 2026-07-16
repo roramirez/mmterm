@@ -183,6 +183,7 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 - `Enter` — navigate to the next match (wraps around).
 - `Escape` — return to Normal mode; matches remain visible for `n`/`N` navigation.
 - `Backspace` — delete the last character of the query.
+- `Alt+C` — toggle case-insensitive matching; matches recompute live and the status bar shows `[i]` while active.
 - `n` (Normal mode) — next match.
 - `N` (Normal mode) — previous match.
 - The view scrolls automatically to center the current match.
