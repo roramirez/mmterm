@@ -62,6 +62,7 @@ impl App {
         // Wakeup fires from the parser thread after each parsed batch.
         // Uses the app-level wakeup_pending flag (same Arc the main thread reads)
         // so the parser can cooperatively yield when the render thread is behind.
+        let env = self.state.config.shell.env.clone();
         let proxy = self.proxy.clone();
         let app_wakeup_pending = Arc::clone(&self.wakeup_pending);
         let wakeup = Box::new(move || {
@@ -75,6 +76,7 @@ impl App {
             pty_tx,
             &shell,
             cwd.as_ref(),
+            &env,
             // PTY reader thread no longer calls wakeup; parser thread handles it.
             Box::new(|| {}),
         ) {

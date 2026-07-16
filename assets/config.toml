@@ -14,6 +14,7 @@ detect_urls     = true
 
 [shell]
 # program = "/bin/zsh"
+# env = [["EDITOR", "nvim"], ["LANG", "en_US.UTF-8"]]
 
 [terminal]
 scrollback_lines = 10000

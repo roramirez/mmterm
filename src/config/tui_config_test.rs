@@ -308,6 +308,7 @@ fn distinct_config() -> Config {
         },
         shell: ShellConfig {
             program: Some("/bin/xyzsh".into()),
+            env: Vec::new(),
         },
         terminal: TerminalConfig {
             scrollback_lines: 4097,

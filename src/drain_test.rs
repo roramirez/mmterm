@@ -64,6 +64,7 @@ fn make_pane_entry() -> (PaneEntry, crossbeam_channel::Sender<Vec<u8>>) {
         pty_tx,
         "/bin/true",
         None,
+        &[],
         Box::new(|| {}),
     )
     .expect("PTY spawn failed");

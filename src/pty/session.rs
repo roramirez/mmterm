@@ -58,7 +58,7 @@ impl PtySession {
     #[allow(dead_code)]
     pub fn spawn(cols: u16, rows: u16, output_tx: Sender<Vec<u8>>) -> anyhow::Result<Self> {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-        Self::spawn_with_shell(cols, rows, output_tx, &shell, None, Box::new(|| {}))
+        Self::spawn_with_shell(cols, rows, output_tx, &shell, None, &[], Box::new(|| {}))
     }
 
     pub fn spawn_with_shell(
@@ -67,6 +67,7 @@ impl PtySession {
         output_tx: Sender<Vec<u8>>,
         shell: &str,
         cwd: Option<&PathBuf>,
+        env: &[(String, String)],
         wakeup: Box<dyn Fn() + Send + 'static>,
     ) -> anyhow::Result<Self> {
         let pty_system = NativePtySystem::default();
@@ -81,6 +82,9 @@ impl PtySession {
 
         let mut cmd = CommandBuilder::new(shell);
         cmd.env("TERM", "xterm-256color");
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
         if let Some(dir) = cwd {
             cmd.cwd(dir);
         }

@@ -162,6 +162,7 @@ cursor_blink_ms = 500
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
+# env = [["EDITOR", "nvim"]]   # injected into every spawned shell; TOML-only, not editable in the in-app config panel
 
 [terminal]
 scrollback_lines = 10000  # minimum 100
