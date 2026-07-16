@@ -89,10 +89,11 @@ pub(super) fn cell_out_of_pane_bounds(
     ry: u32,
     rw: u32,
     rh: u32,
-    padding: u32,
+    pad_x: u32,
+    pad_y: u32,
 ) -> bool {
-    cell_x + draw_w > rx + rw.saturating_sub(padding)
-        || cell_y + cell_height > ry + rh.saturating_sub(padding)
+    cell_x + draw_w > rx + rw.saturating_sub(pad_x)
+        || cell_y + cell_height > ry + rh.saturating_sub(pad_y)
 }
 
 pub(super) fn should_draw_glyph(cell: &Cell, blink_visible: bool) -> bool {
@@ -501,8 +502,10 @@ mod tests {
     #[test]
     fn pane_padding_scales() {
         use crate::dpi::Scale;
-        assert_eq!(Scale::new(2.0).chrome(crate::ui::layout::PANE_PADDING), 8);
-        assert_eq!(Scale::new(1.0).chrome(crate::ui::layout::PANE_PADDING), 4);
+        // Default inner padding (config `window.padding_x`/`padding_y`) is 4 px.
+        const PANE_PADDING: u32 = 4;
+        assert_eq!(Scale::new(2.0).chrome(PANE_PADDING), 8);
+        assert_eq!(Scale::new(1.0).chrome(PANE_PADDING), 4);
     }
 
     // ── Task 23 proxy tests — pure arithmetic, no rendering ──────────────────

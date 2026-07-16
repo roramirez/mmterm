@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify = 41
-    assert_eq!(panel.fields.len(), 41);
+    // 9 base + 2 padding + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify = 43
+    assert_eq!(panel.fields.len(), 43);
 }
 
 #[test]
@@ -305,6 +305,8 @@ fn distinct_config() -> Config {
             cursor_blink_ms: 523,
             inactive_dim: 0.42,
             detect_urls: true,
+            padding_x: 6,
+            padding_y: 9,
         },
         shell: ShellConfig {
             program: Some("/bin/xyzsh".into()),
@@ -361,6 +363,8 @@ fn field_index_sanity() {
         F_BLINK_MS,
         F_DIM,
         F_DETECT_URLS,
+        F_PADDING_X,
+        F_PADDING_Y,
         F_SHELL,
         F_SCROLLBACK,
         F_LOG_AUTO,
@@ -680,8 +684,8 @@ fn palette_collapsed_by_default() {
 #[test]
 fn visible_indices_hides_palette_body() {
     let panel = make_panel();
-    // 41 total - 15 palette body fields = 26 visible
-    assert_eq!(panel.visible_indices().len(), 26);
+    // 43 total - 15 palette body fields = 28 visible
+    assert_eq!(panel.visible_indices().len(), 28);
 }
 
 #[test]
@@ -690,7 +694,7 @@ fn toggle_on_palette_header_expands() {
     panel.selected = F_PALETTE;
     panel.toggle_collapse();
     assert!(!panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 41);
+    assert_eq!(panel.visible_indices().len(), 43);
 }
 
 #[test]
@@ -700,7 +704,7 @@ fn toggle_twice_restores_collapsed() {
     panel.toggle_collapse();
     panel.toggle_collapse();
     assert!(panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 26);
+    assert_eq!(panel.visible_indices().len(), 28);
 }
 
 #[test]

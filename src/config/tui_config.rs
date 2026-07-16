@@ -18,21 +18,23 @@ const F_WIN_TITLE: usize = 7;
 const F_BLINK_MS: usize = 8;
 const F_DIM: usize = 9;
 const F_DETECT_URLS: usize = 10;
-const F_SHELL: usize = 11;
-const F_SCROLLBACK: usize = 12;
-const F_LOG_AUTO: usize = 13;
-const F_LOG_DIR: usize = 14;
-const F_THEME_NAME: usize = 15;
-const F_COLOR_BG: usize = 16;
-const F_COLOR_FG: usize = 17;
-const F_COLOR_CUR: usize = 18;
-const F_COLOR_SEL: usize = 19;
-const F_PALETTE: usize = 20; // F_PALETTE + 0..15
-const F_STATUS_BAR_RIGHT: usize = 36;
-const F_AUTO_UPDATE_CHECK: usize = 37;
-const F_AUTO_UPDATE_INSTALL: usize = 38;
-const F_SHELL_INTEGRATION: usize = 39;
-const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_PADDING_X: usize = 11;
+const F_PADDING_Y: usize = 12;
+const F_SHELL: usize = 13;
+const F_SCROLLBACK: usize = 14;
+const F_LOG_AUTO: usize = 15;
+const F_LOG_DIR: usize = 16;
+const F_THEME_NAME: usize = 17;
+const F_COLOR_BG: usize = 18;
+const F_COLOR_FG: usize = 19;
+const F_COLOR_CUR: usize = 20;
+const F_COLOR_SEL: usize = 21;
+const F_PALETTE: usize = 22; // F_PALETTE + 0..15
+const F_STATUS_BAR_RIGHT: usize = 38;
+const F_AUTO_UPDATE_CHECK: usize = 39;
+const F_AUTO_UPDATE_INSTALL: usize = 40;
+const F_SHELL_INTEGRATION: usize = 41;
+const F_DESKTOP_NOTIFICATIONS: usize = 42;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -174,6 +176,20 @@ impl ConfigPanel {
                 hint: "true or false — auto-detect http(s):// links",
                 value: cfg.window.detect_urls.to_string(),
                 kind: FieldKind::Bool,
+                section: None,
+            },
+            Field {
+                label: "Padding X",
+                hint: "pixels between a pane's left/right border and its grid",
+                value: cfg.window.padding_x.to_string(),
+                kind: FieldKind::UInt,
+                section: None,
+            },
+            Field {
+                label: "Padding Y",
+                hint: "pixels between a pane's top/bottom border and its grid",
+                value: cfg.window.padding_y.to_string(),
+                kind: FieldKind::UInt,
                 section: None,
             },
             // ── Shell ───────────────────────────────────────────────────────
@@ -624,6 +640,12 @@ impl ConfigPanel {
         let detect_urls = get(F_DETECT_URLS)
             .parse::<bool>()
             .map_err(|_| "Invalid detect_urls — use true or false")?;
+        let padding_x = get(F_PADDING_X)
+            .parse::<u32>()
+            .map_err(|_| "Invalid padding_x — use a whole number of pixels")?;
+        let padding_y = get(F_PADDING_Y)
+            .parse::<u32>()
+            .map_err(|_| "Invalid padding_y — use a whole number of pixels")?;
         let shell = {
             let s = get(F_SHELL);
             if s.is_empty() { None } else { Some(s) }
@@ -687,6 +709,8 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                padding_x,
+                padding_y,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },

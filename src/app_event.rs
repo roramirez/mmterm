@@ -600,8 +600,9 @@ impl App {
         self.state.tabs[ai].layout.move_separator(handle, new_pos);
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pad_x, pad_y);
         let icon = match handle.dir {
             SplitDir::H => CursorIcon::ColResize,
             SplitDir::V => CursorIcon::RowResize,

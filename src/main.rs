@@ -204,8 +204,12 @@ impl App {
         self.scale.chrome(crate::ui::layout::STATUS_BAR_H)
     }
 
-    pub(crate) fn pane_padding(&self) -> u32 {
-        self.scale.chrome(crate::ui::layout::PANE_PADDING)
+    pub(crate) fn pane_padding_x(&self) -> u32 {
+        self.scale.chrome(self.state.config.window.padding_x)
+    }
+
+    pub(crate) fn pane_padding_y(&self) -> u32 {
+        self.scale.chrome(self.state.config.window.padding_y)
     }
 
     fn handle_resize(&mut self, w: u32, h: u32) {

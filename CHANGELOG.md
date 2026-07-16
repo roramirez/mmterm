@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- add `window.padding_x` and `window.padding_y` to control the inner padding between a pane's border and its grid
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 - persist and restore window size, maximized, and fullscreen state per session
 - REP (`CSI Ps b`): repeat the last printed character `Ps` times

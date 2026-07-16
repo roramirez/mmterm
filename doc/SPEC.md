@@ -103,7 +103,9 @@ vim-style modal input, split panes, and multi-tab sessions.
 - Baseline alignment per glyph using fontdue `ymin` metric.
 - SGR overline (`\e[53m` / `\e[55m`): rendered as a 1 px line at the top of
   the cell; cleared with `\e[55m`.
-- 4 px inner padding on all pane edges so text never touches the border.
+- Inner padding on all pane edges so text never touches the border; the
+  horizontal and vertical amounts are configurable via `window.padding_x` and
+  `window.padding_y` (both default `4` px, DPI-scaled).
 
 ### Input
 - Four modal modes: **Insert** (default), **Normal**, **Visual**, **Search**.
@@ -221,6 +223,8 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | cursor_blink_ms | uint | `500` |
 | window | inactive_dim | float | `0.55` |
 | window | detect_urls | bool | `true` |
+| window | padding_x | uint | `4` |
+| window | padding_y | uint | `4` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
 | logging | auto_log | bool | `false` |

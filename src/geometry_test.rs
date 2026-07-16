@@ -90,6 +90,56 @@ fn pixel_to_cell_offset_rect() {
     assert_eq!(result, Some((1, 1)));
 }
 
+#[test]
+fn pixel_to_cell_padded_origin_maps_to_first_cell() {
+    // App::pixel_to_cell insets the pane rect by (pad_x, pad_y) so the grid is
+    // hit-tested from the padded origin (matching the padded render origin). A
+    // click exactly at the padded origin must resolve to cell (0, 0).
+    let (rx, ry, rw, rh) = (100u32, 50u32, 200u32, 120u32);
+    let (pad_x, pad_y) = (8u32, 3u32);
+    let inset = [rx + pad_x, ry + pad_y, rw - pad_x * 2, rh - pad_y * 2];
+    // Click at the padded top-left origin → first cell.
+    assert_eq!(
+        pixel_to_cell(
+            inset,
+            10,
+            12,
+            18,
+            9,
+            (rx + pad_x) as f64,
+            (ry + pad_y) as f64
+        ),
+        Some((0, 0))
+    );
+    // One cell in on each axis from the padded origin → cell (1, 1).
+    assert_eq!(
+        pixel_to_cell(
+            inset,
+            10,
+            12,
+            18,
+            9,
+            (rx + pad_x + 10) as f64,
+            (ry + pad_y + 12) as f64
+        ),
+        Some((1, 1))
+    );
+    // A click inside the left/top padding gutter (before the padded origin) is
+    // outside the inset rect → None.
+    assert_eq!(
+        pixel_to_cell(
+            inset,
+            10,
+            12,
+            18,
+            9,
+            (rx + pad_x - 1) as f64,
+            (ry + pad_y) as f64
+        ),
+        None
+    );
+}
+
 // ── cell_url_at_scroll ────────────────────────────────────────────────────────
 
 use crate::terminal::grid::{Color, Grid, GridColors};

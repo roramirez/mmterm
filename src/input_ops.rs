@@ -127,8 +127,9 @@ impl App {
             .nudge_pane(active, split_h, delta);
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pad_x, pad_y);
         if let Some(w) = &self.window {
             w.request_redraw();
         }
@@ -139,8 +140,9 @@ impl App {
         self.state.tabs[ai].layout.rotate_leaves(forward);
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pad_x, pad_y);
         self.request_redraw();
     }
 
@@ -232,10 +234,11 @@ impl App {
         }
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
         // Re-grids only the active pane: sibling metrics + rects are unchanged,
         // so their cols/rows don't change and they are left alone.
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pad_x, pad_y);
     }
 
     pub(crate) fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {

@@ -55,6 +55,7 @@ impl App {
     }
 
     pub(crate) fn pixel_to_cell(&self, pane_id: usize, px: f64, py: f64) -> Option<(usize, usize)> {
+        let (pad_x, pad_y) = (self.pane_padding_x(), self.pane_padding_y());
         let tab = self.tab();
         let entry = tab.panes.get(&pane_id)?;
         let m = &entry.metrics;
@@ -62,8 +63,18 @@ impl App {
             let g = entry.pane.grid_read()?;
             (g.cols, g.rows)
         };
+        // The grid is rendered inset by (pad_x, pad_y) from the pane rect origin
+        // (see renderer `render_row`). Inset the rect the same way so a click at
+        // the padded origin maps to cell (0, 0); the padding gutters map to None.
+        let [rx, ry, rw, rh] = entry.pane.rect;
+        let inset = [
+            rx + pad_x,
+            ry + pad_y,
+            rw.saturating_sub(pad_x * 2),
+            rh.saturating_sub(pad_y * 2),
+        ];
         geometry::pixel_to_cell(
-            entry.pane.rect,
+            inset,
             m.cell_width,
             m.cell_height,
             grid_cols,
