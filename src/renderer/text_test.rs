@@ -191,6 +191,7 @@ fn draw_empty_buffer_does_not_panic() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -237,8 +238,59 @@ fn draw_pane_fills_background_color() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
     assert!(buf.iter().any(|&p| p != 0));
+}
+
+#[test]
+fn draw_with_partial_opacity_does_not_panic() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+    let grid = make_grid(cols, rows);
+    let pane = PaneView {
+        grid: &grid,
+        rect: [0, 22, 800, 600 - 44],
+        scroll_offset: 0,
+        is_active: true,
+        show_cursor: false,
+        blink_visible: true,
+        search_matches: &[],
+        search_current: None,
+        hovered_url: None,
+        cursor_shape: CursorShape::Block,
+        metrics: &m,
+    };
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = default_theme();
+    r.draw(
+        &mut buf,
+        800,
+        600,
+        &[pane],
+        &[],
+        &InputMode::Insert,
+        false,
+        &[("shell".to_string(), true, false)],
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        ShellState::Unknown,
+        None,
+        &theme,
+        None,
+        None, // hovered_url
+        0.8,
+    );
+    // Background is filled with a sub-1.0 alpha in the high byte.
+    let bg_alpha = (0.8f32 * 255.0) as u8 as u32;
+    assert!(buf.iter().any(|&p| (p >> 24) == bg_alpha));
 }
 
 #[test]
@@ -271,6 +323,7 @@ fn draw_tab_bar_renders_without_panic() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -304,6 +357,7 @@ fn draw_status_bar_renders_without_panic() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -335,6 +389,7 @@ fn draw_status_bar_shell_indicators_render_without_panic() {
         &theme,
         None,
         None, // hovered_url
+        1.0,
     );
     // Something was drawn in the status-bar band (bottom rows).
     assert!(buf.iter().any(|&p| p != 0));
@@ -369,6 +424,7 @@ fn draw_status_bar_pane_title_centered() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -394,6 +450,7 @@ fn draw_status_bar_pane_title_centered() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 
     assert!(
@@ -436,6 +493,7 @@ fn draw_status_bar_hovered_url_does_not_panic() {
             &theme,
             None,
             Some(url),
+            1.0,
         );
         assert!(
             buf.iter().any(|&p| p != 0),
@@ -476,6 +534,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -504,6 +563,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 
     assert_eq!(
@@ -566,6 +626,7 @@ fn draw_with_bell_flash_does_not_panic() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -597,6 +658,7 @@ fn draw_with_separator_does_not_panic() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -697,6 +759,7 @@ fn do_draw(r: &mut Renderer, panes: &[PaneView<'_>], mode: &InputMode) {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -868,6 +931,7 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
     // Underline row is at rect_y + cell_height - 2 (cell at row 0, rect_y = 22)
     let ul_y = (22 + m.cell_height.saturating_sub(2)) as usize;
@@ -963,6 +1027,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
     // Cell (0,0) background pixel: x = 4 (PANE_PADDING), y = 22+4 (TAB_BAR_H+PANE_PADDING)
     let px = 4usize;
@@ -1193,6 +1258,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -1227,6 +1293,7 @@ fn draw_status_bar_search_no_matches_shows_label() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
 }
 
@@ -1406,6 +1473,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         &theme,
         None, // update_badge: wired in Task 9
         None, // hovered_url
+        1.0,
     );
     // Every pixel in the top-left padding block must equal bg.
     for dy in 0..PANE_PADDING {

@@ -248,6 +248,7 @@ impl App {
                 &self.state.theme,
                 update_badge.as_ref(),
                 self.state.hovered_url.as_deref(),
+                self.state.config.window.opacity,
             );
 
             // Capture screenshot before overlays; views/guards still alive here.
