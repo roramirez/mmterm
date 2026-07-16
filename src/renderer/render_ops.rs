@@ -247,6 +247,7 @@ impl App {
                 last_exit_code,
                 &self.state.theme,
                 update_badge.as_ref(),
+                self.state.hovered_url.as_deref(),
             );
 
             // Capture screenshot before overlays; views/guards still alive here.

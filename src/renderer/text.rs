@@ -175,6 +175,7 @@ impl Renderer {
         last_exit_code: Option<i32>,
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
+        hovered_url: Option<&str>,
     ) {
         let bg_fill = panes
             .first()
@@ -229,6 +230,7 @@ impl Renderer {
             last_exit_code,
             theme,
             update_badge,
+            hovered_url,
         );
     }
 
@@ -723,6 +725,7 @@ impl Renderer {
         last_exit_code: Option<i32>,
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
+        hovered_url: Option<&str>,
     ) {
         let status_h = self.scale.chrome(STATUS_BAR_H);
         let badge_pad = self.scale.chrome(BADGE_PAD_X);
@@ -846,13 +849,15 @@ impl Renderer {
             );
         }
 
-        // Show pane OSC title centered in the status bar (suppressed during search).
+        // Show the hovered link's URL centered in the status bar when hovering a
+        // link; otherwise fall back to the pane OSC title (both suppressed during
+        // search). A hovered link is transient and more useful than the title.
         self.draw_pane_title_centered(
             buf,
             width,
             height,
             mode,
-            pane_title,
+            hovered_url.or(pane_title),
             badge_y,
             char_w,
             px,
@@ -936,7 +941,14 @@ impl Renderer {
         if !matches!(mode, InputMode::Search { .. })
             && let Some(title) = pane_title
         {
-            let title_w = title.len() as u32 * char_w;
+            // Reserve a small horizontal margin so the text never touches the
+            // left/right clusters, then truncate over-long text with an ellipsis.
+            let max_chars = (width / char_w).saturating_sub(2) as usize;
+            if max_chars == 0 {
+                return;
+            }
+            let title = truncate_middle_ellipsis(title, max_chars);
+            let title_w = title.chars().count() as u32 * char_w;
             if title_w < width {
                 let title_x = (width - title_w) / 2;
                 self.draw_str(
@@ -945,7 +957,7 @@ impl Renderer {
                     height,
                     title_x,
                     badge_y + 2,
-                    title,
+                    &title,
                     px,
                     false,
                     color,
@@ -983,6 +995,25 @@ impl Renderer {
             }
         }
     }
+}
+
+/// Shorten `s` to at most `max_chars` characters, keeping the head and tail and
+/// inserting a middle ellipsis. Middle truncation preserves both the scheme/host
+/// and the path tail of a URL, which is more useful than a plain head-truncation.
+fn truncate_middle_ellipsis(s: &str, max_chars: usize) -> String {
+    let total = s.chars().count();
+    if total <= max_chars {
+        return s.to_string();
+    }
+    if max_chars <= 1 {
+        return "\u{2026}".to_string();
+    }
+    let keep = max_chars - 1; // room for the ellipsis
+    let head = keep.div_ceil(2);
+    let tail = keep - head;
+    let head_str: String = s.chars().take(head).collect();
+    let tail_str: String = s.chars().skip(total - tail).collect();
+    format!("{head_str}\u{2026}{tail_str}")
 }
 
 fn is_cell_cursor(pane: &PaneView, mode: &InputMode, col: usize, row: usize, grid: &Grid) -> bool {
