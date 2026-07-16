@@ -50,6 +50,11 @@ impl ApplicationHandler for App {
         let mut attrs = Window::default_attributes()
             .with_title(self.state.config.window.title.clone())
             .with_window_icon(icon);
+        // Request a transparent window when a sub-1.0 background opacity is set.
+        // Whether it takes effect depends on the platform compositor.
+        if self.state.config.window.opacity < 1.0 {
+            attrs = attrs.with_transparent(true);
+        }
         // A `--maximized` / `--fullscreen` flag takes precedence over the saved
         // session geometry, which in turn overrides the config window size.
         match self.startup_window {
