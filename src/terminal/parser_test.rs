@@ -920,6 +920,17 @@ fn decscusr_beam_variants_set_beam_shape() {
 }
 
 #[test]
+fn decscusr_zero_resets_to_default_cursor_shape() {
+    use super::super::grid::CursorShape;
+    let mut p = make_parser(80, 24);
+    p.grid.default_cursor_shape = CursorShape::Beam;
+    p.process(b"\x1b[2 q"); // explicit block
+    assert_eq!(p.grid.cursor_shape, CursorShape::Block);
+    p.process(b"\x1b[0 q"); // reset to configured default
+    assert_eq!(p.grid.cursor_shape, CursorShape::Beam);
+}
+
+#[test]
 fn decscusr_resets_to_block_on_alternate_screen() {
     let mut p = make_parser(80, 24);
     p.process(b"\x1b[5 q"); // beam

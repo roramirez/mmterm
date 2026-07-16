@@ -147,6 +147,9 @@ fn default_inactive_dim() -> f32 {
 fn default_detect_urls() -> bool {
     true
 }
+fn default_cursor_style() -> String {
+    "block".into()
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WindowConfig {
@@ -158,6 +161,8 @@ pub struct WindowConfig {
     pub inactive_dim: f32,
     #[serde(default = "default_detect_urls")]
     pub detect_urls: bool,
+    #[serde(default = "default_cursor_style")]
+    pub cursor_style: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

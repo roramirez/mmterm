@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify = 41
-    assert_eq!(panel.fields.len(), 41);
+    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify + 1 cursor style = 42
+    assert_eq!(panel.fields.len(), 42);
 }
 
 #[test]
@@ -305,6 +305,7 @@ fn distinct_config() -> Config {
             cursor_blink_ms: 523,
             inactive_dim: 0.42,
             detect_urls: true,
+            cursor_style: "beam".into(),
         },
         shell: ShellConfig {
             program: Some("/bin/xyzsh".into()),
@@ -375,6 +376,7 @@ fn field_index_sanity() {
         F_AUTO_UPDATE_INSTALL,
         F_SHELL_INTEGRATION,
         F_DESKTOP_NOTIFICATIONS,
+        F_CURSOR_STYLE,
     ];
     occupied.extend((0..16).map(|i| F_PALETTE + i));
     occupied.sort_unstable();
@@ -612,6 +614,33 @@ fn field_select_cycles_forward_wraps_at_end() {
 }
 
 #[test]
+fn cursor_style_cycles_without_previewing_theme() {
+    let mut panel = make_panel();
+    panel.selected = F_CURSOR_STYLE;
+    assert_eq!(panel.fields[F_CURSOR_STYLE].value, "block");
+    // Cycling a non-theme Select must update the value but emit no PreviewTheme.
+    let action = panel.handle_right();
+    assert!(matches!(action, ConfigAction::None));
+    assert_eq!(panel.fields[F_CURSOR_STYLE].value, "beam");
+    let action = panel.handle_right();
+    assert!(matches!(action, ConfigAction::None));
+    assert_eq!(panel.fields[F_CURSOR_STYLE].value, "underline");
+    // Wrap back to the first option.
+    let action = panel.handle_right();
+    assert!(matches!(action, ConfigAction::None));
+    assert_eq!(panel.fields[F_CURSOR_STYLE].value, "block");
+}
+
+#[test]
+fn build_config_roundtrip_preserves_cursor_style() {
+    let mut cfg = Config::default();
+    cfg.window.cursor_style = "underline".into();
+    let panel = ConfigPanel::from_config(&cfg);
+    let rebuilt = panel.build_config().expect("must rebuild");
+    assert_eq!(rebuilt.window.cursor_style, "underline");
+}
+
+#[test]
 fn handle_right_on_non_select_field_returns_none() {
     let mut panel = make_panel();
     panel.selected = F_FONT_SIZE;
@@ -680,8 +709,8 @@ fn palette_collapsed_by_default() {
 #[test]
 fn visible_indices_hides_palette_body() {
     let panel = make_panel();
-    // 41 total - 15 palette body fields = 26 visible
-    assert_eq!(panel.visible_indices().len(), 26);
+    // 42 total - 15 palette body fields = 27 visible
+    assert_eq!(panel.visible_indices().len(), 27);
 }
 
 #[test]
@@ -690,7 +719,7 @@ fn toggle_on_palette_header_expands() {
     panel.selected = F_PALETTE;
     panel.toggle_collapse();
     assert!(!panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 41);
+    assert_eq!(panel.visible_indices().len(), 42);
 }
 
 #[test]
@@ -700,7 +729,7 @@ fn toggle_twice_restores_collapsed() {
     panel.toggle_collapse();
     panel.toggle_collapse();
     assert!(panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 26);
+    assert_eq!(panel.visible_indices().len(), 27);
 }
 
 #[test]
@@ -755,10 +784,10 @@ fn move_up_skips_collapsed_palette() {
 #[test]
 fn move_down_at_last_visible_clamps() {
     let mut panel = make_panel();
-    // F_DESKTOP_NOTIFICATIONS is the last field and is always visible
-    panel.selected = F_DESKTOP_NOTIFICATIONS;
+    // F_CURSOR_STYLE is the last field and is always visible
+    panel.selected = F_CURSOR_STYLE;
     panel.handle_down();
-    assert_eq!(panel.selected, F_DESKTOP_NOTIFICATIONS);
+    assert_eq!(panel.selected, F_CURSOR_STYLE);
 }
 
 #[test]

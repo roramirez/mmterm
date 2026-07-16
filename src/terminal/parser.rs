@@ -321,7 +321,12 @@ impl Perform for Performer<'_> {
             'c' if p0 == 0 => self.grid.pending_responses.extend_from_slice(b"\x1b[?1;0c"),
             // DECSCUSR: cursor shape (CSI Ps SP q)
             'q' if intermediates == b" " => {
-                self.grid.cursor_shape = cursor_shape_from_param(p0);
+                // `CSI 0 SP q` resets to the configured default shape.
+                self.grid.cursor_shape = if p0 == 0 {
+                    self.grid.default_cursor_shape
+                } else {
+                    cursor_shape_from_param(p0)
+                };
             }
             // Set scroll region
             'r' => self.handle_scroll_region(p0, p1),

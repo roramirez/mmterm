@@ -1224,3 +1224,34 @@ fn reset_clears_shell_integration_state() {
     assert_eq!(g.shell_state, ShellState::Unknown);
     assert_eq!(g.last_exit_code, None);
 }
+
+#[test]
+fn reset_restores_configured_default_cursor_shape() {
+    let mut g = make_grid(10, 5);
+    g.default_cursor_shape = CursorShape::Beam;
+    g.cursor_shape = CursorShape::Underline;
+    g.reset();
+    assert_eq!(g.cursor_shape, CursorShape::Beam);
+}
+
+#[test]
+fn alternate_screen_restores_configured_default_cursor_shape() {
+    let mut g = make_grid(10, 5);
+    g.default_cursor_shape = CursorShape::Beam;
+    g.cursor_shape = CursorShape::Underline;
+    g.enter_alternate_screen();
+    assert_eq!(g.cursor_shape, CursorShape::Beam);
+}
+
+#[test]
+fn cursor_shape_from_str_maps_all_variants() {
+    assert_eq!(cursor_shape_from_str("block"), CursorShape::Block);
+    assert_eq!(cursor_shape_from_str("Block"), CursorShape::Block);
+    assert_eq!(cursor_shape_from_str("beam"), CursorShape::Beam);
+    assert_eq!(cursor_shape_from_str("BEAM"), CursorShape::Beam);
+    assert_eq!(cursor_shape_from_str("underline"), CursorShape::Underline);
+    assert_eq!(cursor_shape_from_str("Underline"), CursorShape::Underline);
+    // Unknown values fall back to Block.
+    assert_eq!(cursor_shape_from_str("nonsense"), CursorShape::Block);
+    assert_eq!(cursor_shape_from_str(""), CursorShape::Block);
+}

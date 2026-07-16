@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_CURSOR_STYLE: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -299,6 +300,13 @@ impl ConfigPanel {
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
+            section: None,
+        });
+        fields.push(Field {
+            label: "Cursor Style",
+            hint: "← / → to cycle: block, beam, underline",
+            value: cfg.window.cursor_style.clone(),
+            kind: FieldKind::Select(vec!["block".into(), "beam".into(), "underline".into()]),
             section: None,
         });
 
@@ -577,7 +585,13 @@ impl ConfigPanel {
         let next = ((cur as i32 + delta).rem_euclid(len as i32)) as usize;
         let name = options[next].clone();
         field.value = name.clone();
-        ConfigAction::PreviewTheme(name)
+        // Only the Theme field triggers a live preview; other Select fields
+        // (e.g. Cursor Style) just update their value.
+        if self.selected == F_THEME_NAME {
+            ConfigAction::PreviewTheme(name)
+        } else {
+            ConfigAction::None
+        }
     }
 
     fn validate(&self, val: &str) -> bool {
@@ -678,6 +692,8 @@ impl ConfigPanel {
             .parse::<bool>()
             .map_err(|_| "Invalid desktop_notifications — use true or false")?;
 
+        let cursor_style = get(F_CURSOR_STYLE);
+
         Ok(Config {
             font: FontConfig { family, size },
             window: WindowConfig {
@@ -687,6 +703,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                cursor_style,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },

@@ -159,6 +159,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+cursor_style    = "block"   # default cursor shape: block | beam | underline
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
