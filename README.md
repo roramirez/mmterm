@@ -235,6 +235,7 @@ size stays consistent across displays of any density. If you previously increase
 | `Ctrl++` / `Ctrl+=` | Increase font size (current tab) |
 | `Ctrl+-` | Decrease font size (current tab) |
 | `Ctrl+0` | Reset font size |
+| `Ctrl+Scroll` | Increase / decrease font size (active pane) |
 | `Ctrl+Shift+K` | Clear scrollback |
 | `Ctrl+Shift+L` | Toggle session logging for active pane |
 

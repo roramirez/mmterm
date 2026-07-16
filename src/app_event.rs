@@ -766,6 +766,14 @@ impl App {
             MouseScrollDelta::LineDelta(_, y) => y,
             MouseScrollDelta::PixelDelta(pos) => (pos.y / 20.0) as f32,
         };
+        // Ctrl+scroll zooms the active pane's font size, taking priority over
+        // both mouse-reporting and viewport scrolling.
+        if self.modifiers.state().control_key() {
+            if lines != 0.0 {
+                self.change_font_size(if lines > 0.0 { 1.0 } else { -1.0 });
+            }
+            return;
+        }
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
         if mouse_mode >= 1000 {
             self.send_pty_scroll(lines, mouse_sgr);

@@ -84,6 +84,61 @@ fn app_change_font_size_increase() {
 }
 
 #[test]
+fn ctrl_wheel_up_increases_font_and_down_decreases() {
+    use winit::event::{Modifiers, MouseScrollDelta};
+    use winit::keyboard::ModifiersState;
+
+    let Some(mut app) = make_app() else { return };
+    if app.state.tabs.is_empty() {
+        return;
+    }
+    app.modifiers = Modifiers::from(ModifiersState::CONTROL);
+
+    let font = |app: &App| {
+        let idx = app.state.active_tab;
+        let active = app.state.tabs[idx].active;
+        app.state.tabs[idx].panes[&active].metrics.font_px
+    };
+
+    let before = font(&app);
+    app.handle_mouse_wheel(MouseScrollDelta::LineDelta(0.0, 1.0));
+    let after_up = font(&app);
+    assert!(after_up > before, "Ctrl+wheel-up must increase font size");
+
+    app.handle_mouse_wheel(MouseScrollDelta::LineDelta(0.0, -1.0));
+    let after_down = font(&app);
+    assert!(
+        after_down < after_up,
+        "Ctrl+wheel-down must decrease font size"
+    );
+}
+
+#[test]
+fn wheel_without_ctrl_leaves_font_untouched() {
+    use winit::event::{Modifiers, MouseScrollDelta};
+
+    let Some(mut app) = make_app() else { return };
+    if app.state.tabs.is_empty() {
+        return;
+    }
+    app.modifiers = Modifiers::default();
+
+    let idx = app.state.active_tab;
+    let active = app.state.tabs[idx].active;
+    let before = app.state.tabs[idx].panes[&active].metrics.font_px;
+
+    app.handle_mouse_wheel(MouseScrollDelta::LineDelta(0.0, 1.0));
+
+    let idx = app.state.active_tab;
+    let active = app.state.tabs[idx].active;
+    let after = app.state.tabs[idx].panes[&active].metrics.font_px;
+    assert!(
+        (after - before).abs() < f32::EPSILON,
+        "wheel without Ctrl must not change font size"
+    );
+}
+
+#[test]
 fn app_initial_mode_is_insert() {
     let Some(app) = make_app() else { return };
     assert!(matches!(app.state.mode(), InputMode::Insert));
