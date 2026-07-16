@@ -280,6 +280,24 @@ fn draw_screenshot_selector_zero_size_does_not_panic() {
 }
 
 #[test]
+fn draw_paste_confirm_does_not_panic() {
+    let mut r = make_renderer();
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = crate::theme::default_theme();
+    r.draw_paste_confirm(&mut buf, 800, 600, 12, &theme);
+    assert!(buf.iter().any(|&p| p != 0));
+}
+
+#[test]
+fn draw_paste_confirm_dims_background() {
+    let mut r = make_renderer();
+    let theme = crate::theme::default_theme();
+    let mut buf = vec![0xff_80_80_80u32; 800 * 600];
+    r.draw_paste_confirm(&mut buf, 800, 600, 3, &theme);
+    assert!(buf.iter().any(|&p| ((p >> 16) & 0xFF) < 0x80));
+}
+
+#[test]
 fn draw_save_session_confirm_does_not_panic() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];

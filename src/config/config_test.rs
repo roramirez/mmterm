@@ -158,6 +158,43 @@ palette = []
 }
 
 #[test]
+fn default_paste_confirm_lines_value() {
+    assert_eq!(default_paste_confirm_lines(), 0);
+}
+
+#[test]
+fn paste_confirm_lines_default_applied_when_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert_eq!(cfg.window.paste_confirm_lines, 0);
+}
+
+#[test]
+fn paste_confirm_lines_round_trips_through_toml() {
+    let mut cfg = Config::default();
+    cfg.window.paste_confirm_lines = 4;
+    let s = toml::to_string(&cfg).expect("serialize failed");
+    let back: Config = toml::from_str(&s).expect("parse failed");
+    assert_eq!(back.window.paste_confirm_lines, 4);
+}
+
+#[test]
 fn save_does_not_panic() {
     Config::default().save();
 }

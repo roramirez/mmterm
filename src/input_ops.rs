@@ -171,13 +171,33 @@ impl App {
             .or_else(|| Clipboard::new().ok()?.get_text().ok());
         if let Some(text) = text {
             let active = self.tab().active;
-            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-                let bracketed = entry.pane.grid_read().is_some_and(|g| g.bracketed_paste);
-                let data = bracketed_paste_encode(&text, bracketed);
-                let _ = entry.pty.write_input(&data);
-            }
+            let bracketed = self
+                .tab()
+                .panes
+                .get(&active)
+                .is_some_and(|e| e.pane.grid_read().is_some_and(|g| g.bracketed_paste));
+            self.paste_text(text, bracketed);
         } else {
             log::warn!("Clipboard read failed");
+        }
+    }
+
+    /// Send clipboard text to the active pane, first gating multi-line pastes
+    /// behind a confirmation overlay when `window.paste_confirm_lines` is set.
+    ///
+    /// The raw text is stashed in `pending_paste` and re-encoded at confirm
+    /// time so the pane's bracketed-paste state is read when the bytes are sent.
+    pub(crate) fn paste_text(&mut self, text: String, bracketed: bool) {
+        let threshold = self.state.config.window.paste_confirm_lines;
+        if threshold > 0 && text.matches('\n').count() >= threshold {
+            self.state.pending_paste = Some(text);
+            self.request_redraw();
+            return;
+        }
+        let active = self.tab().active;
+        if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+            let data = bracketed_paste_encode(&text, bracketed);
+            let _ = entry.pty.write_input(&data);
         }
     }
 

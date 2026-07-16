@@ -221,12 +221,18 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | cursor_blink_ms | uint | `500` |
 | window | inactive_dim | float | `0.55` |
 | window | detect_urls | bool | `true` |
+| window | paste_confirm_lines | uint | `0` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
 | logging | auto_log | bool | `false` |
 | logging | log_dir | string | `""` (→ `~/.mmterm`) |
 | status_bar | right | string | `""` |
 | theme | name | string | `"default"` |
+
+`window.paste_confirm_lines` guards against accidentally executing pasted
+multi-line content: when set to `N > 0`, pasting clipboard text whose newline
+count is `>= N` first shows a confirmation overlay (`[y]` paste, `[n]`/`Esc`
+cancel). The default `0` disables the check, so pastes go through unchanged.
 
 ### Themes
 

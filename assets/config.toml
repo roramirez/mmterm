@@ -11,6 +11,8 @@ title           = "mmterm"
 cursor_blink_ms = 500
 inactive_dim    = 0.55
 detect_urls     = true
+# Confirm before pasting clipboard content with this many or more lines (0 = off)
+paste_confirm_lines = 0
 
 [shell]
 # program = "/bin/zsh"

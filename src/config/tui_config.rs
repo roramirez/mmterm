@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_PASTE_CONFIRM: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -299,6 +300,14 @@ impl ConfigPanel {
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
+            section: None,
+        });
+
+        fields.push(Field {
+            label: "Paste Confirm Lines",
+            hint: "confirm pasting N+ lines (0 = off)",
+            value: cfg.window.paste_confirm_lines.to_string(),
+            kind: FieldKind::UInt,
             section: None,
         });
 
@@ -624,6 +633,9 @@ impl ConfigPanel {
         let detect_urls = get(F_DETECT_URLS)
             .parse::<bool>()
             .map_err(|_| "Invalid detect_urls — use true or false")?;
+        let paste_confirm_lines = get(F_PASTE_CONFIRM)
+            .parse::<usize>()
+            .map_err(|_| "Invalid paste_confirm_lines")?;
         let shell = {
             let s = get(F_SHELL);
             if s.is_empty() { None } else { Some(s) }
@@ -687,6 +699,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                paste_confirm_lines,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },

@@ -159,6 +159,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+paste_confirm_lines = 0   # confirm before pasting clipboard text with N+ lines (0 = off)
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL

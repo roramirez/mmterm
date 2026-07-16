@@ -51,6 +51,10 @@ pub(super) fn draw_overlays(
     if state.quit_pending {
         renderer.draw_quit_confirm(pixels, w, h, &state.theme);
     }
+    if let Some(text) = &state.pending_paste {
+        let lines = text.matches('\n').count() + 1;
+        renderer.draw_paste_confirm(pixels, w, h, lines, &state.theme);
+    }
     if matches!(state.mode(), InputMode::QuitSave) {
         renderer.draw_save_session_confirm(pixels, w, h, &state.theme);
     }

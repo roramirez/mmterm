@@ -541,6 +541,22 @@ impl App {
             }
             return true;
         }
+        if let Some(text) = self.state.pending_paste.take() {
+            let confirmed = matches!(
+                event.logical_key,
+                Key::Character(ref s) if s.eq_ignore_ascii_case("y")
+            );
+            if confirmed {
+                let active = self.tab().active;
+                if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
+                    let bracketed = entry.pane.grid_read().is_some_and(|g| g.bracketed_paste);
+                    let data = crate::input_ops::bracketed_paste_encode(&text, bracketed);
+                    let _ = entry.pty.write_input(&data);
+                }
+            }
+            self.request_redraw();
+            return true;
+        }
         if self.state.config_panel.is_some() {
             self.handle_config_key(event);
             self.request_redraw();
@@ -751,13 +767,8 @@ impl App {
             .and_then(|cb| cb.get_text().ok())
             .or_else(|| Clipboard::new().ok()?.get_text().ok());
         if let Some(text) = text {
-            let active = self.tab().active;
-            if let Some(entry) = self.tab_mut().panes.get_mut(&active) {
-                let mut data = b"\x1b[200~".to_vec();
-                data.extend_from_slice(text.as_bytes());
-                data.extend_from_slice(b"\x1b[201~");
-                let _ = entry.pty.write_input(&data);
-            }
+            // Middle-click paste always wraps in bracketed-paste markers.
+            self.paste_text(text, true);
         }
     }
 

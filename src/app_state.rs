@@ -85,6 +85,8 @@ pub struct AppState {
     pub blink_last: Instant,
     pub ctrl_w_pending: bool,
     pub quit_pending: bool,
+    /// Raw clipboard text awaiting a multi-line paste confirmation.
+    pub pending_paste: Option<String>,
     pub config: Config,
     pub config_panel: Option<ConfigPanel>,
     pub clipboard: Option<Clipboard>,
@@ -120,6 +122,7 @@ impl AppState {
             blink_last: Instant::now(),
             ctrl_w_pending: false,
             quit_pending: false,
+            pending_paste: None,
             config_panel: None,
             clipboard: Clipboard::new().ok(),
             mouse_pos: None,

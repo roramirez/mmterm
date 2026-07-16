@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
+- add `window.paste_confirm_lines` to confirm before pasting multi-line clipboard content
 
 ### Changed
 - input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode

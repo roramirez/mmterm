@@ -816,6 +816,30 @@ impl Renderer {
         );
     }
 
+    pub fn draw_paste_confirm(
+        &mut self,
+        buf: &mut [u32],
+        bw: u32,
+        bh: u32,
+        lines: usize,
+        theme: &ResolvedTheme,
+    ) {
+        dim_buffer(buf);
+        let prompt = format!("Paste {lines} lines?");
+        let controls = "[y] Paste   [n/Esc] Cancel".to_string();
+        let text_lines = [prompt.as_str(), controls.as_str()];
+        let fg = [color_u32(theme.foreground), color_u32(theme.palette[8])];
+        self.draw_confirm_dialog(
+            buf,
+            bw,
+            bh,
+            &text_lines,
+            &fg,
+            color_u32(theme.background),
+            color_u32(theme.palette[3]),
+        );
+    }
+
     pub fn draw_save_session_confirm(
         &mut self,
         buf: &mut [u32],
