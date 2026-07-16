@@ -237,6 +237,7 @@ impl App {
                 &tab_titles,
                 self.state.search_matches.len(),
                 self.state.search_current,
+                self.state.search_case_insensitive,
                 right_text.as_deref(),
                 pane_title,
                 self.state.config.window.inactive_dim,

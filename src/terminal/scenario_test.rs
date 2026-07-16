@@ -173,7 +173,7 @@ fn scenario_output_fills_scrollback_and_search_finds_matches() {
     );
 
     // "needle" should appear in both scrollback and live grid rows
-    let matches = compute_search_matches(&p.grid, "needle");
+    let matches = compute_search_matches(&p.grid, "needle", false);
     assert!(
         matches.len() >= 8,
         "expected at least 8 matches, got {}",

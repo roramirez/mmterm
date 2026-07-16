@@ -301,6 +301,7 @@ visual_bell = true   # default: false
 | `Enter` | Next match |
 | `↑` / `↓` | Navigate search history |
 | `Ctrl+C` | Copy current match |
+| `Alt+C` | Toggle case-insensitive matching |
 | `n` / `N` | Next / previous match (Normal mode) |
 | `Escape` | Exit search |
 

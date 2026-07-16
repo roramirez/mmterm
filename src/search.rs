@@ -2,12 +2,20 @@ use crate::terminal::grid::Grid;
 
 /// Scans `grid` (scrollback + live rows) for all matches of `query` (treated as a regex).
 /// Returns `(abs_row, start_col, match_len)` tuples sorted by ascending `abs_row`.
+/// When `case_insensitive` is true, matching ignores case.
 /// Returns an empty vec when `query` is empty or not a valid regex.
-pub fn compute_search_matches(grid: &Grid, query: &str) -> Vec<(usize, usize, usize)> {
+pub fn compute_search_matches(
+    grid: &Grid,
+    query: &str,
+    case_insensitive: bool,
+) -> Vec<(usize, usize, usize)> {
     if query.is_empty() {
         return Vec::new();
     }
-    let re = match regex::Regex::new(query) {
+    let re = match regex::RegexBuilder::new(query)
+        .case_insensitive(case_insensitive)
+        .build()
+    {
         Ok(r) => r,
         Err(_) => return Vec::new(),
     };
