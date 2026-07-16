@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode
+- Ctrl+C now copies only when there is an active selection, otherwise it sends SIGINT
 
 
 ## [0.9.0] - 2026-07-05

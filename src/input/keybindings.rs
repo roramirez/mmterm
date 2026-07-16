@@ -246,6 +246,16 @@ fn shift_scroll_action(key: &Key, grid_rows: usize) -> Option<Action> {
     }
 }
 
+/// Ctrl+C copies only when there is a real (anchored) selection; in every
+/// other mode (Insert, Normal, un-anchored Visual) it sends SIGINT (0x03).
+fn ctrl_c_action(mode: &InputMode) -> Action {
+    if matches!(mode, InputMode::Visual { anchored: true, .. }) {
+        Action::Copy
+    } else {
+        Action::SendToPty(vec![3])
+    }
+}
+
 fn handle_ctrl_only(key: &Key, alt: bool, mode: &InputMode) -> Option<Action> {
     if let Key::Character(s) = key {
         if s.eq_ignore_ascii_case("w") {
@@ -254,8 +264,8 @@ fn handle_ctrl_only(key: &Key, alt: bool, mode: &InputMode) -> Option<Action> {
         if let Some(a) = ctrl_special_char_action(s, mode) {
             return Some(a);
         }
-        if s.eq_ignore_ascii_case("c") && matches!(mode, InputMode::Visual { .. }) {
-            return Some(Action::Copy);
+        if s.eq_ignore_ascii_case("c") {
+            return Some(ctrl_c_action(mode));
         }
     }
     ctrl_char_action(key, alt)
