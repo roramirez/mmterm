@@ -6,6 +6,30 @@ use crate::input::InputMode;
 
 use crate::App;
 
+/// Given the current input mode and a clicked cell, produce the Visual mode that
+/// extends an existing anchored selection to the click point: the anchor
+/// (`start_*`) is preserved and the cursor (`cur_*`) jumps to the clicked cell.
+/// Returns `None` when there is no Visual selection to extend, in which case the
+/// caller should start a fresh selection instead.
+pub(crate) fn extend_visual_mode(mode: &InputMode, col: usize, row: usize) -> Option<InputMode> {
+    if let InputMode::Visual {
+        start_col,
+        start_row,
+        ..
+    } = *mode
+    {
+        Some(InputMode::Visual {
+            start_col,
+            start_row,
+            cur_col: col,
+            cur_row: row,
+            anchored: true,
+        })
+    } else {
+        None
+    }
+}
+
 pub(super) fn open_url(url: &str) {
     #[cfg(target_os = "linux")]
     {
@@ -99,6 +123,27 @@ impl App {
                     w.request_redraw();
                 }
             }
+        }
+    }
+
+    /// Shift+left-press: if there is an existing anchored Visual selection, keep
+    /// its anchor (`start_*`) and move the cursor (`cur_*`) to the clicked cell so
+    /// the selection grows from the original anchor to the click point. A following
+    /// drag extends further and release copies. With no prior Visual selection this
+    /// behaves like a normal fresh selection from the click.
+    pub(crate) fn extend_mouse_selection(&mut self, px: f64, py: f64) {
+        let Some(new_mode) = self
+            .pane_at_pixel(px, py)
+            .and_then(|pane_id| self.pixel_to_cell(pane_id, px, py))
+            .and_then(|(col, row)| extend_visual_mode(self.state.mode(), col, row))
+        else {
+            self.start_mouse_selection(px, py);
+            return;
+        };
+        self.state.tab_mut().mode = new_mode;
+        self.state.mouse_selecting = true;
+        if let Some(w) = &self.window {
+            w.request_redraw();
         }
     }
 
@@ -224,3 +269,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mouse_ops_test.rs"]
+mod tests;
