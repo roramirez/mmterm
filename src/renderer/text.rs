@@ -7,7 +7,7 @@ use crate::terminal::grid::{Cell, CursorShape, ShellState};
 use crate::terminal::sixel::SixelImage;
 use crate::terminal::{Color, Grid};
 use crate::theme::ResolvedTheme;
-use crate::ui::layout::{PANE_PADDING, STATUS_BAR_H, TAB_BAR_H};
+use crate::ui::layout::{STATUS_BAR_H, TAB_BAR_H};
 
 /// Second logical UI-chrome font; physical = STATUS_FONT_LOGICAL × scale,
 /// scaled like the terminal font (spec §5.4).
@@ -41,6 +41,11 @@ pub struct PaneView<'a> {
     pub cursor_shape: CursorShape,
     /// Per-pane cell metrics (font size is per-pane, not per-tab).
     pub metrics: &'a FontMetrics,
+    /// Unscaled inner padding (px) between the pane border and the grid on the
+    /// horizontal axis. The renderer applies DPI scaling via `Scale::chrome`.
+    pub pad_x: u32,
+    /// Unscaled inner padding (px) on the vertical axis.
+    pub pad_y: u32,
 }
 
 /// Cell layout metrics derived from a specific font size.
@@ -299,7 +304,8 @@ impl Renderer {
                 pane.rect,
                 &grid.images,
                 m,
-                self.scale.chrome(PANE_PADDING),
+                self.scale.chrome(pane.pad_x),
+                self.scale.chrome(pane.pad_y),
             );
         }
     }
@@ -386,9 +392,10 @@ impl Renderer {
             .search_matches
             .partition_point(|&(r, _, _)| r < abs_row);
         // Precompute row-invariant values used in the tight cell loop.
-        let pad = self.scale.chrome(PANE_PADDING);
-        let cell_y = ry + pad + row as u32 * m.cell_height;
-        let base_x = rx + pad;
+        let pad_x = self.scale.chrome(pane.pad_x);
+        let pad_y = self.scale.chrome(pane.pad_y);
+        let cell_y = ry + pad_y + row as u32 * m.cell_height;
+        let base_x = rx + pad_x;
         let cursor_color_u32 = color_u32(grid.cursor_color);
 
         let mut col = 0usize;
@@ -404,7 +411,18 @@ impl Renderer {
             let draw_w = cell_cols * m.cell_width;
             let cell_x = base_x + col as u32 * m.cell_width;
 
-            if cell_out_of_pane_bounds(cell_x, cell_y, draw_w, m.cell_height, rx, ry, rw, rh, pad) {
+            if cell_out_of_pane_bounds(
+                cell_x,
+                cell_y,
+                draw_w,
+                m.cell_height,
+                rx,
+                ry,
+                rw,
+                rh,
+                pad_x,
+                pad_y,
+            ) {
                 col += cell_cols as usize;
                 continue;
             }
@@ -1091,12 +1109,13 @@ fn draw_images(
     rect: [u32; 4],
     images: &[SixelImage],
     m: &FontMetrics,
-    padding: u32,
+    pad_x: u32,
+    pad_y: u32,
 ) {
     let [rx, ry, ..] = rect;
     for img in images {
-        let img_x = rx + padding + img.col as u32 * m.cell_width;
-        let img_y = ry + padding + img.row as u32 * m.cell_height;
+        let img_x = rx + pad_x + img.col as u32 * m.cell_width;
+        let img_y = ry + pad_y + img.row as u32 * m.cell_height;
         for py in 0..img.height {
             for px_i in 0..img.width {
                 blit_sixel_pixel(

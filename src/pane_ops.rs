@@ -30,8 +30,10 @@ impl App {
         let [_, _, w, h] = rect;
         let logical = crate::dpi::Logical(self.state.config.font.size);
         let metrics = self.renderer.make_metrics(self.scale.px(logical));
-        let pad2 = self.scale.chrome(crate::ui::layout::PANE_PADDING) * 2;
-        let (cols, rows) = metrics.grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
+        let pad_x2 = self.pane_padding_x() * 2;
+        let pad_y2 = self.pane_padding_y() * 2;
+        let (cols, rows) =
+            metrics.grid_size_for(w.saturating_sub(pad_x2), h.saturating_sub(pad_y2));
         let t = &self.state.theme;
         let grid = Arc::new(RwLock::new(Grid::with_colors(
             cols,
@@ -243,25 +245,27 @@ impl App {
         }
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pad_x, pad_y);
     }
 
     pub(crate) fn sync_pane_sizes_tab(
         tab: &mut TabState,
         tab_h: u32,
         status_h: u32,
-        pane_padding: u32,
+        pad_x: u32,
+        pad_y: u32,
     ) {
         // rows*cell_height may be < pane_h by up to (cell_height-1)px — intentional bottom gutter; do not force equality.
         let rects = tab.layout.rects_scaled(tab_h, status_h);
         for (id, rect) in rects {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
-                let pad2 = pane_padding * 2;
+                let (pad_x2, pad_y2) = (pad_x * 2, pad_y * 2);
                 let (cols, rows) = entry
                     .metrics
-                    .grid_size_for(w.saturating_sub(pad2), h.saturating_sub(pad2));
+                    .grid_size_for(w.saturating_sub(pad_x2), h.saturating_sub(pad_y2));
                 // Lock hierarchy (see drain.rs): read `grid` in this scoped block
                 // and drop it before taking `pending_resize` below — the two are
                 // never held at once.
@@ -289,9 +293,10 @@ impl App {
     pub(crate) fn sync_all_pane_sizes(&mut self) {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
         for tab in &mut self.state.tabs {
-            Self::sync_pane_sizes_tab(tab, tab_h, status_h, pane_padding);
+            Self::sync_pane_sizes_tab(tab, tab_h, status_h, pad_x, pad_y);
         }
     }
 
@@ -329,8 +334,9 @@ impl App {
         tab.layout.split(active, new_id, dir);
         tab.active = new_id;
         let idx = self.state.active_tab;
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pad_x, pad_y);
     }
 
     pub(crate) fn do_close_pane(&mut self, event_loop: &ActiveEventLoop) {
@@ -357,8 +363,9 @@ impl App {
         let idx = self.state.active_tab;
         let tab_h = self.tab_h();
         let status_h = self.status_h();
-        let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        let pad_x = self.pane_padding_x();
+        let pad_y = self.pane_padding_y();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pad_x, pad_y);
     }
 }
 

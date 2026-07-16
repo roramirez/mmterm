@@ -159,6 +159,8 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+padding_x       = 4       # inner padding (px) between a pane's left/right border and its grid
+padding_y       = 4       # inner padding (px) between a pane's top/bottom border and its grid
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL

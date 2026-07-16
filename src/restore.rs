@@ -109,8 +109,9 @@ impl App {
                 // Tab dropped (no pane could be spawned): skip its sizing/scrollback.
                 continue;
             }
-            let pane_padding = self.pane_padding();
-            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
+            let pad_x = self.pane_padding_x();
+            let pad_y = self.pane_padding_y();
+            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pad_x, pad_y);
             for (slot, &pane_id) in slot_to_id.iter().enumerate() {
                 let path = session::scrollback_path_for(self.scope.as_deref(), tab_i, slot);
                 let lines = session::load_scrollback(&path);

@@ -211,6 +211,8 @@ fn draw_pane_fills_background_color() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
@@ -616,6 +618,8 @@ fn make_pane<'a>(grid: &'a Grid, m: &'a crate::renderer::text::FontMetrics) -> P
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: m,
+        pad_x: 4,
+        pad_y: 4,
     }
 }
 
@@ -680,6 +684,8 @@ fn draw_inactive_pane_does_not_panic() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -705,6 +711,8 @@ fn draw_pane_visual_selection_does_not_panic() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     let mode = InputMode::Visual {
         start_col: 0,
@@ -740,6 +748,8 @@ fn draw_pane_with_search_match_does_not_panic() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -908,7 +918,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         &theme,
         None, // update_badge: wired in Task 9
     );
-    // Cell (0,0) background pixel: x = 4 (PANE_PADDING), y = 22+4 (TAB_BAR_H+PANE_PADDING)
+    // Cell (0,0) background pixel: x = 4 (pad_x), y = 22+4 (TAB_BAR_H+pad_y)
     let px = 4usize;
     let py = 26usize;
     let pixel = buf[py * 800 + px];
@@ -960,6 +970,8 @@ fn draw_pane_scrolled_up_shows_scrollbar_thumb_position() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -982,6 +994,8 @@ fn draw_pane_with_cursor_visible_does_not_panic() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -1033,6 +1047,8 @@ fn draw_pane_grid_wider_than_rect_clips_overflow_cells() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -1077,6 +1093,8 @@ fn draw_pane_non_current_search_match_uses_match_color() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -1102,6 +1120,8 @@ fn draw_pane_inactive_with_url_does_not_panic() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }
@@ -1258,6 +1278,8 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     // Must not panic — actual pixel inspection is left to integration testing.
     do_draw(&mut r, &[pane], &mode);
@@ -1289,6 +1311,8 @@ fn draw_pane_visual_mode_inactive_pane_no_cursor() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &mode);
 }
@@ -1299,7 +1323,8 @@ fn draw_pane_visual_mode_inactive_pane_no_cursor() {
 fn pane_padding_leaves_top_left_corner_as_background() {
     // The top-left PANE_PADDING×PANE_PADDING pixels must remain background
     // color (no glyph pixels written there).
-    use crate::ui::layout::PANE_PADDING;
+    // Default inner padding (config `window.padding_x`/`padding_y`).
+    const PANE_PADDING: u32 = 4;
     let mut r = make_renderer();
     let m = r.make_metrics(Physical(16.0));
     let pad2 = PANE_PADDING * 2;
@@ -1322,6 +1347,8 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     let mut buf = vec![0u32; 800 * 600];
     let theme = default_theme();
@@ -1364,7 +1391,8 @@ fn pane_padding_leaves_top_left_corner_as_background() {
 fn pane_padding_grid_size_accounts_for_both_sides() {
     // grid_size_for called with 2×PANE_PADDING subtracted must yield fewer
     // cols/rows than the unpadded call.
-    use crate::ui::layout::PANE_PADDING;
+    // Default inner padding (config `window.padding_x`/`padding_y`).
+    const PANE_PADDING: u32 = 4;
     let mut r = make_renderer();
     let m = r.make_metrics(Physical(16.0));
     let pad2 = PANE_PADDING * 2;
@@ -1379,6 +1407,97 @@ fn pane_padding_grid_size_accounts_for_both_sides() {
         rows_padded <= rows_raw,
         "padded rows {rows_padded} should be ≤ raw rows {rows_raw}"
     );
+}
+
+// Renders a grid whose top-left region is filled with 'X' at the given
+// (pad_x, pad_y) and returns (buffer, bg). Only the first `rows-1` rows are
+// filled so the cursor never triggers a scroll (no scrollback / scrollbar to
+// perturb the pixel scan).
+fn render_padded(r: &mut Renderer, pad_x: u32, pad_y: u32) -> (Vec<u32>, u32) {
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800u32.saturating_sub(48), 556u32.saturating_sub(48));
+    let mut grid = make_grid(cols, rows);
+    for _ in 0..cols * rows.saturating_sub(1) {
+        grid.write_char('X');
+    }
+    let bg = color_u32(grid.default_bg);
+    let pane = PaneView {
+        grid: &grid,
+        rect: [0, 22, 800, 556],
+        scroll_offset: 0,
+        is_active: true,
+        show_cursor: false,
+        blink_visible: false,
+        search_matches: &[],
+        search_current: None,
+        hovered_url: None,
+        cursor_shape: CursorShape::Block,
+        metrics: &m,
+        pad_x,
+        pad_y,
+    };
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = default_theme();
+    r.draw(
+        &mut buf,
+        800,
+        600,
+        &[pane],
+        &[],
+        &InputMode::Insert,
+        false,
+        &[("t".to_string(), true, false)],
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        ShellState::Unknown,
+        None,
+        &theme,
+        None,
+    );
+    (buf, bg)
+}
+
+#[test]
+fn padding_offsets_are_independent_per_axis() {
+    let mut r = make_renderer();
+
+    // Leftmost non-bg column and topmost non-bg row over the left region of the
+    // pane (x < 120 avoids the right-edge scrollbar track). Measuring the
+    // content block edge — not a single scan line — makes each axis depend only
+    // on its own padding, independent of sub-glyph sampling.
+    let content_left = |buf: &[u32], bg: u32| -> Option<u32> {
+        (0..120u32).find(|&x| (22..556u32).any(|y| buf[(y * 800 + x) as usize] != bg))
+    };
+    let content_top = |buf: &[u32], bg: u32| -> Option<u32> {
+        (22..556u32).find(|&y| (0..120u32).any(|x| buf[(y * 800 + x) as usize] != bg))
+    };
+
+    let (buf_a, bg) = render_padded(&mut r, 4, 4);
+    let (buf_bx, _) = render_padded(&mut r, 20, 4); // +16 on X only
+    let (buf_cy, _) = render_padded(&mut r, 4, 20); // +16 on Y only
+
+    let left_a = content_left(&buf_a, bg).expect("content in A");
+    let top_a = content_top(&buf_a, bg).expect("content in A");
+    let left_bx = content_left(&buf_bx, bg).expect("content in B");
+    let top_bx = content_top(&buf_bx, bg).expect("content in B");
+    let left_cy = content_left(&buf_cy, bg).expect("content in C");
+    let top_cy = content_top(&buf_cy, bg).expect("content in C");
+
+    // Asymmetric padding must move each axis by its own amount only.
+    assert_eq!(
+        left_bx - left_a,
+        16,
+        "pad_x must shift content right by pad_x"
+    );
+    assert_eq!(top_bx, top_a, "pad_x must not move the vertical origin");
+    assert_eq!(top_cy - top_a, 16, "pad_y must shift content down by pad_y");
+    assert_eq!(left_cy, left_a, "pad_y must not move the horizontal origin");
 }
 
 #[test]
@@ -1448,6 +1567,8 @@ fn draw_pane_sixel_image_scrolled_up_not_drawn() {
         hovered_url: None,
         cursor_shape: CursorShape::Block,
         metrics: &m,
+        pad_x: 4,
+        pad_y: 4,
     };
     do_draw(&mut r, &[pane], &InputMode::Insert);
 }

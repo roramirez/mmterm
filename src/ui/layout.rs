@@ -1,6 +1,5 @@
 pub const STATUS_BAR_H: u32 = 22;
 pub const TAB_BAR_H: u32 = 22;
-pub const PANE_PADDING: u32 = 4;
 // intentionally 1 physical px at all scales; scale-aware strokes deferred (spec §9)
 const SEP: u32 = 1;
 pub const NUDGE_STEP: f32 = 0.05;
