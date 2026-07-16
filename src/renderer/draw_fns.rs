@@ -72,6 +72,13 @@ pub(super) fn color_u32(c: Color) -> u32 {
     (0xFF << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32)
 }
 
+/// Pack a color with an explicit alpha byte in the high 8 bits (`0xAARRGGBB`).
+/// Used for the terminal background when `window.opacity < 1.0`; whether the
+/// alpha is honored depends on the platform compositor (softbuffer).
+pub(super) fn color_u32_with_alpha(c: Color, a: u8) -> u32 {
+    ((a as u32) << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32)
+}
+
 pub(super) fn dim_color(c: u32, factor: f32) -> u32 {
     let r = (((c >> 16) & 0xFF) as f32 * factor) as u32;
     let g = (((c >> 8) & 0xFF) as f32 * factor) as u32;
@@ -427,6 +434,15 @@ mod tests {
     fn color_u32_packs_rgb() {
         let c = Color::rgb(0x12, 0x34, 0x56);
         assert_eq!(color_u32(c), 0xFF_12_34_56);
+    }
+
+    #[test]
+    fn color_u32_with_alpha_packs_alpha_in_high_byte() {
+        let c = Color::rgb(0x12, 0x34, 0x56);
+        assert_eq!(color_u32_with_alpha(c, 0x80), 0x80_12_34_56);
+        assert_eq!(color_u32_with_alpha(c, 0x00), 0x00_12_34_56);
+        // Full alpha is identical to the opaque packing.
+        assert_eq!(color_u32_with_alpha(c, 0xFF), color_u32(c));
     }
 
     #[test]

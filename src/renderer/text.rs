@@ -175,12 +175,14 @@ impl Renderer {
         last_exit_code: Option<i32>,
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
+        opacity: f32,
     ) {
+        let bg_alpha = (opacity.clamp(0.0, 1.0) * 255.0) as u8;
         let bg_fill = panes
             .first()
             .map(|p| p.grid.default_bg)
             .unwrap_or(theme.background);
-        buf.fill(color_u32(bg_fill));
+        buf.fill(color_u32_with_alpha(bg_fill, bg_alpha));
 
         for pane in panes {
             self.draw_pane(
@@ -191,6 +193,7 @@ impl Renderer {
                 pane.metrics,
                 inactive_dim,
                 theme,
+                bg_alpha,
             );
         }
 
@@ -242,11 +245,17 @@ impl Renderer {
         m: &FontMetrics,
         dim_factor: f32,
         theme: &ResolvedTheme,
+        bg_alpha: u8,
     ) {
         let grid = pane.grid;
 
         // Pre-fill gutter pixels so they match the pane background.
-        fill_pane_background(buf, buf_width, pane.rect, color_u32(grid.default_bg));
+        fill_pane_background(
+            buf,
+            buf_width,
+            pane.rect,
+            color_u32_with_alpha(grid.default_bg, bg_alpha),
+        );
 
         let selection_range = if pane.is_active {
             match mode {

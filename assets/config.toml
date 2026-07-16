@@ -11,6 +11,7 @@ title           = "mmterm"
 cursor_blink_ms = 500
 inactive_dim    = 0.55
 detect_urls     = true
+opacity         = 1.0
 
 [shell]
 # program = "/bin/zsh"

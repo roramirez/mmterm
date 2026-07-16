@@ -159,6 +159,7 @@ width           = 800
 height          = 600
 title           = "mmterm"
 cursor_blink_ms = 500
+opacity         = 1.0             # < 1.0 = transparent background (needs a compositor that supports it)
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
