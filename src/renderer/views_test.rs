@@ -24,7 +24,7 @@ fn views(state: &AppState, w: u32, h: u32) -> Vec<PaneView<'_>> {
     let guards = acquire_grid_guards(state);
     // We need to keep guards alive for the duration of use. Since we can't
     // return views that borrow guards in a test helper, call the fn inline.
-    let _views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H);
+    let _views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H, 1);
     drop(guards);
     // Return a simplified view of the data we need to test
     vec![]
@@ -41,7 +41,7 @@ struct ViewSnapshot {
 
 fn collect_snapshots(state: &AppState, w: u32, h: u32) -> Vec<ViewSnapshot> {
     let guards = acquire_grid_guards(state);
-    let views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H);
+    let views = collect_pane_views(state, &guards, w, h, TAB_BAR_H, STATUS_BAR_H, 1);
     views
         .iter()
         .map(|v| ViewSnapshot {

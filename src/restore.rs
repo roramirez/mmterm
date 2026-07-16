@@ -110,7 +110,14 @@ impl App {
                 continue;
             }
             let pane_padding = self.pane_padding();
-            Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
+            let sep = self.separator_px();
+            Self::sync_pane_sizes_tab(
+                &mut self.state.tabs[tab_idx],
+                tab_h,
+                status_h,
+                sep,
+                pane_padding,
+            );
             for (slot, &pane_id) in slot_to_id.iter().enumerate() {
                 let path = session::scrollback_path_for(self.scope.as_deref(), tab_i, slot);
                 let lines = session::load_scrollback(&path);

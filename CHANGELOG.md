@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- add `window.separator_px` to configure the width of the separator between panes
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 - persist and restore window size, maximized, and fullscreen state per session
 - REP (`CSI Ps b`): repeat the last printed character `Ps` times

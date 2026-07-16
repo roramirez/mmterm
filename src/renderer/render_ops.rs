@@ -102,6 +102,7 @@ impl App {
         // Compute scaled chrome heights before any mutable borrow of self.surface.
         let tab_h = self.tab_h();
         let status_h = self.status_h();
+        let sep = self.separator_px();
 
         let Some(surface) = &mut self.surface else {
             return;
@@ -137,7 +138,7 @@ impl App {
         let (separators, zoomed, active_id) = {
             let tab = &self.state.tabs[self.state.active_tab];
             (
-                tab.layout.separators_scaled(tab_h, status_h),
+                tab.layout.separators_scaled(tab_h, status_h, sep),
                 tab.zoomed,
                 tab.active,
             )
@@ -205,7 +206,7 @@ impl App {
                     }
                 })
                 .collect();
-            let views = views::collect_pane_views(&self.state, &guards, w, h, tab_h, status_h);
+            let views = views::collect_pane_views(&self.state, &guards, w, h, tab_h, status_h, sep);
 
             let draw_separators: &[[u32; 4]] = if zoomed { &[] } else { &separators };
             let right_text = statusbar::resolve(

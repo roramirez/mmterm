@@ -208,6 +208,14 @@ impl App {
         self.scale.chrome(crate::ui::layout::PANE_PADDING)
     }
 
+    /// DPI-scaled pane separator width from config. `.max(1)` keeps hit-testing
+    /// and rendering sane even when the configured value is 0.
+    pub(crate) fn separator_px(&self) -> u32 {
+        self.scale
+            .chrome(self.state.config.window.separator_px)
+            .max(1)
+    }
+
     fn handle_resize(&mut self, w: u32, h: u32) {
         for tab in &mut self.state.tabs {
             tab.layout.resize(w, h);

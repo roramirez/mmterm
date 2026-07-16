@@ -90,6 +90,8 @@ pub struct ConfigPanel {
     /// Section names that are currently collapsed (body fields hidden).
     pub collapsed: HashSet<&'static str>,
     pub version: &'static str,
+    /// Preserved verbatim from the loaded config (not exposed as an editable field).
+    pub separator_px: u32,
 }
 
 impl ConfigPanel {
@@ -313,6 +315,7 @@ impl ConfigPanel {
             status: None,
             collapsed,
             version: env!("MMTERM_VERSION"),
+            separator_px: cfg.window.separator_px,
         }
     }
 
@@ -687,6 +690,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                separator_px: self.separator_px,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },
