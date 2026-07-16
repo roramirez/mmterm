@@ -102,7 +102,7 @@ impl App {
                     } else {
                         Some(home.clone())
                     };
-                    self.spawn_pane_into(tab_idx, rect, cwd_opt)
+                    self.spawn_pane_into(tab_idx, rect, cwd_opt, false)
                 })
                 .collect();
             if !self.restore_tab_layout(tab_idx, tab_sess, &slot_to_id, rect, win_w, win_h) {
@@ -176,7 +176,7 @@ impl App {
         // No saved pane spawned (empty tab, or every spawn failed): try one fresh
         // fallback pane; if even that fails, drop the empty tab so we never leave a
         // ghost tab with no panes.
-        match self.spawn_pane_into(tab_idx, rect, None) {
+        match self.spawn_pane_into(tab_idx, rect, None, false) {
             Some(id) => {
                 self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
                 self.state.tabs[tab_idx].active = id;

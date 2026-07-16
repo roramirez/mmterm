@@ -283,3 +283,39 @@ fn general_update_defaults() {
     assert!(cfg.general.shell_integration); // OSC 133 prompt/exit badges on by default
     assert!(cfg.general.desktop_notifications); // OSC 777 desktop notifications on by default
 }
+
+#[test]
+fn startup_command_defaults_to_none_when_missing() {
+    let toml = r###"
+[font]
+family = "Mono"
+size = 14.0
+[window]
+width = 800
+height = 600
+title = "t"
+cursor_blink_ms = 500
+[shell]
+program = "/bin/zsh"
+[colors]
+background = "#000000"
+foreground = "#ffffff"
+cursor = "#ffffff"
+selection = "#333333"
+palette = []
+"###;
+    let cfg: Config = toml::from_str(toml).expect("parse failed");
+    assert!(cfg.shell.startup_command.is_none());
+}
+
+#[test]
+fn startup_command_round_trips() {
+    let mut cfg = Config::default();
+    cfg.shell.startup_command = Some("ssh myserver".to_string());
+    let serialized = toml::to_string_pretty(&cfg).expect("serialize failed");
+    let parsed: Config = toml::from_str(&serialized).expect("parse failed");
+    assert_eq!(
+        parsed.shell.startup_command,
+        Some("ssh myserver".to_string())
+    );
+}

@@ -163,6 +163,8 @@ pub struct WindowConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShellConfig {
     pub program: Option<String>,
+    #[serde(default)]
+    pub startup_command: Option<String>,
 }
 
 fn default_auto_log() -> bool {

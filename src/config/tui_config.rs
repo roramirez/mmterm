@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_STARTUP_COMMAND: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -299,6 +300,13 @@ impl ConfigPanel {
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
+            section: None,
+        });
+        fields.push(Field {
+            label: "Startup Command",
+            hint: "command run in each new pane (empty = none)",
+            value: cfg.shell.startup_command.clone().unwrap_or_default(),
+            kind: FieldKind::OptText,
             section: None,
         });
 
@@ -628,6 +636,10 @@ impl ConfigPanel {
             let s = get(F_SHELL);
             if s.is_empty() { None } else { Some(s) }
         };
+        let startup_command = {
+            let s = get(F_STARTUP_COMMAND);
+            if s.is_empty() { None } else { Some(s) }
+        };
 
         let scrollback_lines = get(F_SCROLLBACK)
             .parse::<usize>()
@@ -688,7 +700,10 @@ impl ConfigPanel {
                 inactive_dim,
                 detect_urls,
             },
-            shell: ShellConfig { program: shell },
+            shell: ShellConfig {
+                program: shell,
+                startup_command,
+            },
             terminal: TerminalConfig { scrollback_lines },
             logging: LogConfig { auto_log, log_dir },
             colors: ColorsConfig {

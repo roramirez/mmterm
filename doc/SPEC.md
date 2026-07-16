@@ -223,10 +223,15 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | detect_urls | bool | `true` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
+| shell | startup_command | string? | `none` |
 | logging | auto_log | bool | `false` |
 | logging | log_dir | string | `""` (→ `~/.mmterm`) |
 | status_bar | right | string | `""` |
 | theme | name | string | `"default"` |
+
+`shell.startup_command`, when set, is written to every newly spawned interactive
+pane (new tab or split) right after the shell starts. It is **not** re-run for
+panes restored from a saved session.
 
 ### Themes
 

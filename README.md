@@ -162,6 +162,7 @@ cursor_blink_ms = 500
 
 [shell]
 # program = "/bin/zsh"   # defaults to $SHELL
+# startup_command = "ssh myserver"   # run in each new pane (not on session restore)
 
 [terminal]
 scrollback_lines = 10000  # minimum 100

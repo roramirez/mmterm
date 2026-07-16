@@ -24,6 +24,7 @@ impl App {
         tab_idx: usize,
         rect: [u32; 4],
         cwd: Option<std::path::PathBuf>,
+        run_startup: bool,
     ) -> Option<usize> {
         let id = self.state.next_pane_id;
         self.state.next_pane_id += 1;
@@ -109,6 +110,17 @@ impl App {
                         metrics,
                     },
                 );
+                // Run the configured startup command only for interactive new
+                // panes (new tab / split), never for panes restored from a
+                // saved session — restore callers pass `run_startup = false`.
+                if run_startup
+                    && let Some(cmd) = self.state.config.shell.startup_command.as_deref()
+                    && !cmd.is_empty()
+                    && let Some(entry) = self.state.tabs[tab_idx].panes.get_mut(&id)
+                    && let Err(e) = entry.pty.write_input(format!("{cmd}\n").as_bytes())
+                {
+                    log::warn!("Failed to write startup command to pane {id}: {e}");
+                }
                 Some(id)
             }
             Err(e) => {
@@ -125,7 +137,7 @@ impl App {
             .get(self.state.active_tab)
             .and_then(|t| t.panes.get(&t.active))
             .and_then(|e| e.pty.cwd());
-        self.spawn_pane_into(self.state.active_tab, rect, cwd)
+        self.spawn_pane_into(self.state.active_tab, rect, cwd, true)
     }
 
     pub(crate) fn new_tab(&mut self, win_w: u32, win_h: u32) {
@@ -157,7 +169,7 @@ impl App {
             passthrough: false,
             mode: InputMode::Insert,
         });
-        match self.spawn_pane_into(tab_idx, initial_rect, cwd) {
+        match self.spawn_pane_into(tab_idx, initial_rect, cwd, true) {
             Some(id) => {
                 self.state.tabs[tab_idx].layout = Layout::new(id, win_w, win_h);
                 self.state.tabs[tab_idx].active = id;
