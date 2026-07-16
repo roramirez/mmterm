@@ -103,10 +103,11 @@ impl App {
         let active = self.tab().active;
         let tab_h = self.tab_h();
         let status_h = self.status_h();
+        let sep = self.separator_px();
         let rect = self
             .tab()
             .layout
-            .rects_scaled(tab_h, status_h)
+            .rects_scaled(tab_h, status_h, sep)
             .into_iter()
             .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
@@ -128,7 +129,8 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
+        let sep = self.separator_px();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, sep, pane_padding);
         if let Some(w) = &self.window {
             w.request_redraw();
         }
@@ -140,7 +142,8 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, pane_padding);
+        let sep = self.separator_px();
+        Self::sync_pane_sizes_tab(&mut self.state.tabs[ai], tab_h, status_h, sep, pane_padding);
         self.request_redraw();
     }
 
@@ -233,9 +236,16 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
+        let sep = self.separator_px();
         // Re-grids only the active pane: sibling metrics + rects are unchanged,
         // so their cols/rows don't change and they are left alone.
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        Self::sync_pane_sizes_tab(
+            &mut self.state.tabs[idx],
+            tab_h,
+            status_h,
+            sep,
+            pane_padding,
+        );
     }
 
     pub(crate) fn should_swallow_key(&mut self, event: &KeyEvent) -> bool {

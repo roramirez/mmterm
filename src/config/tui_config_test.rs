@@ -305,6 +305,7 @@ fn distinct_config() -> Config {
             cursor_blink_ms: 523,
             inactive_dim: 0.42,
             detect_urls: true,
+            separator_px: 7,
         },
         shell: ShellConfig {
             program: Some("/bin/xyzsh".into()),

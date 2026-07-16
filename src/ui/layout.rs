@@ -7,11 +7,11 @@ pub const NUDGE_STEP: f32 = 0.05;
 const RATIO_MIN: f32 = 0.1;
 const RATIO_MAX: f32 = 0.9;
 
-/// Split `full` pixels at `ratio`, reserving 1 px for the separator.
+/// Split `full` pixels at `ratio`, reserving `sep` px for the separator.
 /// Returns `(a_size, b_size)` both clamped to at least 1 px.
-fn split_dimension(full: u32, ratio: f32) -> (u32, u32) {
-    let a = ((full as f32 * ratio) as u32).clamp(1, full.saturating_sub(SEP + 1));
-    (a, full.saturating_sub(a + SEP))
+fn split_dimension(full: u32, ratio: f32, sep: u32) -> (u32, u32) {
+    let a = ((full as f32 * ratio) as u32).clamp(1, full.saturating_sub(sep + 1));
+    (a, full.saturating_sub(a + sep))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -84,38 +84,46 @@ impl Node {
         }
     }
 
-    fn compute_rects(&self, x: u32, y: u32, w: u32, h: u32, out: &mut Vec<(usize, [u32; 4])>) {
+    fn compute_rects(
+        &self,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        sep: u32,
+        out: &mut Vec<(usize, [u32; 4])>,
+    ) {
         match self {
             Node::Leaf(id) => out.push((*id, [x, y, w, h])),
             Node::Split { dir, ratio, a, b } => match dir {
                 SplitDir::H => {
-                    let (wa, wb) = split_dimension(w, *ratio);
-                    a.compute_rects(x, y, wa, h, out);
-                    b.compute_rects(x + wa + SEP, y, wb, h, out);
+                    let (wa, wb) = split_dimension(w, *ratio, sep);
+                    a.compute_rects(x, y, wa, h, sep, out);
+                    b.compute_rects(x + wa + sep, y, wb, h, sep, out);
                 }
                 SplitDir::V => {
-                    let (ha, hb) = split_dimension(h, *ratio);
-                    a.compute_rects(x, y, w, ha, out);
-                    b.compute_rects(x, y + ha + SEP, w, hb, out);
+                    let (ha, hb) = split_dimension(h, *ratio, sep);
+                    a.compute_rects(x, y, w, ha, sep, out);
+                    b.compute_rects(x, y + ha + sep, w, hb, sep, out);
                 }
             },
         }
     }
 
-    fn separators(&self, x: u32, y: u32, w: u32, h: u32, out: &mut Vec<[u32; 4]>) {
+    fn separators(&self, x: u32, y: u32, w: u32, h: u32, sep: u32, out: &mut Vec<[u32; 4]>) {
         if let Node::Split { dir, ratio, a, b } = self {
             match dir {
                 SplitDir::H => {
-                    let (wa, wb) = split_dimension(w, *ratio);
-                    out.push([x + wa, y, SEP, h]);
-                    a.separators(x, y, wa, h, out);
-                    b.separators(x + wa + SEP, y, wb, h, out);
+                    let (wa, wb) = split_dimension(w, *ratio, sep);
+                    out.push([x + wa, y, sep, h]);
+                    a.separators(x, y, wa, h, sep, out);
+                    b.separators(x + wa + sep, y, wb, h, sep, out);
                 }
                 SplitDir::V => {
-                    let (ha, hb) = split_dimension(h, *ratio);
-                    out.push([x, y + ha, w, SEP]);
-                    a.separators(x, y, w, ha, out);
-                    b.separators(x, y + ha + SEP, w, hb, out);
+                    let (ha, hb) = split_dimension(h, *ratio, sep);
+                    out.push([x, y + ha, w, sep]);
+                    a.separators(x, y, w, ha, sep, out);
+                    b.separators(x, y + ha + sep, w, hb, sep, out);
                 }
             }
         }
@@ -139,6 +147,7 @@ impl Node {
         y: u32,
         w: u32,
         h: u32,
+        sep: u32,
         margin: u32,
         counter: &mut usize,
     ) -> Option<SeparatorHandle> {
@@ -149,7 +158,7 @@ impl Node {
         *counter += 1;
         match dir {
             SplitDir::H => {
-                let (wa, wb) = split_dimension(w, *ratio);
+                let (wa, wb) = split_dimension(w, *ratio, sep);
                 if sep_hit(y, h, x + wa, px, py, margin) {
                     return Some(SeparatorHandle {
                         idx,
@@ -158,13 +167,13 @@ impl Node {
                         region_size: w,
                     });
                 }
-                a.find_sep_at_pixel(px, py, x, y, wa, h, margin, counter)
+                a.find_sep_at_pixel(px, py, x, y, wa, h, sep, margin, counter)
                     .or_else(|| {
-                        b.find_sep_at_pixel(px, py, x + wa + SEP, y, wb, h, margin, counter)
+                        b.find_sep_at_pixel(px, py, x + wa + sep, y, wb, h, sep, margin, counter)
                     })
             }
             SplitDir::V => {
-                let (ha, hb) = split_dimension(h, *ratio);
+                let (ha, hb) = split_dimension(h, *ratio, sep);
                 if sep_hit(x, w, y + ha, py, px, margin) {
                     return Some(SeparatorHandle {
                         idx,
@@ -173,9 +182,9 @@ impl Node {
                         region_size: h,
                     });
                 }
-                a.find_sep_at_pixel(px, py, x, y, w, ha, margin, counter)
+                a.find_sep_at_pixel(px, py, x, y, w, ha, sep, margin, counter)
                     .or_else(|| {
-                        b.find_sep_at_pixel(px, py, x, y + ha + SEP, w, hb, margin, counter)
+                        b.find_sep_at_pixel(px, py, x, y + ha + sep, w, hb, sep, margin, counter)
                     })
             }
         }
@@ -299,34 +308,37 @@ impl Layout {
     }
 
     pub fn rects(&self) -> Vec<(usize, [u32; 4])> {
-        self.rects_scaled(TAB_BAR_H, STATUS_BAR_H)
+        self.rects_scaled(TAB_BAR_H, STATUS_BAR_H, SEP)
     }
 
-    /// Pane rects given PHYSICAL chrome heights (panes start at y = tab_h).
-    pub fn rects_scaled(&self, tab_h: u32, status_h: u32) -> Vec<(usize, [u32; 4])> {
+    /// Pane rects given PHYSICAL chrome heights (panes start at y = tab_h)
+    /// and separator width `sep`.
+    pub fn rects_scaled(&self, tab_h: u32, status_h: u32, sep: u32) -> Vec<(usize, [u32; 4])> {
         let mut out = Vec::new();
         self.root.compute_rects(
             0,
             tab_h,
             self.width,
             self.usable_h_for(tab_h, status_h),
+            sep,
             &mut out,
         );
         out
     }
 
     pub fn separators(&self) -> Vec<[u32; 4]> {
-        self.separators_scaled(TAB_BAR_H, STATUS_BAR_H)
+        self.separators_scaled(TAB_BAR_H, STATUS_BAR_H, SEP)
     }
 
-    /// Separators given PHYSICAL chrome heights.
-    pub fn separators_scaled(&self, tab_h: u32, status_h: u32) -> Vec<[u32; 4]> {
+    /// Separators given PHYSICAL chrome heights and separator width `sep`.
+    pub fn separators_scaled(&self, tab_h: u32, status_h: u32, sep: u32) -> Vec<[u32; 4]> {
         let mut out = Vec::new();
         self.root.separators(
             0,
             tab_h,
             self.width,
             self.usable_h_for(tab_h, status_h),
+            sep,
             &mut out,
         );
         out
@@ -361,10 +373,11 @@ impl Layout {
     /// Returns a handle to the separator within `margin` pixels of `(px, py)`,
     /// or `None` if no separator is that close.
     pub fn separator_at_pixel(&self, px: u32, py: u32, margin: u32) -> Option<SeparatorHandle> {
-        self.separator_at_pixel_scaled(px, py, margin, TAB_BAR_H, STATUS_BAR_H)
+        self.separator_at_pixel_scaled(px, py, margin, TAB_BAR_H, STATUS_BAR_H, SEP)
     }
 
-    /// Hit-test a separator given PHYSICAL chrome heights.
+    /// Hit-test a separator given PHYSICAL chrome heights and separator width `sep`.
+    #[allow(clippy::too_many_arguments)]
     pub fn separator_at_pixel_scaled(
         &self,
         px: u32,
@@ -372,6 +385,7 @@ impl Layout {
         margin: u32,
         tab_h: u32,
         status_h: u32,
+        sep: u32,
     ) -> Option<SeparatorHandle> {
         let mut counter = 0usize;
         self.root.find_sep_at_pixel(
@@ -381,6 +395,7 @@ impl Layout {
             tab_h,
             self.width,
             self.usable_h_for(tab_h, status_h),
+            sep,
             margin,
             &mut counter,
         )

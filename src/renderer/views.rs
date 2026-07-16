@@ -45,6 +45,7 @@ pub fn collect_pane_views<'a>(
     h: u32,
     tab_h: u32,
     status_h: u32,
+    sep: u32,
 ) -> Vec<PaneView<'a>> {
     if state.tabs.is_empty() {
         return vec![];
@@ -88,7 +89,7 @@ pub fn collect_pane_views<'a>(
             metrics: &entry.metrics,
         }]
     } else {
-        let rects = tab.layout.rects_scaled(tab_h, status_h);
+        let rects = tab.layout.rects_scaled(tab_h, status_h, sep);
         rects
             .iter()
             .filter_map(|(id, rect)| {

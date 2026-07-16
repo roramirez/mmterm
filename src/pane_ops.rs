@@ -137,9 +137,10 @@ impl App {
             .and_then(|e| e.pty.cwd());
         let tab_h = self.tab_h();
         let status_h = self.status_h();
+        let sep = self.separator_px();
         let layout = Layout::new(0, win_w, win_h);
         let initial_rect = layout
-            .rects_scaled(tab_h, status_h)
+            .rects_scaled(tab_h, status_h, sep)
             .first()
             .map(|(_, r)| *r)
             .unwrap_or([0, tab_h, win_w, win_h]);
@@ -244,17 +245,25 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[tab_idx], tab_h, status_h, pane_padding);
+        let sep = self.separator_px();
+        Self::sync_pane_sizes_tab(
+            &mut self.state.tabs[tab_idx],
+            tab_h,
+            status_h,
+            sep,
+            pane_padding,
+        );
     }
 
     pub(crate) fn sync_pane_sizes_tab(
         tab: &mut TabState,
         tab_h: u32,
         status_h: u32,
+        sep: u32,
         pane_padding: u32,
     ) {
         // rows*cell_height may be < pane_h by up to (cell_height-1)px — intentional bottom gutter; do not force equality.
-        let rects = tab.layout.rects_scaled(tab_h, status_h);
+        let rects = tab.layout.rects_scaled(tab_h, status_h, sep);
         for (id, rect) in rects {
             if let Some(entry) = tab.panes.get_mut(&id) {
                 let [_, _, w, h] = rect;
@@ -290,8 +299,9 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
+        let sep = self.separator_px();
         for tab in &mut self.state.tabs {
-            Self::sync_pane_sizes_tab(tab, tab_h, status_h, pane_padding);
+            Self::sync_pane_sizes_tab(tab, tab_h, status_h, sep, pane_padding);
         }
     }
 
@@ -300,10 +310,11 @@ impl App {
         let active = self.tab().active;
         let tab_h = self.tab_h();
         let status_h = self.status_h();
+        let sep = self.separator_px();
         let active_rect = self
             .tab()
             .layout
-            .rects_scaled(tab_h, status_h)
+            .rects_scaled(tab_h, status_h, sep)
             .into_iter()
             .find(|(id, _)| *id == active)
             .map(|(_, r)| r)
@@ -330,7 +341,13 @@ impl App {
         tab.active = new_id;
         let idx = self.state.active_tab;
         let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        Self::sync_pane_sizes_tab(
+            &mut self.state.tabs[idx],
+            tab_h,
+            status_h,
+            sep,
+            pane_padding,
+        );
     }
 
     pub(crate) fn do_close_pane(&mut self, event_loop: &ActiveEventLoop) {
@@ -358,7 +375,14 @@ impl App {
         let tab_h = self.tab_h();
         let status_h = self.status_h();
         let pane_padding = self.pane_padding();
-        Self::sync_pane_sizes_tab(&mut self.state.tabs[idx], tab_h, status_h, pane_padding);
+        let sep = self.separator_px();
+        Self::sync_pane_sizes_tab(
+            &mut self.state.tabs[idx],
+            tab_h,
+            status_h,
+            sep,
+            pane_padding,
+        );
     }
 }
 

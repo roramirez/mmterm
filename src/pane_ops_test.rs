@@ -104,7 +104,7 @@ fn sync_uses_per_pane_metrics() {
         AppState::test_pane_entry(Logical(32.0), metrics(32.0, 16, 32)),
     );
 
-    App::sync_pane_sizes_tab(&mut tab, 22, 22, 0);
+    App::sync_pane_sizes_tab(&mut tab, 22, 22, 1, 0);
 
     // sync_pane_sizes_tab writes target dimensions to pending_resize; the parser
     // thread applies them asynchronously. Test the contract that sync_pane_sizes_tab

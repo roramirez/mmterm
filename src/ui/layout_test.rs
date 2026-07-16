@@ -263,6 +263,26 @@ fn pane_rects_cover_full_usable_area_in_h_split() {
     assert_eq!(total, W);
 }
 
+#[test]
+fn custom_sep_width_sets_thickness_and_offsets_b_child() {
+    // With an explicit separator width of 3, the H-split separator rect must be
+    // 3 px thick and the right (B) child must start 3 px past the left child.
+    let mut layout = Layout::new(0, W, H);
+    layout.split(0, 1, SplitDir::H);
+    let sep = 3;
+    let seps = layout.separators_scaled(TAB_BAR_H, STATUS_BAR_H, sep);
+    assert_eq!(seps.len(), 1);
+    assert_eq!(seps[0][2], sep, "separator rect must be `sep` px thick");
+
+    let rects = layout.rects_scaled(TAB_BAR_H, STATUS_BAR_H, sep);
+    let left = rects.iter().find(|(id, _)| *id == 0).unwrap().1;
+    let right = rects.iter().find(|(id, _)| *id == 1).unwrap().1;
+    // Right child x-origin is left width + separator width.
+    assert_eq!(right[0], left[0] + left[2] + sep);
+    // Widths + separator cover the full window.
+    assert_eq!(left[2] + right[2] + sep, W);
+}
+
 // ── separator_at_pixel ────────────────────────────────────────────────────────
 
 #[test]
@@ -517,14 +537,14 @@ fn usable_h_2x() {
 #[test]
 fn rects_1x_pane_top_at_22() {
     let l = Layout::new(0, W, H);
-    let rects = l.rects_scaled(TAB_BAR_H, STATUS_BAR_H);
+    let rects = l.rects_scaled(TAB_BAR_H, STATUS_BAR_H, SEP);
     assert_eq!(rects[0].1[1], 22);
 }
 
 #[test]
 fn rects_2x_pane_top_at_44() {
     let l = Layout::new(0, W, H);
-    let rects = l.rects_scaled(44, 44);
+    let rects = l.rects_scaled(44, 44, SEP);
     assert_eq!(rects[0].1[1], 44);
 }
 
@@ -534,7 +554,7 @@ fn pixel_in_tab_bar_not_in_any_pane_at_2x() {
     // A physical y=30 is inside the tab bar and must NOT land in any pane rect.
     // A physical y=50 is below the tab bar and MUST land in a pane rect.
     let l = Layout::new(0, W, H);
-    let rects = l.rects_scaled(44, 44); // 2× chrome heights
+    let rects = l.rects_scaled(44, 44, SEP); // 2× chrome heights
     // rect tuple: (pane_id, [x, y, w, h]) — [1]=y, [3]=h
     let hit_at_30 = rects.iter().any(|(_, r)| 30u32 >= r[1] && 30 < r[1] + r[3]);
     assert!(
