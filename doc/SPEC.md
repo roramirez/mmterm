@@ -169,6 +169,7 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 - `Ctrl++` or `Ctrl+=` — increase font size by 1 px.
 - `Ctrl+-` — decrease font size by 1 px.
 - `Ctrl+0` — reset to config default.
+- `Ctrl+Scroll` — scroll up increases, scroll down decreases the active pane's font size by 1 px.
 - Changes are scoped to the active tab and are not persisted to config.
 
 ### Scrollback Navigation
@@ -495,6 +496,7 @@ writing a file.
 | `Ctrl++` / `Ctrl+=` | Increase font size (active tab) |
 | `Ctrl+-` | Decrease font size (active tab) |
 | `Ctrl+0` | Reset font size (active tab) |
+| `Ctrl+Scroll` | Increase / decrease font size (active pane) |
 | `Ctrl+,` | Open config panel |
 | `Ctrl+Shift+P` | Open command palette |
 | `Ctrl+Shift+L` | Toggle session logging (active pane) |
