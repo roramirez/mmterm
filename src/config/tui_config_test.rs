@@ -10,8 +10,8 @@ fn make_panel() -> ConfigPanel {
 #[test]
 fn from_config_has_correct_field_count() {
     let panel = make_panel();
-    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify = 41
-    assert_eq!(panel.fields.len(), 41);
+    // 9 base + 1 scrollback + 2 logging + 1 theme + 4 colors + 16 palette + 1 status_bar + 3 general + 2 updates + 2 shell/notify + 1 startup_command = 42
+    assert_eq!(panel.fields.len(), 42);
 }
 
 #[test]
@@ -308,6 +308,7 @@ fn distinct_config() -> Config {
         },
         shell: ShellConfig {
             program: Some("/bin/xyzsh".into()),
+            startup_command: None,
         },
         terminal: TerminalConfig {
             scrollback_lines: 4097,
@@ -375,6 +376,7 @@ fn field_index_sanity() {
         F_AUTO_UPDATE_INSTALL,
         F_SHELL_INTEGRATION,
         F_DESKTOP_NOTIFICATIONS,
+        F_STARTUP_COMMAND,
     ];
     occupied.extend((0..16).map(|i| F_PALETTE + i));
     occupied.sort_unstable();
@@ -450,6 +452,28 @@ fn build_config_shell_nonempty_becomes_some() {
     panel.fields[F_SHELL].value = "/bin/zsh".to_string();
     if let ConfigAction::Save(cfg) = panel.save() {
         assert_eq!(cfg.shell.program, Some("/bin/zsh".to_string()));
+    } else {
+        panic!("expected Save action");
+    }
+}
+
+#[test]
+fn build_config_startup_command_empty_becomes_none() {
+    let mut panel = make_panel();
+    panel.fields[F_STARTUP_COMMAND].value = String::new();
+    if let ConfigAction::Save(cfg) = panel.save() {
+        assert!(cfg.shell.startup_command.is_none());
+    } else {
+        panic!("expected Save action");
+    }
+}
+
+#[test]
+fn build_config_startup_command_nonempty_becomes_some() {
+    let mut panel = make_panel();
+    panel.fields[F_STARTUP_COMMAND].value = "ssh myserver".to_string();
+    if let ConfigAction::Save(cfg) = panel.save() {
+        assert_eq!(cfg.shell.startup_command, Some("ssh myserver".to_string()));
     } else {
         panic!("expected Save action");
     }
@@ -680,8 +704,8 @@ fn palette_collapsed_by_default() {
 #[test]
 fn visible_indices_hides_palette_body() {
     let panel = make_panel();
-    // 41 total - 15 palette body fields = 26 visible
-    assert_eq!(panel.visible_indices().len(), 26);
+    // 42 total - 15 palette body fields = 27 visible
+    assert_eq!(panel.visible_indices().len(), 27);
 }
 
 #[test]
@@ -690,7 +714,7 @@ fn toggle_on_palette_header_expands() {
     panel.selected = F_PALETTE;
     panel.toggle_collapse();
     assert!(!panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 41);
+    assert_eq!(panel.visible_indices().len(), 42);
 }
 
 #[test]
@@ -700,7 +724,7 @@ fn toggle_twice_restores_collapsed() {
     panel.toggle_collapse();
     panel.toggle_collapse();
     assert!(panel.collapsed.contains("Palette"));
-    assert_eq!(panel.visible_indices().len(), 26);
+    assert_eq!(panel.visible_indices().len(), 27);
 }
 
 #[test]
@@ -755,10 +779,10 @@ fn move_up_skips_collapsed_palette() {
 #[test]
 fn move_down_at_last_visible_clamps() {
     let mut panel = make_panel();
-    // F_DESKTOP_NOTIFICATIONS is the last field and is always visible
-    panel.selected = F_DESKTOP_NOTIFICATIONS;
+    // F_STARTUP_COMMAND is the last field and is always visible
+    panel.selected = F_STARTUP_COMMAND;
     panel.handle_down();
-    assert_eq!(panel.selected, F_DESKTOP_NOTIFICATIONS);
+    assert_eq!(panel.selected, F_STARTUP_COMMAND);
 }
 
 #[test]
