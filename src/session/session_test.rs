@@ -148,6 +148,7 @@ fn roundtrip_single_pane() {
             layout: leaf(0),
         }],
         theme: None,
+        window_state: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -168,6 +169,7 @@ fn roundtrip_h_split() {
             layout: split(SavedSplitDir::H, 0.6, leaf(0), leaf(1)),
         }],
         theme: None,
+        window_state: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -205,6 +207,7 @@ fn roundtrip_three_pane_tree() {
             layout,
         }],
         theme: None,
+        window_state: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -236,6 +239,7 @@ fn roundtrip_multiple_tabs() {
             },
         ],
         theme: None,
+        window_state: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -274,6 +278,7 @@ fn simple_session() -> SavedSession {
             layout: leaf(0),
         }],
         theme: None,
+        window_state: None,
     }
 }
 
@@ -290,6 +295,7 @@ fn theme_field_roundtrips_through_toml() {
             layout: leaf(0),
         }],
         theme: Some("ereader".into()),
+        window_state: None,
     };
     let toml = toml::to_string_pretty(&session).expect("serialize");
     let back: SavedSession = toml::from_str(&toml).expect("deserialize");
@@ -320,6 +326,72 @@ fn theme_field_skipped_when_none() {
         !toml.contains("theme"),
         "theme key should be absent when None"
     );
+}
+
+// ── window_state field tests ──────────────────────────────────────────────────
+
+#[test]
+fn window_state_field_roundtrips_through_toml() {
+    let mut session = simple_session();
+    session.window_state = Some(SavedWindowState {
+        maximized: true,
+        fullscreen: false,
+        width: 1280,
+        height: 800,
+    });
+    let toml = toml::to_string_pretty(&session).expect("serialize");
+    let back: SavedSession = toml::from_str(&toml).expect("deserialize");
+    assert_eq!(
+        back.window_state,
+        Some(SavedWindowState {
+            maximized: true,
+            fullscreen: false,
+            width: 1280,
+            height: 800,
+        })
+    );
+}
+
+#[test]
+fn window_state_field_absent_deserializes_as_none() {
+    // Old session files without a window_state key must still load cleanly.
+    let raw = r#"
+active_tab = 0
+[[tabs]]
+active_pane = 0
+pane_cwds = ["/tmp"]
+[tabs.layout]
+type = "Leaf"
+slot = 0
+"#;
+    let session: SavedSession = toml::from_str(raw).expect("deserialize");
+    assert!(session.window_state.is_none());
+}
+
+#[test]
+fn window_state_field_skipped_when_none() {
+    let session = simple_session(); // window_state = None
+    let toml = toml::to_string_pretty(&session).expect("serialize");
+    assert!(
+        !toml.contains("window_state"),
+        "window_state key should be absent when None"
+    );
+}
+
+#[test]
+fn window_state_fullscreen_roundtrips_through_save_load() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("session.toml");
+    let mut session = simple_session();
+    session.window_state = Some(SavedWindowState {
+        maximized: false,
+        fullscreen: true,
+        width: 640,
+        height: 480,
+    });
+    super::save_to(&path, &session).expect("save_to failed");
+    let loaded = super::load_from(&path).expect("load_from returned None");
+    assert_eq!(loaded.window_state.map(|w| w.fullscreen), Some(true));
 }
 
 #[test]
@@ -388,6 +460,7 @@ fn save_to_overwrites_existing_file() {
             layout: leaf(0),
         }],
         theme: None,
+        window_state: None,
     };
     super::save_to(&path, &first).unwrap();
 
@@ -408,6 +481,7 @@ fn save_to_overwrites_existing_file() {
             },
         ],
         theme: None,
+        window_state: None,
     };
     super::save_to(&path, &second).unwrap();
 
@@ -429,6 +503,7 @@ fn roundtrip_with_empty_cwd() {
             layout: leaf(0),
         }],
         theme: None,
+        window_state: None,
     };
     super::save_to(&path, &session).unwrap();
     let loaded = super::load_from(&path).unwrap();
@@ -448,6 +523,7 @@ fn roundtrip_active_tab_out_of_bounds_preserved() {
             layout: leaf(0),
         }],
         theme: None,
+        window_state: None,
     };
     super::save_to(&path, &session).unwrap();
     let loaded = super::load_from(&path).unwrap();

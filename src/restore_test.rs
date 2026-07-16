@@ -46,6 +46,7 @@ fn restore_session_falls_back_to_home_for_missing_cwd() {
         active_tab: 0,
         tabs: vec![one_pane_tab(missing)],
         theme: None,
+        window_state: None,
     };
     // A non-existent CWD must not abort the restore; the pane spawns in $HOME.
     let ok = app.restore_session(saved, 800, 600);
@@ -68,9 +69,25 @@ fn restore_session_handles_empty_cwd_as_home() {
         active_tab: 0,
         tabs: vec![one_pane_tab(std::path::PathBuf::new())],
         theme: None,
+        window_state: None,
     };
     assert!(app.restore_session(saved, 800, 600));
     assert_eq!(app.state.tabs[0].panes.len(), 1);
+}
+
+#[test]
+fn build_saved_session_without_window_yields_no_window_state() {
+    let Some(mut app) = make_app() else {
+        return; // no display — skip
+    };
+    // Seed one tab/pane so build_saved_session has something to walk.
+    app.new_tab(800, 600);
+    // No window has been created on the headless App, so the geometry is unknown.
+    let saved = app.build_saved_session();
+    assert!(
+        saved.window_state.is_none(),
+        "window_state must be None when there is no window to read geometry from"
+    );
 }
 
 #[test]
@@ -82,6 +99,7 @@ fn restore_session_empty_tabs_is_noop() {
         active_tab: 0,
         tabs: vec![],
         theme: None,
+        window_state: None,
     };
     // Nothing to restore: returns false and leaves the app with no tabs.
     assert!(!app.restore_session(saved, 800, 600));
