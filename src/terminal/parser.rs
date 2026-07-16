@@ -66,27 +66,19 @@ struct Performer<'a> {
 
 impl Performer<'_> {
     fn handle_dec_private_modes(&mut self, action: char, p0: u16) {
+        // Only DECSET (h) / DECRST (l) toggle modes; the `('h' | 'l', _)` patterns
+        // keep other actions out of these arms, so `on` is only used when relevant.
+        let on = action == 'h';
         match (action, p0) {
-            ('h', 1) => self.grid.application_cursor_keys = true,
-            ('l', 1) => self.grid.application_cursor_keys = false,
-            ('h', 7) => self.grid.autowrap = true,
-            ('l', 7) => self.grid.autowrap = false,
-            ('h', 25) => self.grid.cursor_visible = true,
-            ('l', 25) => self.grid.cursor_visible = false,
-            ('h', 1000) => self.grid.mouse_mode = 1000,
-            ('l', 1000) => self.grid.mouse_mode = 0,
-            ('h', 1002) => self.grid.mouse_mode = 1002,
-            ('l', 1002) => self.grid.mouse_mode = 0,
-            ('h', 1003) => self.grid.mouse_mode = 1003,
-            ('l', 1003) => self.grid.mouse_mode = 0,
-            ('h', 1004) => self.grid.focus_report = true,
-            ('l', 1004) => self.grid.focus_report = false,
-            ('h', 1006) => self.grid.mouse_sgr = true,
-            ('l', 1006) => self.grid.mouse_sgr = false,
+            ('h' | 'l', 1) => self.grid.application_cursor_keys = on,
+            ('h' | 'l', 7) => self.grid.autowrap = on,
+            ('h' | 'l', 25) => self.grid.cursor_visible = on,
+            ('h' | 'l', 1000 | 1002 | 1003) => self.grid.mouse_mode = if on { p0 } else { 0 },
+            ('h' | 'l', 1004) => self.grid.focus_report = on,
+            ('h' | 'l', 1006) => self.grid.mouse_sgr = on,
+            ('h' | 'l', 2004) => self.grid.bracketed_paste = on,
             ('h', 1049) => self.grid.enter_alternate_screen(),
             ('l', 1049) => self.grid.exit_alternate_screen(),
-            ('h', 2004) => self.grid.bracketed_paste = true,
-            ('l', 2004) => self.grid.bracketed_paste = false,
             _ => {}
         }
     }
@@ -178,8 +170,12 @@ impl Performer<'_> {
                     self.grid.bold = false;
                     self.grid.dim = false;
                 }
+                21 => self.grid.double_underline = true,
                 23 => self.grid.italic = false,
-                24 => self.grid.underline = false,
+                24 => {
+                    self.grid.underline = false;
+                    self.grid.double_underline = false;
+                }
                 25 => self.grid.blink = false,
                 27 => self.grid.reverse = false,
                 29 => self.grid.strikethrough = false,

@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SGR double underline (attribute 21), cleared by SGR 24 along with single underline
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 - persist and restore window size, maximized, and fullscreen state per session
 - REP (`CSI Ps b`): repeat the last printed character `Ps` times
