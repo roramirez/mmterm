@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
+- add `window.copy_on_select` to control whether mouse selection auto-copies to the clipboard
 - persist and restore window size, maximized, and fullscreen state per session
 - REP (`CSI Ps b`): repeat the last printed character `Ps` times
 

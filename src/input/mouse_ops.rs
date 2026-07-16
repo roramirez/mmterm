@@ -138,7 +138,9 @@ impl App {
                 cur_row: row,
                 anchored: true,
             };
-            self.copy_selection_to_clipboard(start, row, end, row);
+            if self.state.config.window.copy_on_select {
+                self.copy_selection_to_clipboard(start, row, end, row);
+            }
         }
         self.state.mouse_selecting = false;
         if let Some(w) = &self.window {
@@ -185,7 +187,9 @@ impl App {
                 }
                 return;
             }
-            self.copy_selection_to_clipboard(start_col, start_row, cur_col, cur_row);
+            if self.state.config.window.copy_on_select {
+                self.copy_selection_to_clipboard(start_col, start_row, cur_col, cur_row);
+            }
         }
         if let Some(w) = &self.window {
             w.request_redraw();
@@ -224,3 +228,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mouse_ops_test.rs"]
+mod tests;
