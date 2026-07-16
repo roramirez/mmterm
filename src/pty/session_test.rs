@@ -33,7 +33,7 @@ fn libc_eio() -> i32 {
 #[test]
 fn spawn_with_shell_succeeds_with_bin_true() {
     let (tx, _rx) = unbounded();
-    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, Box::new(|| {}));
+    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, &[], Box::new(|| {}));
     assert!(
         session.is_ok(),
         "spawn_with_shell failed: {:?}",
@@ -44,8 +44,9 @@ fn spawn_with_shell_succeeds_with_bin_true() {
 #[test]
 fn write_bytes_after_spawn_does_not_panic() {
     let (tx, _rx) = unbounded();
-    let mut session = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, Box::new(|| {}))
-        .expect("spawn failed");
+    let mut session =
+        PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, &[], Box::new(|| {}))
+            .expect("spawn failed");
     // Writing to a live shell; ignore errors (shell may exit before write).
     let _ = session.write_input(b"exit\n");
 }
@@ -53,7 +54,7 @@ fn write_bytes_after_spawn_does_not_panic() {
 #[test]
 fn resize_after_spawn_does_not_panic() {
     let (tx, _rx) = unbounded();
-    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, Box::new(|| {}))
+    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, &[], Box::new(|| {}))
         .expect("spawn failed");
     let result = session.resize(120, 40);
     assert!(result.is_ok(), "resize failed: {:?}", result.err());
@@ -70,14 +71,15 @@ fn spawn_default_uses_env_shell() {
 fn spawn_with_cwd_sets_working_directory() {
     let (tx, _rx) = unbounded();
     let cwd = std::path::PathBuf::from("/tmp");
-    let result = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", Some(&cwd), Box::new(|| {}));
+    let result =
+        PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", Some(&cwd), &[], Box::new(|| {}));
     assert!(result.is_ok(), "spawn with cwd failed: {:?}", result.err());
 }
 
 #[test]
 fn cwd_returns_path_or_none_after_spawn() {
     let (tx, _rx) = unbounded();
-    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, Box::new(|| {}))
+    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, &[], Box::new(|| {}))
         .expect("spawn failed");
     // May return None on non-Linux; just assert no panic.
     let _ = session.cwd();
@@ -92,7 +94,7 @@ fn cwd_returns_path_or_none_after_spawn() {
 #[test]
 fn reader_thread_exits_on_pty_eof() {
     let (tx, rx) = unbounded::<Vec<u8>>();
-    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, Box::new(|| {}))
+    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, &[], Box::new(|| {}))
         .expect("spawn failed");
     // Keep the session (and thus the master) alive until the child has exited.
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -111,6 +113,48 @@ fn reader_thread_exits_on_pty_eof() {
     drop(session);
 }
 
+/// An environment variable passed via `env` must be visible to the spawned
+/// shell. We inject `MMTERM_TEST_ENV=hello`, then ask the shell to print it and
+/// exit; the value must appear in the PTY output within the deadline.
+#[test]
+fn env_vars_are_injected_into_shell() {
+    let (tx, rx) = unbounded::<Vec<u8>>();
+    let env = vec![("MMTERM_TEST_ENV".to_string(), "hello".to_string())];
+    let mut session =
+        PtySession::spawn_with_shell(80, 24, tx, "/bin/sh", None, &env, Box::new(|| {}))
+            .expect("spawn failed");
+    session
+        .write_input(b"printf '%s' \"$MMTERM_TEST_ENV\"; exit\n")
+        .expect("write failed");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut output = Vec::new();
+    loop {
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(bytes) => {
+                output.extend_from_slice(&bytes);
+                if String::from_utf8_lossy(&output).contains("hello") {
+                    break;
+                }
+            }
+            Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+        }
+        assert!(
+            Instant::now() < deadline,
+            "env var not observed in PTY output within 5s; got: {:?}",
+            String::from_utf8_lossy(&output)
+        );
+    }
+
+    assert!(
+        String::from_utf8_lossy(&output).contains("hello"),
+        "expected injected env var value 'hello' in output, got: {:?}",
+        String::from_utf8_lossy(&output)
+    );
+    drop(session);
+}
+
 /// Verify that a child process does not become a zombie after it exits.
 ///
 /// Without the reaper thread in `spawn_with_shell`, every shell spawned for a
@@ -126,7 +170,7 @@ fn reader_thread_exits_on_pty_eof() {
 #[cfg(target_os = "linux")]
 fn no_zombie_after_child_exits() {
     let (tx, _rx) = unbounded();
-    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, Box::new(|| {}))
+    let session = PtySession::spawn_with_shell(80, 24, tx, "/bin/true", None, &[], Box::new(|| {}))
         .expect("spawn failed");
 
     let pid = match session.pid() {

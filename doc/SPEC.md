@@ -210,6 +210,9 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 - Sections: `[font]`, `[window]`, `[shell]`, `[terminal]`, `[logging]`,
   `[status_bar]`, `[colors]`, `[theme]`.
 - In-process TUI config panel: `Ctrl+,` (editable fields, saved on Enter).
+- `shell.env` injects environment variables into every spawned shell, in the
+  form `env = [["VAR", "value"], ["VAR2", "value2"]]`. It is TOML-only and is
+  not editable in the in-app config panel.
 
 | Section | Key | Type | Default |
 |---|---|---|---|
@@ -223,6 +226,7 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | detect_urls | bool | `true` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
+| shell | env | array | `[]` |
 | logging | auto_log | bool | `false` |
 | logging | log_dir | string | `""` (→ `~/.mmterm`) |
 | status_bar | right | string | `""` |

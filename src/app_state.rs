@@ -1039,6 +1039,7 @@ impl AppState {
             pty_tx,
             "/bin/true",
             None,
+            &[],
             Box::new(|| {}),
         )
         .expect("PTY spawn failed");
@@ -1102,6 +1103,7 @@ impl AppState {
             pty_tx,
             "/bin/true",
             None,
+            &[],
             Box::new(|| {}),
         )
         .expect("PTY spawn failed");

@@ -283,3 +283,33 @@ fn general_update_defaults() {
     assert!(cfg.general.shell_integration); // OSC 133 prompt/exit badges on by default
     assert!(cfg.general.desktop_notifications); // OSC 777 desktop notifications on by default
 }
+
+#[test]
+fn shell_env_defaults_empty() {
+    let cfg = ShellConfig::default();
+    assert!(cfg.env.is_empty());
+}
+
+#[test]
+fn shell_env_deserializes_pairs() {
+    let toml = r#"env = [["EDITOR", "nvim"], ["LANG", "en_US.UTF-8"]]"#;
+    let cfg: ShellConfig = toml::from_str(toml).unwrap();
+    assert_eq!(
+        cfg.env,
+        vec![
+            ("EDITOR".to_string(), "nvim".to_string()),
+            ("LANG".to_string(), "en_US.UTF-8".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn shell_env_round_trips() {
+    let cfg = ShellConfig {
+        program: Some("/bin/zsh".to_string()),
+        env: vec![("FOO".to_string(), "bar".to_string())],
+    };
+    let serialized = toml::to_string(&cfg).unwrap();
+    let back: ShellConfig = toml::from_str(&serialized).unwrap();
+    assert_eq!(cfg, back);
+}

@@ -163,6 +163,10 @@ pub struct WindowConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShellConfig {
     pub program: Option<String>,
+    /// Environment variables injected into every spawned shell.
+    /// TOML format: `env = [["VAR", "value"], ["VAR2", "value2"]]`.
+    #[serde(default)]
+    pub env: Vec<(String, String)>,
 }
 
 fn default_auto_log() -> bool {

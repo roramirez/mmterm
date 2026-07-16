@@ -18,6 +18,7 @@ fn make_panel(value: &str, kind: FieldKind) -> ConfigPanel {
         status: None,
         collapsed: HashSet::new(),
         version: "",
+        shell_env: Vec::new(),
     }
 }
 
@@ -331,6 +332,7 @@ fn make_section_panel(collapsed: bool) -> ConfigPanel {
         status: None,
         collapsed: c,
         version: "",
+        shell_env: Vec::new(),
     }
 }
 

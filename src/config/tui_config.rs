@@ -90,6 +90,9 @@ pub struct ConfigPanel {
     /// Section names that are currently collapsed (body fields hidden).
     pub collapsed: HashSet<&'static str>,
     pub version: &'static str,
+    /// `shell.env` is TOML-only (not an editable field); carry it through the
+    /// panel round-trip so saving from the TUI does not wipe it.
+    pub shell_env: Vec<(String, String)>,
 }
 
 impl ConfigPanel {
@@ -313,6 +316,7 @@ impl ConfigPanel {
             status: None,
             collapsed,
             version: env!("MMTERM_VERSION"),
+            shell_env: cfg.shell.env.clone(),
         }
     }
 
@@ -688,7 +692,10 @@ impl ConfigPanel {
                 inactive_dim,
                 detect_urls,
             },
-            shell: ShellConfig { program: shell },
+            shell: ShellConfig {
+                program: shell,
+                env: self.shell_env.clone(),
+            },
             terminal: TerminalConfig { scrollback_lines },
             logging: LogConfig { auto_log, log_dir },
             colors: ColorsConfig {
