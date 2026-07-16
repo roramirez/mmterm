@@ -8,9 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 - persist and restore window size, maximized, and fullscreen state per session
+- REP (`CSI Ps b`): repeat the last printed character `Ps` times
 
 ### Changed
 - input mode (normal/insert/visual/search) is now tracked per tab; switching tabs restores each tab's own mode
+
 
 ## [0.9.0] - 2026-07-05
 

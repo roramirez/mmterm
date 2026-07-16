@@ -233,6 +233,8 @@ pub struct Grid {
     pub last_exit_code: Option<i32>,
     // OSC 777 pending desktop notification (title, body); drained once by the parser thread
     pub pending_notification: Option<(String, String)>,
+    // Last graphic character written; used by REP (CSI Ps b) to repeat it
+    pub last_printed: Option<char>,
 }
 
 impl Grid {
@@ -299,6 +301,7 @@ impl Grid {
             shell_state: ShellState::Unknown,
             last_exit_code: None,
             pending_notification: None,
+            last_printed: None,
         }
     }
 
@@ -647,6 +650,8 @@ impl Grid {
     pub fn write_char(&mut self, c: char) {
         use unicode_width::UnicodeWidthChar;
         let char_cols = UnicodeWidthChar::width(c).unwrap_or(1).max(1);
+        // Remember the original (pre-charset-translation) char so REP can re-feed it
+        self.last_printed = Some(c);
 
         if self.cursor_col + char_cols > self.cols {
             if self.autowrap {
