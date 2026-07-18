@@ -190,6 +190,7 @@ fn draw_empty_buffer_does_not_panic() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -235,6 +236,7 @@ fn draw_pane_fills_background_color() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
     assert!(buf.iter().any(|&p| p != 0));
 }
@@ -268,6 +270,7 @@ fn draw_tab_bar_renders_without_panic() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -300,6 +303,7 @@ fn draw_status_bar_renders_without_panic() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -330,6 +334,7 @@ fn draw_status_bar_shell_indicators_render_without_panic() {
         Some(1),
         &theme,
         None,
+        None, // hovered_url
     );
     // Something was drawn in the status-bar band (bottom rows).
     assert!(buf.iter().any(|&p| p != 0));
@@ -363,6 +368,7 @@ fn draw_status_bar_pane_title_centered() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -387,12 +393,55 @@ fn draw_status_bar_pane_title_centered() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 
     assert!(
         buf_with != buf_without,
         "status bar with pane title must differ from one without"
     );
+}
+
+#[test]
+fn draw_status_bar_hovered_url_does_not_panic() {
+    let mut r = make_renderer();
+    let theme = default_theme();
+
+    // A short URL and a pathologically long URL (exercises the truncation path)
+    // must both render without panicking and draw something to the status bar.
+    for url in [
+        "https://example.com/page",
+        "https://example.com/really/long/path/that/keeps/going/and/going/and/will/definitely/overflow/the/available/center/width/of/the/status/bar?query=1&more=2#frag",
+    ] {
+        let mut buf = vec![0u32; 800 * 600];
+        r.draw(
+            &mut buf,
+            800,
+            600,
+            &[],
+            &[],
+            &InputMode::Insert,
+            false,
+            &[],
+            0,
+            0,
+            None,
+            Some("nvim src/main.rs"),
+            0.55,
+            None,
+            false,
+            false,
+            ShellState::Unknown,
+            None,
+            &theme,
+            None,
+            Some(url),
+        );
+        assert!(
+            buf.iter().any(|&p| p != 0),
+            "hovered URL {url} should draw something in the status bar"
+        );
+    }
 }
 
 #[test]
@@ -426,6 +475,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 
     let mut buf_without = vec![0u32; 800 * 600];
@@ -453,6 +503,7 @@ fn draw_status_bar_pane_title_suppressed_in_search() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 
     assert_eq!(
@@ -514,6 +565,7 @@ fn draw_with_bell_flash_does_not_panic() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -544,6 +596,7 @@ fn draw_with_separator_does_not_panic() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -643,6 +696,7 @@ fn do_draw(r: &mut Renderer, panes: &[PaneView<'_>], mode: &InputMode) {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -813,6 +867,7 @@ fn draw_pane_osc8_link_paints_underline_without_hover() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
     // Underline row is at rect_y + cell_height - 2 (cell at row 0, rect_y = 22)
     let ul_y = (22 + m.cell_height.saturating_sub(2)) as usize;
@@ -907,6 +962,7 @@ fn draw_pane_reverse_video_swaps_background_to_fg_color() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
     // Cell (0,0) background pixel: x = 4 (PANE_PADDING), y = 22+4 (TAB_BAR_H+PANE_PADDING)
     let px = 4usize;
@@ -1136,6 +1192,7 @@ fn draw_status_bar_search_empty_query_shows_slash() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -1169,6 +1226,7 @@ fn draw_status_bar_search_no_matches_shows_label() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
 }
 
@@ -1347,6 +1405,7 @@ fn pane_padding_leaves_top_left_corner_as_background() {
         None,
         &theme,
         None, // update_badge: wired in Task 9
+        None, // hovered_url
     );
     // Every pixel in the top-left padding block must equal bg.
     for dy in 0..PANE_PADDING {

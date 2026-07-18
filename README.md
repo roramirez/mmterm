@@ -15,7 +15,7 @@ Renders entirely via a CPU pixel buffer — no GPU, no OpenGL, no Vulkan.
 - **Multi-tab** — independent pane trees and font metrics per tab
 - **Scrollback search** — live match highlighting across 10 000-line buffer; history navigable with ↑/↓, persisted to `~/.config/mmterm/search_history`
 - **Themes** — 11 built-in themes (including `ereader`, a warm parchment/sepia theme for long sessions, and `totoro`, a Studio Ghibli–inspired forest-night theme); custom themes via `~/.config/mmterm/themes/`; each named scope remembers its own theme independently of the global config
-- **OSC 8 hyperlinks** — clickable URLs rendered in the terminal
+- **OSC 8 hyperlinks** — clickable URLs rendered in the terminal; hovering a link shows its full URL in the status bar
 - **OSC 52 clipboard sync** — copy/paste over SSH without extra tools
 - **Focus reporting** — `?1004h/l` sends `\e[I`/`\e[O` on window, tab, and pane focus changes; neovim `autoread` and tmux work correctly
 - **DEC line drawing** — box-drawing characters for ncurses TUI apps (`dialog`, `nmtui`, `mutt`)
