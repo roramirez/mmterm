@@ -258,7 +258,16 @@ impl Renderer {
                     cur_col,
                     cur_row,
                     anchored: true,
-                } => Some((*start_col, *start_row, *cur_col, *cur_row)),
+                    linewise,
+                } => {
+                    if *linewise {
+                        // Linewise: normalize to whole rows so the rest of the
+                        // pipeline stays characterwise-only.
+                        Some((0, *start_row, grid.cols.saturating_sub(1), *cur_row))
+                    } else {
+                        Some((*start_col, *start_row, *cur_col, *cur_row))
+                    }
+                }
                 _ => None,
             }
         } else {

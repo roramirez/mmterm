@@ -51,6 +51,7 @@ fn visual_mode_does_not_leak_to_other_tab() {
         cur_col: 2,
         cur_row: 1,
         anchored: true,
+        linewise: false,
     });
     assert!(matches!(s.mode(), InputMode::Visual { .. }));
     s.next_tab();
@@ -421,6 +422,7 @@ fn dispatch_visual_anchor_sets_anchored() {
         cur_col: 3,
         cur_row: 1,
         anchored: false,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualAnchor);
     if let &InputMode::Visual {
@@ -448,6 +450,7 @@ fn dispatch_visual_swap_anchor_swaps_start_and_cur() {
         cur_col: 5,
         cur_row: 3,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualSwapAnchor);
     if let &InputMode::Visual {
@@ -703,6 +706,7 @@ fn dispatch_visual_word_forward_with_pane_does_not_panic() {
         cur_col: 0,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualWordForward);
     if let &InputMode::Visual { cur_col, .. } = s.mode() {
@@ -725,6 +729,7 @@ fn dispatch_visual_yank_line_exits_visual_mode() {
         cur_col: 4,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualYankLine);
     assert!(matches!(s.mode(), InputMode::Insert));
@@ -745,6 +750,7 @@ fn dispatch_copy_with_anchored_selection_exits_visual() {
         cur_col: 4,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::Copy);
     assert!(matches!(s.mode(), InputMode::Insert));
@@ -773,6 +779,7 @@ fn visual_boundary_up_start_row_grows_beyond_one_page() {
         cur_col: 0,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     // Scroll up two full pages via boundary scroll
     s.dispatch_action(Action::VisualBoundaryUp(grid_rows));
@@ -808,6 +815,7 @@ fn dispatch_visual_boundary_up_scrolls_pane() {
         cur_col: 0,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualBoundaryUp(2));
     let off = s
@@ -844,6 +852,7 @@ fn dispatch_visual_word_backward_moves_cursor() {
         cur_col: 6,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualWordBackward);
     if let &InputMode::Visual {
@@ -874,6 +883,7 @@ fn dispatch_visual_word_end_moves_cursor_forward() {
         cur_col: 0,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualWordEnd);
     if let &InputMode::Visual { cur_col, .. } = s.mode() {
@@ -906,6 +916,7 @@ fn dispatch_visual_boundary_down_scrolls_pane() {
         cur_col: 0,
         cur_row: 5,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::VisualBoundaryDown(2));
     let off = s
@@ -941,6 +952,7 @@ fn dispatch_scroll_up_adjusts_visual_coords() {
         cur_col: 0,
         cur_row: 3,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::ScrollUp(2));
     if let &InputMode::Visual {
@@ -970,6 +982,7 @@ fn dispatch_scroll_down_adjusts_visual_coords() {
         cur_col: 0,
         cur_row: 6,
         anchored: true,
+        linewise: false,
     };
     s.dispatch_action(Action::ScrollDown(2));
     if let &InputMode::Visual {
@@ -1000,6 +1013,7 @@ fn viewport_scroll_up_adjusts_visual_selection() {
         cur_col: 3,
         cur_row: 4,
         anchored: true,
+        linewise: false,
     };
     s.viewport_scroll(3.0); // positive = scroll up
     let &InputMode::Visual {
@@ -1028,6 +1042,7 @@ fn viewport_scroll_down_adjusts_visual_selection() {
         cur_col: 3,
         cur_row: 8,
         anchored: true,
+        linewise: false,
     };
     s.viewport_scroll(-2.0); // negative = scroll down
     let &InputMode::Visual {
@@ -1522,4 +1537,212 @@ fn click_count_resets_after_window_expires() {
         1,
         "a slow second click is a new single"
     );
+}
+
+// ── Visual LINE mode ──────────────────────────────────────────────────────
+
+#[test]
+fn dispatch_visual_line_anchor_from_visual_sets_linewise() {
+    let mut s = make_state_with_pane();
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 5,
+        start_row: 2,
+        cur_col: 3,
+        cur_row: 4,
+        anchored: false,
+        linewise: false,
+    };
+    s.dispatch_action(Action::VisualLineAnchor);
+    if let &InputMode::Visual {
+        start_col,
+        start_row,
+        cur_row,
+        anchored,
+        linewise,
+        ..
+    } = s.mode()
+    {
+        assert!(anchored);
+        assert!(linewise);
+        assert_eq!(start_col, 0);
+        assert_eq!(start_row, 4);
+        assert_eq!(cur_row, 4);
+    } else {
+        panic!("expected Visual mode");
+    }
+}
+
+#[test]
+fn dispatch_visual_line_anchor_from_normal_enters_linewise() {
+    let mut s = make_state_with_pane();
+    s.tab_mut().mode = InputMode::Normal;
+    s.dispatch_action(Action::VisualLineAnchor);
+    assert!(matches!(
+        s.mode(),
+        InputMode::Visual {
+            anchored: true,
+            linewise: true,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn dispatch_visual_anchor_clears_linewise() {
+    let mut s = make_state_with_pane();
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 1,
+        cur_col: 2,
+        cur_row: 3,
+        anchored: true,
+        linewise: true,
+    };
+    s.dispatch_action(Action::VisualAnchor);
+    assert!(matches!(
+        s.mode(),
+        InputMode::Visual {
+            anchored: true,
+            linewise: false,
+            ..
+        }
+    ));
+}
+
+/// Read back what a linewise Copy would place on the clipboard, without
+/// touching the real system clipboard.
+fn linewise_selection_text(s: &crate::app_state::AppState) -> String {
+    let active = s.tab().active;
+    let e = s.tab().panes.get(&active).unwrap();
+    let g = e.pane.grid.read().unwrap();
+    match s.mode() {
+        &InputMode::Visual {
+            start_row, cur_row, ..
+        } => g.selected_text(
+            0,
+            start_row,
+            g.cols.saturating_sub(1),
+            cur_row,
+            e.pane.scroll_offset,
+        ),
+        _ => panic!("expected Visual mode"),
+    }
+}
+
+#[test]
+fn linewise_copy_takes_whole_rows_not_columns() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        let mut g = e.pane.grid.write().unwrap();
+        for c in "hello".chars() {
+            g.write_char(c);
+        }
+        g.cursor_col = 0;
+        g.cursor_row = 1;
+        for c in "world".chars() {
+            g.write_char(c);
+        }
+    }
+    // A narrow charwise span, but linewise must still yield both full rows.
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 2,
+        start_row: 0,
+        cur_col: 1,
+        cur_row: 1,
+        anchored: true,
+        linewise: true,
+    };
+    assert_eq!(linewise_selection_text(&s), "hello\nworld");
+    s.dispatch_action(Action::Copy);
+    assert!(matches!(s.mode(), InputMode::Insert));
+}
+
+#[test]
+fn linewise_single_row_matches_triple_click_text() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for c in "hello".chars() {
+            e.pane.grid.write().unwrap().write_char(c);
+        }
+    }
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+        linewise: true,
+    };
+    let via_v = linewise_selection_text(&s);
+    // Triple-click builds exactly (0, row) → (cols-1, row).
+    let via_triple_click = {
+        let e = s.tab().panes.get(&active).unwrap();
+        let g = e.pane.grid.read().unwrap();
+        g.selected_text(0, 0, g.cols.saturating_sub(1), 0, e.pane.scroll_offset)
+    };
+    assert_eq!(via_v, via_triple_click);
+    assert_eq!(via_v, "hello");
+}
+
+#[test]
+fn visual_boundary_scroll_preserves_linewise() {
+    let mut s = make_state_with_pane();
+    let active = s.tab().active;
+    let grid_rows = s
+        .tab()
+        .panes
+        .get(&active)
+        .map(|e| e.pane.grid.read().unwrap().rows)
+        .unwrap_or(1);
+    if let Some(e) = s.tab_mut().panes.get_mut(&active) {
+        for _ in 0..(grid_rows * 2) {
+            e.pane.grid.write().unwrap().scroll_up(1);
+        }
+    }
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+        linewise: true,
+    };
+    s.dispatch_action(Action::VisualBoundaryUp(1));
+    assert!(matches!(s.mode(), InputMode::Visual { linewise: true, .. }));
+    s.dispatch_action(Action::VisualBoundaryDown(1));
+    assert!(matches!(s.mode(), InputMode::Visual { linewise: true, .. }));
+}
+
+#[test]
+fn visual_scroll_preserves_linewise() {
+    let mut s = make_state_with_pane();
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 1,
+        cur_col: 0,
+        cur_row: 2,
+        anchored: true,
+        linewise: true,
+    };
+    s.viewport_scroll(1.0);
+    assert!(matches!(s.mode(), InputMode::Visual { linewise: true, .. }));
+    s.viewport_scroll(-1.0);
+    assert!(matches!(s.mode(), InputMode::Visual { linewise: true, .. }));
+}
+
+#[test]
+fn visual_swap_anchor_preserves_linewise() {
+    let mut s = make_state_with_pane();
+    s.tab_mut().mode = InputMode::Visual {
+        start_col: 0,
+        start_row: 1,
+        cur_col: 4,
+        cur_row: 3,
+        anchored: true,
+        linewise: true,
+    };
+    s.dispatch_action(Action::VisualSwapAnchor);
+    assert!(matches!(s.mode(), InputMode::Visual { linewise: true, .. }));
 }
