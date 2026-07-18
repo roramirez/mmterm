@@ -563,7 +563,7 @@ actions shift the anchor coordinates so the selected content stays stable.
 | `g` / `G` | Top / bottom of viewport |
 | `v` | Set selection anchor at cursor (activates highlight) |
 | `o` | Swap anchor and cursor (extend from either end) |
-| `y` / `Ctrl+C` | Copy selection to clipboard, return to Insert mode |
+| `y` / `Ctrl+C` | Copy selection to clipboard, return to Insert mode (`Ctrl+C` copies only with an active selection; otherwise it sends SIGINT) |
 | `Y` | Yank (copy) the entire line at the cursor, return to Insert mode |
 | `q` / `Escape` | Exit to Insert mode |
 

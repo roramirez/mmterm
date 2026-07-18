@@ -326,7 +326,7 @@ Navigate freely to position the cursor, press `v` to set the selection anchor, t
 | `g` / `G` | Top / bottom of viewport |
 | `v` | Set selection anchor at cursor (starts highlighting) |
 | `o` | Swap anchor and cursor |
-| `y` / `Ctrl+C` | Copy selection and exit |
+| `y` / `Ctrl+C` | Copy selection and exit (`Ctrl+C` copies only with an active selection; otherwise it sends SIGINT) |
 | `Y` | Yank (copy) the entire line at cursor |
 | `q` / `Escape` | Exit to Insert mode |
 

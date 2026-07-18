@@ -328,10 +328,37 @@ fn ctrl_shift_end_scrolls_to_bottom() {
     assert!(matches!(a, Action::ScrollToBottom));
 }
 
+fn visual_anchored() -> InputMode {
+    InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+    }
+}
+
 #[test]
-fn ctrl_c_in_visual_copies() {
-    let a = handle_key_inner(&char_key("c"), true, false, false, &visual(), 80, 24, false);
+fn ctrl_c_in_anchored_visual_copies() {
+    let a = handle_key_inner(
+        &char_key("c"),
+        true,
+        false,
+        false,
+        &visual_anchored(),
+        80,
+        24,
+        false,
+    );
     assert!(matches!(a, Action::Copy));
+}
+
+#[test]
+fn ctrl_c_in_unanchored_visual_sends_sigint() {
+    // Un-anchored Visual has no highlighted selection; ctrl+c must send SIGINT,
+    // not a no-op Copy.
+    let a = handle_key_inner(&char_key("c"), true, false, false, &visual(), 80, 24, false);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[3]));
 }
 
 #[test]
@@ -339,6 +366,24 @@ fn ctrl_c_in_insert_does_not_copy() {
     // In insert mode ctrl+c is sent as byte 0x03 to the PTY
     let a = handle_key_inner(&char_key("c"), true, false, false, &insert(), 80, 24, false);
     assert!(matches!(a, Action::SendToPty(ref v) if v == &[3]));
+}
+
+#[test]
+fn ctrl_c_in_normal_sends_sigint() {
+    let a = handle_key_inner(&char_key("c"), true, false, false, &normal(), 80, 24, false);
+    assert!(matches!(a, Action::SendToPty(ref v) if v == &[3]));
+}
+
+#[test]
+fn ctrl_shift_c_in_insert_does_not_copy() {
+    let a = handle_key_inner(&char_key("c"), true, true, false, &insert(), 80, 24, false);
+    assert!(!matches!(a, Action::Copy));
+}
+
+#[test]
+fn ctrl_alt_c_in_insert_does_not_copy() {
+    let a = handle_key_inner(&char_key("c"), true, false, true, &insert(), 80, 24, false);
+    assert!(!matches!(a, Action::Copy));
 }
 
 #[test]
