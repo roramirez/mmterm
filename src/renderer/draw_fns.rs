@@ -58,7 +58,10 @@ pub(super) fn mode_style(
             let label = if passthrough { "INSERT PASS" } else { "INSERT" };
             (label, color_u32(theme.palette[2]))
         }
-        InputMode::Visual { .. } => ("VISUAL", color_u32(theme.palette[5])),
+        InputMode::Visual { linewise, .. } => {
+            let label = if *linewise { "V-LINE" } else { "VISUAL" };
+            (label, color_u32(theme.palette[5]))
+        }
         InputMode::RenameTab { .. } => ("RENAME", color_u32(theme.palette[3])),
         InputMode::Search { .. } => ("SEARCH", color_u32(theme.palette[3])),
         InputMode::CommandPalette { .. } => ("PALETTE", color_u32(theme.palette[6])),

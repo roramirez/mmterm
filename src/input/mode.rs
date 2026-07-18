@@ -10,6 +10,8 @@ pub enum InputMode {
         cur_row: usize,
         /// False while navigating (no highlight); true after the user presses `v` to set the anchor.
         anchored: bool,
+        /// True in Visual LINE: the selection spans whole rows.
+        linewise: bool,
     },
     /// Inline tab-rename: buf holds the name being typed
     RenameTab {

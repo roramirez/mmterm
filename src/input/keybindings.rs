@@ -43,6 +43,7 @@ pub enum Action {
     SearchPrev,
     VisualSwapAnchor,
     VisualAnchor,
+    VisualLineAnchor,
     VisualBoundaryUp(usize),
     VisualBoundaryDown(usize),
     VisualWordForward,
@@ -126,11 +127,13 @@ pub(crate) fn handle_key_inner(
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } => handle_visual(
             key,
             (*start_col, *start_row),
             (*cur_col, *cur_row),
             *anchored,
+            *linewise,
             grid_cols,
             grid_rows,
         ),
@@ -217,6 +220,7 @@ fn visual_mode_init() -> InputMode {
         cur_col: 0,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     }
 }
 
@@ -440,6 +444,7 @@ fn handle_normal(key: &Key, grid_rows: usize) -> Action {
         Key::Character(s) => match s.as_str() {
             "i" => Action::SetMode(InputMode::Insert),
             "v" => Action::SetMode(visual_mode_init()),
+            "V" => Action::VisualLineAnchor,
             "q" => Action::ClosePane,
             "/" => Action::SearchOpen,
             "n" => Action::SearchNext,
@@ -501,6 +506,7 @@ fn visual_char_action(
         "Y" => Action::VisualYankLine,
         "o" => Action::VisualSwapAnchor,
         "v" => Action::VisualAnchor,
+        "V" => Action::VisualLineAnchor,
         "q" => Action::SetMode(InputMode::Insert),
         _ => Action::None,
     }
@@ -511,6 +517,7 @@ fn handle_visual(
     (start_col, start_row): (usize, usize),
     (cur_col, cur_row): (usize, usize),
     anchored: bool,
+    linewise: bool,
     cols: usize,
     rows: usize,
 ) -> Action {
@@ -524,6 +531,7 @@ fn handle_visual(
             cur_col: nc.min(cols),
             cur_row: nr.min(rows),
             anchored,
+            linewise,
         })
     };
 
