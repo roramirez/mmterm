@@ -2,7 +2,7 @@ use arboard::Clipboard;
 use crossbeam_channel::Receiver;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::config::tui_config::ConfigPanel;
@@ -90,9 +90,9 @@ pub struct AppState {
     pub clipboard: Option<Clipboard>,
     pub mouse_pos: Option<(f64, f64)>,
     pub mouse_selecting: bool,
-    /// Time and pixel position of the last left-button press, for double-click
-    /// detection (word selection).
-    pub last_click: Option<(Instant, f64, f64)>,
+    /// Time, pixel position, and running click count of the last left-button
+    /// press, for multi-click detection (double-click word / triple-click line).
+    pub last_click: Option<(Instant, f64, f64, u8)>,
     pub search_matches: Vec<(usize, usize, usize)>,
     pub search_current: usize,
     pub search_history: Vec<String>,
@@ -111,6 +111,31 @@ pub struct AppState {
 static DEFAULT_MODE: InputMode = InputMode::Insert;
 
 impl AppState {
+    /// Record a left-button press and return its running click count within the
+    /// double/triple-click window (400 ms, 4 px of the previous press). Returns
+    /// 1 for an isolated click, 2 for a double, 3 for a triple; a 4th rapid
+    /// click cycles back to 1 (a fresh single). A press outside the window
+    /// resets the count to 1.
+    pub fn click_count(&mut self, mx: f64, my: f64) -> u8 {
+        let now = Instant::now();
+        let count = match self.last_click {
+            Some((t, x, y, c))
+                if now.duration_since(t) < Duration::from_millis(400)
+                    && (x - mx).abs() < 4.0
+                    && (y - my).abs() < 4.0 =>
+            {
+                if c >= 3 {
+                    1
+                } else {
+                    c + 1
+                }
+            }
+            _ => 1,
+        };
+        self.last_click = Some((now, mx, my, count));
+        count
+    }
+
     pub fn new(config: Config, theme: ResolvedTheme) -> Self {
         Self {
             tabs: Vec::new(),

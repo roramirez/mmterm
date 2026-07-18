@@ -1467,3 +1467,59 @@ fn search_history_clears_before_history_on_push() {
     s.push_search_history("committed".to_string());
     assert!(s.search_before_history.is_empty());
 }
+
+// ── Multi-click detection ───────────────────────────────────────────────────
+
+#[test]
+fn click_count_isolated_press_is_single() {
+    let mut s = make_state();
+    assert_eq!(s.click_count(10.0, 10.0), 1);
+}
+
+#[test]
+fn click_count_second_press_in_window_is_double() {
+    let mut s = make_state();
+    assert_eq!(s.click_count(10.0, 10.0), 1);
+    assert_eq!(s.click_count(11.0, 11.0), 2); // within 4 px, sub-400 ms
+}
+
+#[test]
+fn click_count_third_press_in_window_is_triple() {
+    let mut s = make_state();
+    assert_eq!(s.click_count(10.0, 10.0), 1);
+    assert_eq!(s.click_count(10.0, 10.0), 2);
+    assert_eq!(s.click_count(10.0, 10.0), 3);
+}
+
+#[test]
+fn click_count_fourth_press_cycles_back_to_single() {
+    let mut s = make_state();
+    s.click_count(10.0, 10.0);
+    s.click_count(10.0, 10.0);
+    s.click_count(10.0, 10.0);
+    assert_eq!(
+        s.click_count(10.0, 10.0),
+        1,
+        "a 4th rapid click is a fresh single"
+    );
+}
+
+#[test]
+fn click_count_resets_when_far_apart() {
+    let mut s = make_state();
+    assert_eq!(s.click_count(10.0, 10.0), 1);
+    // >4 px away resets the streak.
+    assert_eq!(s.click_count(100.0, 100.0), 1);
+}
+
+#[test]
+fn click_count_resets_after_window_expires() {
+    let mut s = make_state();
+    assert_eq!(s.click_count(10.0, 10.0), 1);
+    std::thread::sleep(std::time::Duration::from_millis(420));
+    assert_eq!(
+        s.click_count(10.0, 10.0),
+        1,
+        "a slow second click is a new single"
+    );
+}

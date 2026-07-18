@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - show the hovered link's URL in the status bar
+- add triple-click to select the whole line
 - add `--maximized` and `--fullscreen` flags to start the window in that mode
 - persist and restore window size, maximized, and fullscreen state per session
 - REP (`CSI Ps b`): repeat the last printed character `Ps` times

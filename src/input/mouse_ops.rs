@@ -146,6 +146,41 @@ impl App {
         }
     }
 
+    /// Select the whole line under the pixel (triple-click): leave it
+    /// highlighted in anchored Visual mode and copy it to the clipboard, matching
+    /// the double-click word behavior. A blank line copies nothing.
+    pub(crate) fn select_line_at(&mut self, px: f64, py: f64) {
+        let Some(pane_id) = self.pane_at_pixel(px, py) else {
+            return;
+        };
+        self.tab_mut().active = pane_id;
+        let Some((_col, row)) = self.pixel_to_cell(pane_id, px, py) else {
+            return;
+        };
+        let cols = {
+            let tab = self.tab();
+            tab.panes
+                .get(&pane_id)
+                .and_then(|entry| entry.pane.grid_read().map(|grid| grid.cols))
+        };
+        let Some(cols) = cols else {
+            return;
+        };
+        let end = cols.saturating_sub(1);
+        self.state.tab_mut().mode = InputMode::Visual {
+            start_col: 0,
+            start_row: row,
+            cur_col: end,
+            cur_row: row,
+            anchored: true,
+        };
+        self.copy_selection_to_clipboard(0, row, end, row);
+        self.state.mouse_selecting = false;
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
+    }
+
     pub(crate) fn update_mouse_selection(&mut self, px: f64, py: f64) {
         if let InputMode::Visual {
             start_col,
@@ -224,3 +259,7 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mouse_ops_test.rs"]
+mod tests;
