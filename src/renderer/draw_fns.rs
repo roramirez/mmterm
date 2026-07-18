@@ -20,6 +20,7 @@ pub(super) static BLANK_CELL: Cell = Cell {
     overline: false,
     reverse: false,
     blink: false,
+    conceal: false,
     wide: false,
     wide_cont: false,
     url: None,
@@ -234,6 +235,8 @@ pub(super) fn resolve_cell_colors(
     } else {
         (cell.fg, cell.bg)
     };
+    // SGR conceal (8): paint the glyph in the background color so it is hidden.
+    let fg = if cell.conceal { bg } else { fg };
     let fg = if cell.dim {
         Color::rgb(
             (fg.r as f32 * 0.5) as u8,
