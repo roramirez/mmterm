@@ -161,7 +161,15 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
+        // A termination signal (SIGTERM/SIGHUP/SIGINT) was caught by the watcher
+        // thread. Save the session (scope-aware, gated on restore_session) and
+        // exit without prompting — an unattended shutdown must not block.
+        if self.shutdown_requested.load(Ordering::Acquire) {
+            self.save_session_on_shutdown();
+            event_loop.exit();
+            return;
+        }
         self.wakeup_pending.store(false, Ordering::Release);
         if let Some(window) = &self.window {
             window.request_redraw();

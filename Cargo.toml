@@ -72,6 +72,10 @@ fern = "0.7"
 chrono = "0.4"
 base64 = "0.22.1"
 
+# Unix signal handling for auto-saving the session on unattended termination
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3"
+
 [dev-dependencies]
 tempfile = "3"
 criterion = { version = "0.8", features = ["html_reports"] }

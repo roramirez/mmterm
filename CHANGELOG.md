@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- auto-save the session on SIGTERM/SIGHUP/SIGINT so an unattended shutdown or kill preserves it per `--scope`
 - show the hovered link's URL in the status bar
 - add triple-click to select the whole line
 - add `--maximized` and `--fullscreen` flags to start the window in that mode

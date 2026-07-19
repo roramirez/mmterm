@@ -63,6 +63,22 @@ impl App {
         }
     }
 
+    /// Save the session in response to an unattended termination signal
+    /// (SIGTERM/SIGHUP/SIGINT). Respects the `general.restore_session` gate and
+    /// routes through the scope-aware `session_path()`, so reopening with the
+    /// same `--scope` restores the tabs/panes/layout/cwds/theme. Unlike the
+    /// interactive `Ctrl+Q` flow this never prompts — a shutdown must not block.
+    pub(super) fn save_session_on_shutdown(&self) {
+        if !self.state.config.general.restore_session {
+            return;
+        }
+        let s = self.build_saved_session();
+        let path = self.session_path();
+        if let Err(e) = session::save_to(&path, &s) {
+            log::warn!("shutdown session save failed: {e}");
+        }
+    }
+
     pub(super) fn restore_session(
         &mut self,
         saved: session::SavedSession,
