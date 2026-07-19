@@ -67,6 +67,9 @@ struct App {
     pending_screenshot: Option<([u32; 4], String)>,
     /// Named session scope from `--scope <name>`; `None` means the default session.
     scope: Option<String>,
+    /// Set by the Unix signal-watcher thread on SIGTERM/SIGHUP/SIGINT; polled on
+    /// the main thread in `user_event` to save the session before exiting.
+    shutdown_requested: Arc<AtomicBool>,
     /// Startup window mode from `--maximized` / `--fullscreen`; overrides the
     /// config window size when set.
     startup_window: Option<StartupWindowMode>,
@@ -118,6 +121,7 @@ impl App {
             wakeup_pending,
             pending_screenshot: None,
             scope,
+            shutdown_requested: Arc::new(AtomicBool::new(false)),
             startup_window,
             update_rx,
             update_apply_rx: None,
@@ -232,6 +236,32 @@ impl App {
     }
 }
 
+/// Spawn a background thread that watches for unattended-termination signals
+/// (SIGTERM from `systemd`/reboot, SIGHUP from session teardown, SIGINT from
+/// `kill`/Ctrl-C). On any of them it raises `flag` and nudges the event loop
+/// awake via `proxy`, so `user_event` saves the session and exits promptly
+/// instead of the process dying with no chance to persist state.
+#[cfg(unix)]
+fn spawn_signal_watcher(flag: Arc<AtomicBool>, proxy: EventLoopProxy<()>) {
+    use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+    use std::sync::atomic::Ordering;
+
+    let mut signals = match signal_hook::iterator::Signals::new([SIGTERM, SIGHUP, SIGINT]) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("could not install signal handlers: {e}");
+            return;
+        }
+    };
+    std::thread::spawn(move || {
+        for _ in &mut signals {
+            flag.store(true, Ordering::Release);
+            // Wake a parked event loop; the main thread does the actual save.
+            let _ = proxy.send_event(());
+        }
+    });
+}
+
 fn init_logging(log_path: Option<&str>) {
     let level = if log_path.is_some() {
         log::LevelFilter::Debug
@@ -318,5 +348,7 @@ fn main() {
     let event_loop = EventLoop::new().unwrap();
     let proxy = event_loop.create_proxy();
     let mut app = App::new(config, proxy, scope, startup_window);
+    #[cfg(unix)]
+    spawn_signal_watcher(app.shutdown_requested.clone(), app.proxy.clone());
     event_loop.run_app(&mut app).unwrap();
 }

@@ -90,6 +90,82 @@ fn build_saved_session_without_window_yields_no_window_state() {
     );
 }
 
+/// Unique scope name per test process so we never collide with a real
+/// user scope; the caller is responsible for removing what it writes.
+fn unique_scope(tag: &str) -> String {
+    format!("__mmterm_shutdown_test_{tag}_{}", std::process::id())
+}
+
+fn cleanup_scope(scope: &str) {
+    let _ = std::fs::remove_file(crate::session::session_path_for(Some(scope)));
+    let _ = std::fs::remove_dir_all(crate::session::scrollback_dir_for(Some(scope)));
+}
+
+#[test]
+fn save_session_on_shutdown_writes_when_restore_enabled() {
+    let Some(mut app) = make_app() else {
+        return; // no display — skip
+    };
+    let scope = unique_scope("enabled");
+    cleanup_scope(&scope);
+    app.scope = Some(scope.clone());
+    app.state.config.general.restore_session = true;
+    app.new_tab(800, 600);
+
+    app.save_session_on_shutdown();
+
+    let path = crate::session::session_path_for(Some(&scope));
+    assert!(path.exists(), "session file written on shutdown");
+    let loaded = crate::session::load_from(&path).expect("session round-trips");
+    assert_eq!(loaded.tabs.len(), 1, "the single tab was persisted");
+    cleanup_scope(&scope);
+}
+
+#[test]
+fn save_session_on_shutdown_is_noop_when_restore_disabled() {
+    let Some(mut app) = make_app() else {
+        return; // no display — skip
+    };
+    let scope = unique_scope("disabled");
+    cleanup_scope(&scope);
+    app.scope = Some(scope.clone());
+    app.state.config.general.restore_session = false;
+    app.new_tab(800, 600);
+
+    app.save_session_on_shutdown();
+
+    let path = crate::session::session_path_for(Some(&scope));
+    assert!(
+        !path.exists(),
+        "nothing must be written when restore_session is disabled"
+    );
+    cleanup_scope(&scope);
+}
+
+#[test]
+fn save_session_on_shutdown_honors_scope_path() {
+    let Some(mut app) = make_app() else {
+        return; // no display — skip
+    };
+    let scope = unique_scope("scoped");
+    cleanup_scope(&scope);
+    app.scope = Some(scope.clone());
+    app.state.config.general.restore_session = true;
+    app.new_tab(800, 600);
+
+    app.save_session_on_shutdown();
+
+    // The save must land at the scoped path, not the default session file.
+    let scoped = crate::session::session_path_for(Some(&scope));
+    assert!(scoped.exists(), "scoped session file written");
+    assert_ne!(
+        scoped,
+        crate::session::session_path_for(None),
+        "scoped path differs from the default session path"
+    );
+    cleanup_scope(&scope);
+}
+
 #[test]
 fn restore_session_empty_tabs_is_noop() {
     let Some(mut app) = make_app() else {
