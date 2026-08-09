@@ -72,6 +72,13 @@ pub(super) fn color_u32(c: Color) -> u32 {
     (0xFF << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32)
 }
 
+/// Pack a color with an explicit alpha byte in the high 8 bits (`0xAARRGGBB`).
+/// Used for the terminal background when `window.opacity < 1.0`; whether the
+/// alpha is honored depends on the platform compositor (softbuffer).
+pub(super) fn color_u32_with_alpha(c: Color, a: u8) -> u32 {
+    ((a as u32) << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32)
+}
+
 pub(super) fn dim_color(c: u32, factor: f32) -> u32 {
     let r = (((c >> 16) & 0xFF) as f32 * factor) as u32;
     let g = (((c >> 8) & 0xFF) as f32 * factor) as u32;
@@ -203,6 +210,7 @@ fn resolve_bg_color(
     cursor_color: Color,
     selection_color: Color,
     theme: &ResolvedTheme,
+    bg_alpha: BgAlpha,
 ) -> u32 {
     if is_cursor && cursor_shape == CursorShape::Block {
         color_u32(cursor_color)
@@ -213,7 +221,26 @@ fn resolve_bg_color(
     } else if in_match {
         color_u32(theme.search_match)
     } else {
-        color_u32(bg)
+        // Only cells still on the default background become translucent; a cell
+        // painted by the application keeps its color fully opaque.
+        color_u32_with_alpha(bg, bg_alpha.for_bg(bg))
+    }
+}
+
+/// Window background alpha plus the default background it applies to.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct BgAlpha {
+    pub alpha: u8,
+    pub default_bg: Color,
+}
+
+impl BgAlpha {
+    pub(super) fn for_bg(&self, bg: Color) -> u8 {
+        if bg == self.default_bg {
+            self.alpha
+        } else {
+            0xFF
+        }
     }
 }
 
@@ -228,6 +255,7 @@ pub(super) fn resolve_cell_colors(
     cursor_color: Color,
     selection_color: Color,
     theme: &ResolvedTheme,
+    bg_alpha: BgAlpha,
 ) -> (u32, Color) {
     let (fg, bg) = if cell.reverse {
         (cell.bg, cell.fg)
@@ -253,6 +281,7 @@ pub(super) fn resolve_cell_colors(
         cursor_color,
         selection_color,
         theme,
+        bg_alpha,
     );
     let fg = if (in_match || is_current_match) && !is_cursor {
         SEARCH_MATCH_FG
@@ -427,6 +456,26 @@ mod tests {
     fn color_u32_packs_rgb() {
         let c = Color::rgb(0x12, 0x34, 0x56);
         assert_eq!(color_u32(c), 0xFF_12_34_56);
+    }
+
+    #[test]
+    fn color_u32_with_alpha_packs_alpha_in_high_byte() {
+        let c = Color::rgb(0x12, 0x34, 0x56);
+        assert_eq!(color_u32_with_alpha(c, 0x80), 0x80_12_34_56);
+        assert_eq!(color_u32_with_alpha(c, 0x00), 0x00_12_34_56);
+        // Full alpha is identical to the opaque packing.
+        assert_eq!(color_u32_with_alpha(c, 0xFF), color_u32(c));
+    }
+
+    #[test]
+    fn bg_alpha_applies_only_to_the_default_background() {
+        let default_bg = Color::rgb(0x1e, 0x1e, 0x2e);
+        let a = BgAlpha {
+            alpha: 0xCC,
+            default_bg,
+        };
+        assert_eq!(a.for_bg(default_bg), 0xCC);
+        assert_eq!(a.for_bg(Color::rgb(0xAA, 0xBB, 0xCC)), 0xFF);
     }
 
     #[test]

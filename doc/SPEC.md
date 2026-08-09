@@ -221,12 +221,18 @@ Screenshot capture is a two-step flow: region selection followed by a name promp
 | window | cursor_blink_ms | uint | `500` |
 | window | inactive_dim | float | `0.55` |
 | window | detect_urls | bool | `true` |
+| window | opacity | float | `1.0` |
 | terminal | scrollback_lines | uint | `10000` (min 100) |
 | shell | program | string? | `$SHELL` |
 | logging | auto_log | bool | `false` |
 | logging | log_dir | string | `""` (→ `~/.mmterm`) |
 | status_bar | right | string | `""` |
 | theme | name | string | `"default"` |
+
+`window.opacity` sets the alpha of the terminal background. Values below `1.0`
+make the window transparent while keeping text and UI chrome fully opaque; this
+requires a compositor that supports transparency and the exact result is
+platform-dependent (X11, Wayland, and macOS handle window alpha differently).
 
 ### Themes
 

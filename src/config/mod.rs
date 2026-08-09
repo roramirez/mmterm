@@ -147,6 +147,9 @@ fn default_inactive_dim() -> f32 {
 fn default_detect_urls() -> bool {
     true
 }
+fn default_opacity() -> f32 {
+    1.0
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WindowConfig {
@@ -158,6 +161,8 @@ pub struct WindowConfig {
     pub inactive_dim: f32,
     #[serde(default = "default_detect_urls")]
     pub detect_urls: bool,
+    #[serde(default = "default_opacity")]
+    pub opacity: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

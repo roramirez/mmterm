@@ -33,6 +33,7 @@ const F_AUTO_UPDATE_CHECK: usize = 37;
 const F_AUTO_UPDATE_INSTALL: usize = 38;
 const F_SHELL_INTEGRATION: usize = 39;
 const F_DESKTOP_NOTIFICATIONS: usize = 40;
+const F_OPACITY: usize = 41;
 
 const PALETTE_LABELS: [&str; 16] = [
     "Palette 0  black",
@@ -299,6 +300,14 @@ impl ConfigPanel {
             hint: "OSC 777: show desktop notifications requested by programs",
             value: cfg.general.desktop_notifications.to_string(),
             kind: FieldKind::Bool,
+            section: None,
+        });
+
+        fields.push(Field {
+            label: "Opacity",
+            hint: "0.0–1.0 window background opacity",
+            value: cfg.window.opacity.to_string(),
+            kind: FieldKind::Float,
             section: None,
         });
 
@@ -624,6 +633,10 @@ impl ConfigPanel {
         let detect_urls = get(F_DETECT_URLS)
             .parse::<bool>()
             .map_err(|_| "Invalid detect_urls — use true or false")?;
+        let opacity = get(F_OPACITY)
+            .parse::<f32>()
+            .map_err(|_| "Invalid opacity")?
+            .clamp(0.0, 1.0);
         let shell = {
             let s = get(F_SHELL);
             if s.is_empty() { None } else { Some(s) }
@@ -687,6 +700,7 @@ impl ConfigPanel {
                 cursor_blink_ms: blink_ms,
                 inactive_dim,
                 detect_urls,
+                opacity,
             },
             shell: ShellConfig { program: shell },
             terminal: TerminalConfig { scrollback_lines },

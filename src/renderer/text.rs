@@ -176,12 +176,14 @@ impl Renderer {
         theme: &ResolvedTheme,
         update_badge: Option<&UpdateBadge>,
         hovered_url: Option<&str>,
+        opacity: f32,
     ) {
+        let bg_alpha = (opacity.clamp(0.0, 1.0) * 255.0) as u8;
         let bg_fill = panes
             .first()
             .map(|p| p.grid.default_bg)
             .unwrap_or(theme.background);
-        buf.fill(color_u32(bg_fill));
+        buf.fill(color_u32_with_alpha(bg_fill, bg_alpha));
 
         for pane in panes {
             self.draw_pane(
@@ -192,6 +194,7 @@ impl Renderer {
                 pane.metrics,
                 inactive_dim,
                 theme,
+                bg_alpha,
             );
         }
 
@@ -244,11 +247,21 @@ impl Renderer {
         m: &FontMetrics,
         dim_factor: f32,
         theme: &ResolvedTheme,
+        bg_alpha: u8,
     ) {
         let grid = pane.grid;
+        let bg_alpha = BgAlpha {
+            alpha: bg_alpha,
+            default_bg: grid.default_bg,
+        };
 
         // Pre-fill gutter pixels so they match the pane background.
-        fill_pane_background(buf, buf_width, pane.rect, color_u32(grid.default_bg));
+        fill_pane_background(
+            buf,
+            buf_width,
+            pane.rect,
+            color_u32_with_alpha(grid.default_bg, bg_alpha.alpha),
+        );
 
         let selection_range = if pane.is_active {
             match mode {
@@ -279,6 +292,7 @@ impl Renderer {
                 sb_len,
                 selection_range,
                 row,
+                bg_alpha,
             );
         }
 
@@ -380,6 +394,7 @@ impl Renderer {
         sb_len: usize,
         selection_range: Option<(usize, usize, usize, usize)>,
         row: usize,
+        bg_alpha: BgAlpha,
     ) {
         let [rx, ry, rw, rh] = pane.rect;
         let grid = pane.grid;
@@ -432,6 +447,7 @@ impl Renderer {
                 grid.cursor_color,
                 grid.selection_color,
                 theme,
+                bg_alpha,
             );
 
             self.draw_cell(
