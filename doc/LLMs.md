@@ -38,10 +38,18 @@ Constants in `src/ui/layout.rs`: `TAB_BAR_H = 22`, `STATUS_BAR_H = 22`.
 
 ## Visual Mode Selection (implemented)
 
-- `InputMode::Visual { start_col, start_row, cur_col, cur_row, anchored: bool }`
+- `InputMode::Visual { start_col, start_row, cur_col, cur_row, anchored: bool, linewise: bool }`
 - `anchored: false` — cursor navigates freely, no selection highlight shown
 - `anchored: true` — selection highlighted from `(start_col, start_row)` to `(cur_col, cur_row)`
-- `v` in Visual mode → `Action::VisualAnchor` → sets `start = cur, anchored = true`
+- `v` in Visual mode → `Action::VisualAnchor` → sets `start = cur, anchored = true, linewise = false`
+- `V` (Normal or Visual) → `Action::VisualLineAnchor` → `set_visual_line_anchor()` sets `start_col = 0, start_row = cur_row, anchored = true, linewise = true`
+- `V` must NOT travel via `Action::SetMode(Visual{..})`: `do_set_mode` discards keybinding-supplied fields on a Normal→Visual transition, silently dropping `linewise`
+- `linewise: true` — the selection spans whole rows; only two computations are linewise-aware:
+  1. `selection_range` in `src/renderer/text.rs` normalizes to `(0, start_row, grid.cols-1, cur_row)` — nothing downstream changes
+  2. `do_visual_copy` passes `sc = 0, ec = grid.cols-1` to `grid.selected_text` (its `row_col_range` already makes interior rows full-width)
+- Every reconstruction of the `Visual` variant (motions, scroll, boundary scroll, swap anchor) must carry `linewise` through unchanged
+- Status bar badge: `V-LINE` when `linewise`, else `VISUAL` (`mode_style` in `src/renderer/draw_fns.rs`)
+- Triple-click (`select_line_at` in `src/input/mouse_ops.rs`) enters `linewise: true`, so the picked line can be extended with `j`/`k`
 - `o` → `Action::VisualSwapAnchor` → swaps start ↔ cur
 - `w`/`b`/`e` → `Action::VisualWordForward/Backward/End` → handled in `main.rs` via `motion::word_*`
 - `y` → `Action::Copy`; `Y` → `Action::VisualYankLine` (copies `cur_row`, exits to Insert)

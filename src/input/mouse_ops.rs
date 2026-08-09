@@ -93,6 +93,7 @@ impl App {
                     cur_col: col,
                     cur_row: row,
                     anchored: true,
+                    linewise: false,
                 };
                 self.state.mouse_selecting = true;
                 if let Some(w) = &self.window {
@@ -137,6 +138,7 @@ impl App {
                 cur_col: end,
                 cur_row: row,
                 anchored: true,
+                linewise: false,
             };
             self.copy_selection_to_clipboard(start, row, end, row);
         }
@@ -173,6 +175,7 @@ impl App {
             cur_col: end,
             cur_row: row,
             anchored: true,
+            linewise: true,
         };
         self.copy_selection_to_clipboard(0, row, end, row);
         self.state.mouse_selecting = false;
@@ -185,6 +188,7 @@ impl App {
         if let InputMode::Visual {
             start_col,
             start_row,
+            linewise,
             ..
         } = self.state.mode().clone()
         {
@@ -196,6 +200,7 @@ impl App {
                     cur_col: col,
                     cur_row: row,
                     anchored: true,
+                    linewise,
                 };
             }
         }

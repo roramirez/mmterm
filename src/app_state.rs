@@ -338,6 +338,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } = self.mode().clone()
         else {
             return;
@@ -356,6 +357,7 @@ impl AppState {
             cur_col: nc,
             cur_row: nr,
             anchored,
+            linewise,
         };
     }
 
@@ -382,6 +384,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } = self.mode().clone()
         {
             self.tab_mut().mode = InputMode::Visual {
@@ -390,6 +393,7 @@ impl AppState {
                 cur_col,
                 cur_row: (cur_row + n).min(grid_rows.saturating_sub(1)),
                 anchored,
+                linewise,
             };
         }
     }
@@ -401,6 +405,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } = self.mode().clone()
         {
             self.tab_mut().mode = InputMode::Visual {
@@ -409,6 +414,7 @@ impl AppState {
                 cur_col,
                 cur_row: cur_row.saturating_sub(n),
                 anchored,
+                linewise,
             };
         }
     }
@@ -439,17 +445,17 @@ impl AppState {
             cur_col,
             cur_row,
             anchored: true,
+            linewise,
         } = self.mode().clone()
         {
             let text = self.active_entry().and_then(|entry| {
                 entry.pane.grid_read().map(|g| {
-                    g.selected_text(
-                        start_col,
-                        start_row,
-                        cur_col,
-                        cur_row,
-                        entry.pane.scroll_offset,
-                    )
+                    let (sc, ec) = if linewise {
+                        (0, g.cols.saturating_sub(1))
+                    } else {
+                        (start_col, cur_col)
+                    };
+                    g.selected_text(sc, start_row, ec, cur_row, entry.pane.scroll_offset)
                 })
             });
             if let Some(text) = text {
@@ -481,6 +487,7 @@ impl AppState {
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } = self.mode().clone()
         {
             let grid_rows = self.active_grid_rows();
@@ -490,6 +497,7 @@ impl AppState {
                 cur_col: start_col,
                 cur_row: start_row.min(grid_rows.saturating_sub(1)),
                 anchored,
+                linewise,
             };
         }
     }
@@ -505,8 +513,28 @@ impl AppState {
                 cur_col,
                 cur_row,
                 anchored: true,
+                linewise: false,
             };
         }
+    }
+
+    /// `V` — enter (or switch to) Visual LINE: anchor a whole-row selection at
+    /// the current row.
+    fn set_visual_line_anchor(&mut self) {
+        let (cur_col, row) = match self.mode().clone() {
+            InputMode::Visual {
+                cur_col, cur_row, ..
+            } => (cur_col, cur_row),
+            _ => self.visual_start_pos(),
+        };
+        self.tab_mut().mode = InputMode::Visual {
+            start_col: 0,
+            start_row: row,
+            cur_col,
+            cur_row: row,
+            anchored: true,
+            linewise: true,
+        };
     }
 
     fn dispatch_visual_action(&mut self, action: Action) -> Vec<AppEffect> {
@@ -514,6 +542,7 @@ impl AppState {
             Action::Copy => self.do_visual_copy(),
             Action::VisualSwapAnchor => self.swap_visual_anchor(),
             Action::VisualAnchor => self.set_visual_anchor(),
+            Action::VisualLineAnchor => self.set_visual_line_anchor(),
             Action::VisualWordForward => {
                 self.move_visual_cursor(crate::input::motion::word_forward)
             }
@@ -536,6 +565,7 @@ impl AppState {
             start_row,
             cur_col,
             anchored,
+            linewise,
             ..
         } = self.mode().clone()
         {
@@ -545,6 +575,7 @@ impl AppState {
                 cur_col,
                 cur_row: 0,
                 anchored,
+                linewise,
             };
         }
     }
@@ -559,6 +590,7 @@ impl AppState {
             start_row,
             cur_col,
             anchored,
+            linewise,
             ..
         } = self.mode().clone()
         {
@@ -568,6 +600,7 @@ impl AppState {
                 cur_col,
                 cur_row: grid_rows.saturating_sub(1),
                 anchored,
+                linewise,
             };
         }
     }
@@ -688,6 +721,7 @@ impl AppState {
             Action::Copy
             | Action::VisualSwapAnchor
             | Action::VisualAnchor
+            | Action::VisualLineAnchor
             | Action::VisualWordForward
             | Action::VisualWordBackward
             | Action::VisualWordEnd
@@ -858,6 +892,7 @@ impl AppState {
                     cur_col: col,
                     cur_row: row,
                     anchored: false,
+                    linewise: false,
                 }
             }
         } else {

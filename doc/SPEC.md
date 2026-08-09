@@ -533,6 +533,7 @@ writing a file.
 |---|---|
 | `i` / `Escape` | Return to Insert mode |
 | `v` | Enter Visual mode |
+| `V` | Enter Visual LINE mode |
 | `/` | Enter Search mode |
 | `n` | Next search match |
 | `N` | Previous search match |
@@ -555,13 +556,21 @@ selection by moving the cursor. `k`/↑ at the top row and `j`/↓ at the bottom
 row scroll the viewport, making the entire scrollback buffer reachable. Scroll
 actions shift the anchor coordinates so the selected content stays stable.
 
+`V` switches to **Visual LINE**, a linewise variant: the selection always spans
+whole rows regardless of the cursor column, `j`/`k` extend it a line at a time,
+and `y` copies every selected line (trailing spaces trimmed, rows joined with
+`\n`). `v` returns to characterwise selection. The status bar badge reads
+`V-LINE`. Triple-click also enters Visual LINE, so a mouse-picked line can be
+extended with `j`/`k`.
+
 | Key | Action |
 |---|---|
 | `h/j/k/l` or arrows | Move cursor (scrolls viewport when at boundary) |
 | `w` / `b` / `e` | Start of next word / start of prev word / end of word |
 | `0` / `$` | Start / end of line |
 | `g` / `G` | Top / bottom of viewport |
-| `v` | Set selection anchor at cursor (activates highlight) |
+| `v` | Set selection anchor at cursor (activates highlight; charwise) |
+| `V` | Visual LINE: anchor a whole-line selection at the cursor |
 | `o` | Swap anchor and cursor (extend from either end) |
 | `y` / `Ctrl+C` | Copy selection to clipboard, return to Insert mode |
 | `Y` | Yank (copy) the entire line at the cursor, return to Insert mode |

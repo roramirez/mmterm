@@ -107,12 +107,14 @@ fn select_line_at_anchors_full_row_visual() {
             cur_col,
             cur_row,
             anchored,
+            linewise,
         } => {
             assert_eq!(*start_col, 0, "line selection starts at column 0");
             assert_eq!(*cur_col, 79, "line selection ends at the last column");
             assert_eq!(*start_row, 0);
             assert_eq!(*cur_row, 0);
             assert!(*anchored, "line selection is anchored/highlighted");
+            assert!(*linewise, "triple-click enters Visual LINE");
         }
         other => panic!("expected anchored Visual selection, got {other:?}"),
     }

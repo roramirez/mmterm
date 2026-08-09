@@ -144,6 +144,7 @@ fn visual() -> InputMode {
         cur_col: 0,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     }
 }
 
@@ -1036,6 +1037,7 @@ fn visual_at(sc: usize, sr: usize, cc: usize, cr: usize) -> InputMode {
         cur_col: cc,
         cur_row: cr,
         anchored: false,
+        linewise: false,
     }
 }
 
@@ -1558,6 +1560,7 @@ fn visual_page_up_with_anchored_selection() {
         cur_col: 3,
         cur_row: 10,
         anchored: true,
+        linewise: false,
     };
     let a = handle_key_inner(
         &named(NamedKey::PageUp),
@@ -1580,6 +1583,7 @@ fn visual_page_down_with_anchored_selection() {
         cur_col: 3,
         cur_row: 10,
         anchored: true,
+        linewise: false,
     };
     let a = handle_key_inner(
         &named(NamedKey::PageDown),
@@ -2047,6 +2051,7 @@ fn handle_ctrl_only_c_in_visual_returns_copy() {
         cur_col: 0,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     assert!(matches!(
         handle_ctrl_only(&char_key("c"), false, &mode),
@@ -2129,6 +2134,7 @@ fn visual_char_h_moves_left() {
             cur_col: c,
             cur_row: r,
             anchored: false,
+            linewise: false,
         })
     };
     let result = visual_char_action("h", 5, 3, 80, 24, &move_to);
@@ -2442,4 +2448,128 @@ fn ctrl_alt_b_also_toggles_passthrough() {
     // Ctrl takes priority over Alt for char keys — consistent with Ctrl+Alt+T → NewTab.
     let a = handle_key_inner(&char_key("b"), true, false, true, &insert(), 80, 24, false);
     assert!(matches!(a, Action::TogglePassthrough));
+}
+
+// ── Visual LINE mode (V) ─────────────────────────────────────────────────────
+
+fn visual_line_at(cc: usize, cr: usize) -> InputMode {
+    InputMode::Visual {
+        start_col: 0,
+        start_row: cr,
+        cur_col: cc,
+        cur_row: cr,
+        anchored: true,
+        linewise: true,
+    }
+}
+
+fn vis_linewise(a: Action) -> bool {
+    match a {
+        Action::SetMode(InputMode::Visual { linewise, .. }) => linewise,
+        _ => panic!("expected Visual SetMode"),
+    }
+}
+
+#[test]
+fn shift_v_in_visual_returns_visual_line_anchor() {
+    let mode = visual_at(0, 0, 3, 2);
+    let a = handle_key_inner(&char_key("V"), false, true, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualLineAnchor));
+}
+
+#[test]
+fn shift_v_in_normal_returns_visual_line_anchor() {
+    let a = handle_key_inner(
+        &char_key("V"),
+        false,
+        true,
+        false,
+        &InputMode::Normal,
+        80,
+        24,
+        false,
+    );
+    assert!(matches!(a, Action::VisualLineAnchor));
+}
+
+#[test]
+fn lowercase_v_in_visual_returns_charwise_anchor() {
+    let mode = visual_line_at(3, 2);
+    let a = handle_key_inner(&char_key("v"), false, false, false, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualAnchor));
+}
+
+#[test]
+fn visual_line_motions_preserve_linewise() {
+    let mode = visual_line_at(3, 2);
+    for k in ["h", "l", "j", "k", "0", "$", "g", "G"] {
+        let a = handle_key_inner(&char_key(k), false, false, false, &mode, 80, 24, false);
+        assert!(vis_linewise(a), "{k} lost the linewise flag");
+    }
+    for k in [
+        NamedKey::ArrowLeft,
+        NamedKey::ArrowRight,
+        NamedKey::ArrowUp,
+        NamedKey::ArrowDown,
+        NamedKey::Home,
+        NamedKey::End,
+    ] {
+        let a = handle_key_inner(&named(k), false, false, false, &mode, 80, 24, false);
+        assert!(vis_linewise(a), "{k:?} lost the linewise flag");
+    }
+}
+
+#[test]
+fn visual_charwise_motions_stay_charwise() {
+    let mode = visual_at(0, 0, 3, 2);
+    let a = handle_key_inner(&char_key("j"), false, false, false, &mode, 80, 24, false);
+    assert!(!vis_linewise(a));
+}
+
+#[test]
+fn ctrl_v_in_visual_is_not_visual_line_anchor() {
+    let mode = visual_at(0, 0, 3, 2);
+    let a = handle_key_inner(&char_key("V"), true, true, false, &mode, 80, 24, false);
+    assert!(!matches!(a, Action::VisualLineAnchor));
+}
+
+#[test]
+fn alt_v_in_visual_behaves_like_plain_v() {
+    // Alt is not consumed for character keys in Visual mode — every Visual
+    // binding falls through the same way, so Alt+V matches plain V.
+    let mode = visual_at(0, 0, 3, 2);
+    let a = handle_key_inner(&char_key("V"), false, true, true, &mode, 80, 24, false);
+    assert!(matches!(a, Action::VisualLineAnchor));
+    let lower = handle_key_inner(&char_key("v"), false, false, true, &mode, 80, 24, false);
+    assert!(matches!(lower, Action::VisualAnchor));
+}
+
+#[test]
+fn ctrl_v_in_normal_is_not_visual_line_anchor() {
+    let a = handle_key_inner(
+        &char_key("V"),
+        true,
+        true,
+        false,
+        &InputMode::Normal,
+        80,
+        24,
+        false,
+    );
+    assert!(!matches!(a, Action::VisualLineAnchor));
+}
+
+#[test]
+fn shift_v_in_insert_is_not_visual_line_anchor() {
+    let a = handle_key_inner(
+        &char_key("V"),
+        false,
+        true,
+        false,
+        &InputMode::Insert,
+        80,
+        24,
+        false,
+    );
+    assert!(!matches!(a, Action::VisualLineAnchor));
 }

@@ -146,6 +146,7 @@ fn mode_style_returns_badge_for_each_mode() {
             cur_col: 0,
             cur_row: 0,
             anchored: false,
+            linewise: false,
         },
         false,
         &theme,
@@ -766,6 +767,7 @@ fn draw_pane_visual_selection_does_not_panic() {
         cur_col: 2,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     do_draw(&mut r, &[pane], &mode);
 }
@@ -1061,6 +1063,7 @@ fn draw_pane_backwards_visual_selection_normalises_range() {
         cur_col: 0,
         cur_row: 0,
         anchored: true,
+        linewise: false,
     };
     do_draw(&mut r, &[pane], &mode);
 }
@@ -1303,6 +1306,7 @@ fn draw_pane_visual_mode_shows_cursor_at_cur_position() {
         cur_col: 2,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     };
     let pane = PaneView {
         grid: &grid,
@@ -1334,6 +1338,7 @@ fn draw_pane_visual_mode_inactive_pane_no_cursor() {
         cur_col: 3,
         cur_row: 0,
         anchored: false,
+        linewise: false,
     };
     let pane = PaneView {
         grid: &grid,
@@ -1539,4 +1544,71 @@ fn draw_pane_sixel_transparent_pixels_preserved() {
     });
     let pane = make_pane(&grid, &m);
     do_draw(&mut r, &[pane], &InputMode::Insert);
+}
+
+#[test]
+fn draw_pane_linewise_visual_selection_does_not_panic() {
+    let mut r = make_renderer();
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+    let mut grid = make_grid(cols, rows);
+    for c in "AB".chars() {
+        grid.write_char(c);
+    }
+    grid.cursor_col = 0;
+    grid.cursor_row = 1;
+    for c in "CD".chars() {
+        grid.write_char(c);
+    }
+    let pane = PaneView {
+        grid: &grid,
+        rect: [0, 22, 800, 600 - 44],
+        scroll_offset: 0,
+        is_active: true,
+        show_cursor: false,
+        blink_visible: true,
+        search_matches: &[],
+        search_current: None,
+        hovered_url: None,
+        cursor_shape: CursorShape::Block,
+        metrics: &m,
+    };
+    // Narrow columns, but linewise must highlight the full rows.
+    let mode = InputMode::Visual {
+        start_col: 1,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 1,
+        anchored: true,
+        linewise: true,
+    };
+    do_draw(&mut r, &[pane], &mode);
+}
+
+#[test]
+fn mode_style_reports_v_line_for_linewise_visual() {
+    let theme = default_theme();
+    let charwise = InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+        linewise: false,
+    };
+    let linewise = InputMode::Visual {
+        start_col: 0,
+        start_row: 0,
+        cur_col: 0,
+        cur_row: 0,
+        anchored: true,
+        linewise: true,
+    };
+    let (charwise_label, charwise_color) =
+        crate::renderer::draw_fns::mode_style(&charwise, false, &theme);
+    let (linewise_label, linewise_color) =
+        crate::renderer::draw_fns::mode_style(&linewise, false, &theme);
+    assert_eq!(charwise_label, "VISUAL");
+    assert_eq!(linewise_label, "V-LINE");
+    assert_eq!(charwise_color, linewise_color);
 }

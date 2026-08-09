@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.10.0] - 2026-07-25
 
 ### Added
+- add Visual Line mode (`V`) to select whole lines
 - show the hovered link's URL in the status bar
 - add triple-click to select the whole line
 - add `--maximized` and `--fullscreen` flags to start the window in that mode

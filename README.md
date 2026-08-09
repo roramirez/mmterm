@@ -309,6 +309,7 @@ visual_bell = true   # default: false
 | Binding | Action |
 |---|---|
 | `v` | Enter Visual mode |
+| `V` | Enter Visual LINE mode (linewise selection) |
 | `i` / `Escape` | Return to Insert mode |
 | `j` / `k` | Scroll down / up |
 | `/` | Open search |
@@ -318,13 +319,16 @@ visual_bell = true   # default: false
 
 Navigate freely to position the cursor, press `v` to set the selection anchor, then move to the end and copy.
 
+`V` enters Visual LINE mode, where the selection always spans whole lines: `j`/`k` extend it line by line and `y` copies every selected line. `v` returns to characterwise selection. The status bar badge reads `V-LINE`. Triple-clicking a line also leaves you in Visual LINE, so the selection can be extended from there.
+
 | Binding | Action |
 |---|---|
 | `h/j/k/l` or arrows | Move cursor (scrolls viewport at boundaries) |
 | `w` / `b` / `e` | Forward word / backward word / end of word |
 | `0` / `$` | Start / end of line |
 | `g` / `G` | Top / bottom of viewport |
-| `v` | Set selection anchor at cursor (starts highlighting) |
+| `v` | Set selection anchor at cursor (starts highlighting; returns to charwise) |
+| `V` | Visual LINE: anchor a whole-line selection at the cursor |
 | `o` | Swap anchor and cursor |
 | `y` / `Ctrl+C` | Copy selection and exit |
 | `Y` | Yank (copy) the entire line at cursor |
