@@ -294,6 +294,64 @@ fn draw_with_partial_opacity_does_not_panic() {
 }
 
 #[test]
+fn draw_with_partial_opacity_applies_alpha_inside_the_grid() {
+    // Regression: opacity used to reach only the pane padding, so the alpha was
+    // visible at the window edges while every cell stayed opaque.
+    let mut r = make_renderer();
+    let m = r.make_metrics(Physical(16.0));
+    let (cols, rows) = m.grid_size_for(800, 600u32.saturating_sub(44));
+    let mut grid = make_grid(cols, rows);
+    // Col 0 keeps the default background; col 1 gets an app-set background.
+    grid.write_char(' ');
+    grid.cell_mut(1, 0).bg = Color::rgb(0xAA, 0xBB, 0xCC);
+
+    let pane = make_pane(&grid, &m);
+    let mut buf = vec![0u32; 800 * 600];
+    let theme = default_theme();
+    r.draw(
+        &mut buf,
+        800,
+        600,
+        &[pane],
+        &[],
+        &InputMode::Insert,
+        false,
+        &[("t".to_string(), true, false)],
+        0,
+        0,
+        None,
+        None,
+        0.55,
+        None,
+        false,
+        false,
+        ShellState::Unknown,
+        None,
+        &theme,
+        None,
+        None, // hovered_url
+        0.8,
+    );
+
+    let expected = (0.8f32 * 255.0) as u8 as u32;
+    // Cell (0,0) background pixel: x = PANE_PADDING, y = TAB_BAR_H + PANE_PADDING.
+    let default_px = buf[26 * 800 + 4];
+    assert_eq!(
+        default_px >> 24,
+        expected,
+        "default-background cell must carry the window alpha"
+    );
+    // Cell (1,0) has an explicit background — it stays fully opaque.
+    let colored_px = buf[26 * 800 + 4 + m.cell_width as usize];
+    assert_eq!(
+        colored_px >> 24,
+        0xFF,
+        "app-set cell background must stay opaque"
+    );
+    assert_eq!(colored_px & 0x00FF_FFFF, 0x00AA_BBCC);
+}
+
+#[test]
 fn draw_tab_bar_renders_without_panic() {
     let mut r = make_renderer();
     let mut buf = vec![0u32; 800 * 600];

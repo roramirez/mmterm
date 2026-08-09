@@ -250,13 +250,17 @@ impl Renderer {
         bg_alpha: u8,
     ) {
         let grid = pane.grid;
+        let bg_alpha = BgAlpha {
+            alpha: bg_alpha,
+            default_bg: grid.default_bg,
+        };
 
         // Pre-fill gutter pixels so they match the pane background.
         fill_pane_background(
             buf,
             buf_width,
             pane.rect,
-            color_u32_with_alpha(grid.default_bg, bg_alpha),
+            color_u32_with_alpha(grid.default_bg, bg_alpha.alpha),
         );
 
         let selection_range = if pane.is_active {
@@ -288,6 +292,7 @@ impl Renderer {
                 sb_len,
                 selection_range,
                 row,
+                bg_alpha,
             );
         }
 
@@ -389,6 +394,7 @@ impl Renderer {
         sb_len: usize,
         selection_range: Option<(usize, usize, usize, usize)>,
         row: usize,
+        bg_alpha: BgAlpha,
     ) {
         let [rx, ry, rw, rh] = pane.rect;
         let grid = pane.grid;
@@ -441,6 +447,7 @@ impl Renderer {
                 grid.cursor_color,
                 grid.selection_color,
                 theme,
+                bg_alpha,
             );
 
             self.draw_cell(
