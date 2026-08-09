@@ -472,6 +472,63 @@ fn sgr_underline_off_code_24() {
 }
 
 #[test]
+fn sgr_underline_style_subparam_enables() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[4:3m"); // curly underline
+    assert!(p.grid.underline);
+}
+
+#[test]
+fn sgr_underline_subparam_zero_disables() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[4:3m");
+    p.process(b"\x1b[4:0m"); // style "none" turns underline off
+    assert!(!p.grid.underline);
+}
+
+#[test]
+fn sgr_underline_subparam_zero_disables_within_group() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[4m");
+    p.process(b"\x1b[1;4:0;3m"); // mixed params around the colon form
+    assert!(!p.grid.underline);
+    assert!(p.grid.bold);
+    assert!(p.grid.italic);
+}
+
+#[test]
+fn sgr_underline_colon_style_does_not_leak_into_italic() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[4:3m"); // the ":3" must not be read as SGR 3
+    assert!(!p.grid.italic);
+}
+
+#[test]
+fn sgr_truecolor_colon_form_foreground() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[38:2:255:128:0m");
+    p.process(b"X");
+    assert_eq!(p.grid.cell(0, 0).fg, Color::rgb(255, 128, 0));
+}
+
+#[test]
+fn sgr_truecolor_colon_form_with_colorspace_id() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[38:2::255:128:0m");
+    p.process(b"X");
+    assert_eq!(p.grid.cell(0, 0).fg, Color::rgb(255, 128, 0));
+}
+
+#[test]
+fn sgr_256_colon_form_background() {
+    let mut p = make_parser(10, 5);
+    p.process(b"\x1b[48:5:21m");
+    p.process(b"X");
+    let expected = color256(21, &[Color::BLACK; 16]);
+    assert_eq!(p.grid.cell(0, 0).bg, expected);
+}
+
+#[test]
 fn sgr_256_color_foreground() {
     let mut p = make_parser(10, 5);
     p.process(b"\x1b[38;5;196m"); // color index 196

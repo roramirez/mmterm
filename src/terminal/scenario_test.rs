@@ -248,3 +248,42 @@ fn scenario_osc8_link_spans_correct_cells() {
     // " for more." → no URL
     assert!(p.grid.cell(12, 0).url.is_none());
 }
+
+// ── Scenario 7: TUI that styles with SGR colon subparameters ────────────────
+//
+// Regression: a full-screen TUI (Claude Code's session picker) draws with
+// `CSI 4:3 m` (curly underline) and turns it back off with `CSI 4:0 m`.
+// When subparameters were dropped, `4:0` was read as a bare `4` and *enabled*
+// underline instead — so every cell written after the TUI exited stayed
+// underlined for the rest of the session.
+
+#[test]
+fn scenario_tui_curly_underline_does_not_leak_after_exit() {
+    let mut p = term(40, 5);
+
+    // TUI enters the alternate screen and draws an underlined entry
+    p.process(b"\x1b[?1049h");
+    p.process(b"\x1b[4:3msession 1\x1b[4:0m");
+    // ...and some truecolor text in colon form while it is up
+    p.process(b"\x1b[38:2:255:128:0m ok\x1b[0m");
+
+    // The underlined label is underlined; what follows `4:0` is not
+    assert!(p.grid.cell(0, 0).underline, "'s' of 'session 1'");
+    assert!(!p.grid.cell(9, 0).underline, "space after 4:0");
+    assert_eq!(p.grid.cell(10, 0).fg, Color::rgb(255, 128, 0));
+
+    // TUI exits back to the primary screen and the shell keeps printing
+    p.process(b"\x1b[?1049l");
+    p.process(b"back in the shell");
+
+    assert!(
+        !p.grid.underline,
+        "pen state must not be left underlined after the TUI exits"
+    );
+    for col in 0..17 {
+        assert!(
+            !p.grid.cell(col, 0).underline,
+            "col {col} of post-TUI output must not be underlined"
+        );
+    }
+}

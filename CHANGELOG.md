@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - add `window.opacity` for a transparent background (compositor-dependent)
 
+### Fixed
+- honour SGR colon subparameters: `4:0` now turns underline off (was leaving the whole screen underlined) and `38:2:r:g:b` / `48:5:n` colours are applied
+
 ## [0.10.0] - 2026-07-25
 
 ### Added
