@@ -56,6 +56,22 @@ fn sgr_should_reset(ps: &[u16]) -> bool {
     ps.is_empty() || (ps.len() == 1 && ps[0] == 0)
 }
 
+/// Colon-form colour: `38:5:n`, `38:2:r:g:b` or `38:2::r:g:b` (with colour-space id).
+fn parse_color_from_subparams(g: &[u16], palette: &[Color; 16]) -> Option<Color> {
+    match g.get(1)? {
+        5 => g.get(2).map(|&n| color256(n as u8, palette)),
+        2 => {
+            // 6 entries means the colour-space id slot is present and must be skipped.
+            let start = if g.len() >= 6 { 3 } else { 2 };
+            let r = *g.get(start)? as u8;
+            let gr = *g.get(start + 1)? as u8;
+            let b = *g.get(start + 2)? as u8;
+            Some(Color::rgb(r, gr, b))
+        }
+        _ => None,
+    }
+}
+
 struct Performer<'a> {
     grid: &'a mut Grid,
     dcs_kind: Option<DcsKind>,
@@ -158,19 +174,34 @@ impl Performer<'_> {
         }
     }
 
-    fn handle_sgr(&mut self, ps: &[u16]) {
+    /// `groups[i]` holds parameter `i` with its colon-separated subparameters;
+    /// `ps[i] == groups[i][0]` is the flat view used by the legacy semicolon forms.
+    fn handle_sgr(&mut self, ps: &[u16], groups: &[&[u16]]) {
         if sgr_should_reset(ps) {
             self.grid.reset_sgr();
             return;
         }
         let mut i = 0;
         while i < ps.len() {
+            let sub = groups.get(i).map(|g| &g[..]).unwrap_or(&[]);
             match ps[i] {
                 0 => self.grid.reset_sgr(),
+                // `4:0` disables underline; `4:1`..`4:5` pick a style we render as a
+                // plain underline. A bare `4` (no subparameter) also enables it.
+                4 => self.grid.underline = sub.get(1).copied().unwrap_or(1) != 0,
+                // Colon form of 38/48 — the whole colour lives in this one parameter.
+                38 | 48 if sub.len() > 1 => {
+                    if let Some(c) = parse_color_from_subparams(sub, &self.grid.palette) {
+                        if ps[i] == 38 {
+                            self.grid.fg = c;
+                        } else {
+                            self.grid.bg = c;
+                        }
+                    }
+                }
                 1 => self.grid.bold = true,
                 2 => self.grid.dim = true,
                 3 => self.grid.italic = true,
-                4 => self.grid.underline = true,
                 5 => self.grid.blink = true,
                 7 => self.grid.reverse = true,
                 9 => self.grid.strikethrough = true,
@@ -265,7 +296,8 @@ impl Perform for Performer<'_> {
     }
 
     fn csi_dispatch(&mut self, params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
-        let ps: Vec<u16> = params.iter().map(|p| p[0]).collect();
+        let groups: Vec<&[u16]> = params.iter().collect();
+        let ps: Vec<u16> = groups.iter().map(|g| g[0]).collect();
         let p0 = ps.first().copied().unwrap_or(0);
         let p1 = ps.get(1).copied().unwrap_or(0);
 
@@ -292,7 +324,7 @@ impl Perform for Performer<'_> {
             }
             'J' => self.handle_erase_display(p0),
             'K' => self.handle_erase_line(p0),
-            'm' => self.handle_sgr(&ps),
+            'm' => self.handle_sgr(&ps, &groups),
             'S' => self.grid.scroll_up(param_or_one(p0)),
             'T' => self.grid.scroll_down(param_or_one(p0)),
             // Insert Line
