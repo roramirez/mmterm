@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - add `window.opacity` for a transparent background (compositor-dependent)
+- hold Shift while clicking or dragging to bypass an application's mouse reporting — selection and link opening now work inside full-screen apps (vim, tmux, Claude Code)
 
 ### Fixed
 - honour SGR colon subparameters: `4:0` now turns underline off (was leaving the whole screen underlined) and `38:2:r:g:b` / `48:5:n` colours are applied

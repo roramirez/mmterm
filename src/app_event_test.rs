@@ -57,3 +57,30 @@ fn push_search_history_clears_pending_before_buffer() {
         "committing a search must clear the saved in-progress query"
     );
 }
+
+#[test]
+fn click_is_forwarded_when_application_enabled_mouse_reporting() {
+    assert!(super::forward_click_to_pty(1000, 0, false));
+    assert!(super::forward_click_to_pty(1002, 1, false));
+    assert!(super::forward_click_to_pty(1006, 2, false));
+}
+
+#[test]
+fn click_is_handled_locally_without_mouse_reporting() {
+    assert!(!super::forward_click_to_pty(0, 0, false));
+}
+
+#[test]
+fn shift_click_bypasses_mouse_reporting() {
+    // Shift must reach the terminal's own selection / link handling even while
+    // a full-screen application (Claude Code, vim, tmux) grabs the mouse.
+    assert!(!super::forward_click_to_pty(1000, 0, true));
+    assert!(!super::forward_click_to_pty(1002, 1, true));
+    assert!(!super::forward_click_to_pty(1006, 2, true));
+}
+
+#[test]
+fn buttons_beyond_right_are_never_forwarded() {
+    assert!(!super::forward_click_to_pty(1000, 3, false));
+    assert!(!super::forward_click_to_pty(1000, 3, true));
+}
