@@ -1046,6 +1046,22 @@ fn osc52_write_with_st_terminator() {
 }
 
 #[test]
+fn osc52_write_handles_payload_larger_than_1kb() {
+    let mut p = make_parser(80, 24);
+    // ~1 KB of text -> ~1.3 KB of base64, past vte's 1024-byte OSC buffer
+    let text = "x".repeat(981);
+    let encoded = BASE64.encode(text.as_bytes());
+    let mut seq = b"\x1b]52;c;".to_vec();
+    seq.extend_from_slice(encoded.as_bytes());
+    seq.extend_from_slice(b"\x07");
+    p.process(&seq);
+    assert_eq!(
+        p.grid.pending_clipboard_write.as_deref(),
+        Some(text.as_str())
+    );
+}
+
+#[test]
 fn dec_line_drawing_box_chars() {
     let mut p = make_parser(80, 24);
     // ESC ( 0 activates DEC Special Graphics; l q k / x x / m q j draws a box
