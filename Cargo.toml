@@ -31,7 +31,9 @@ softbuffer = "0.4"
 fontdue = "0.9"
 
 # ANSI/VT escape code parser
-vte = "0.13"
+# default-features = false swaps vte's fixed 1 KiB ArrayVec OSC buffer for a
+# growable Vec, so large OSC 52 clipboard payloads are not truncated.
+vte = { version = "0.13", default-features = false }
 
 # PTY backend (Linux/macOS: forkpty/posix_openpt)
 portable-pty = "0.9"
