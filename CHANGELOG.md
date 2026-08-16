@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - add `window.opacity` for a transparent background (compositor-dependent)
+- hold Shift while clicking or dragging to bypass an application's mouse reporting — selection and link opening now work inside full-screen apps (vim, tmux, Claude Code)
 
 ### Fixed
 - accept OSC 52 clipboard payloads larger than 1 KiB; copying long text over SSH no longer fails silently

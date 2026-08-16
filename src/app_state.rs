@@ -90,6 +90,10 @@ pub struct AppState {
     pub clipboard: Option<Clipboard>,
     pub mouse_pos: Option<(f64, f64)>,
     pub mouse_selecting: bool,
+    /// Set while a left-button press started with Shift held: mouse reporting is
+    /// bypassed for the whole press-drag-release so the click selects text or
+    /// opens a link locally instead of reaching the application.
+    pub mouse_bypass_reporting: bool,
     /// Time, pixel position, and running click count of the last left-button
     /// press, for multi-click detection (double-click word / triple-click line).
     pub last_click: Option<(Instant, f64, f64, u8)>,
@@ -149,6 +153,7 @@ impl AppState {
             clipboard: Clipboard::new().ok(),
             mouse_pos: None,
             mouse_selecting: false,
+            mouse_bypass_reporting: false,
             last_click: None,
             search_matches: Vec::new(),
             search_current: 0,

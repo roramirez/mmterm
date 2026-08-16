@@ -26,6 +26,14 @@ fn palette_move_selection(selected: usize, filtered_len: usize, up: bool) -> usi
     }
 }
 
+/// Whether a mouse click is reported to the application instead of being
+/// handled locally. `bypass` is set when the press started with Shift held —
+/// the xterm convention for reaching the terminal's own selection and links
+/// while a full-screen application has mouse reporting enabled.
+fn forward_click_to_pty(mouse_mode: u16, btn_code: u8, bypass: bool) -> bool {
+    mouse_mode >= 1000 && btn_code < 3 && !bypass
+}
+
 fn cursor_icon_for_hover(hover_sep: Option<&SeparatorHandle>, has_url: bool) -> CursorIcon {
     if let Some(h) = hover_sep {
         match h.dir {
@@ -579,7 +587,7 @@ impl App {
             self.request_redraw();
         }
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
-        if mouse_mode >= 1002 {
+        if mouse_mode >= 1002 && !self.state.mouse_bypass_reporting {
             self.report_pty_mouse_move(px, py, mouse_mode, mouse_sgr);
         } else if self.state.mouse_selecting {
             self.update_mouse_selection(px, py);
@@ -663,8 +671,18 @@ impl App {
             MouseButton::Right => 2u8,
             _ => 3u8,
         };
+        // Shift on press bypasses mouse reporting for the whole press-release
+        // pair, so selection and link clicks stay usable inside full-screen
+        // applications that grab the mouse.
+        if state == ElementState::Pressed && self.modifiers.state().shift_key() {
+            self.state.mouse_bypass_reporting = true;
+        }
+        let bypass = self.state.mouse_bypass_reporting;
+        if state == ElementState::Released {
+            self.state.mouse_bypass_reporting = false;
+        }
         let (mouse_mode, mouse_sgr) = self.active_mouse_mode();
-        if mouse_mode >= 1000 && btn_code < 3 {
+        if forward_click_to_pty(mouse_mode, btn_code, bypass) {
             self.send_pty_mouse_click(btn_code, state, button, mouse_sgr);
             return;
         }
