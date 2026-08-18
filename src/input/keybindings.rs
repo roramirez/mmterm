@@ -84,16 +84,27 @@ pub fn handle_key(
     let ctrl = modifiers.state().control_key();
     let shift = modifiers.state().shift_key();
     let alt = modifiers.state().alt_key();
-    handle_key_inner(
+
+    // On macOS, Cmd (super) is the app-shortcut modifier (equivalent to Ctrl elsewhere).
+    let cmd = cfg!(target_os = "macos") && modifiers.state().super_key();
+
+    let action = handle_key_inner(
         &event.logical_key,
-        ctrl,
+        ctrl || cmd,
         shift,
         alt,
         mode,
         grid_cols,
         grid_rows,
         application_cursor_keys,
-    )
+    );
+
+    // macOS: Cmd+key that doesn't match a shortcut is consumed, not forwarded to PTY.
+    if cmd && !ctrl && matches!(action, Action::SendToPty(_)) {
+        Action::None
+    } else {
+        action
+    }
 }
 
 pub fn handle_ctrl_w(event: &KeyEvent) -> Action {
